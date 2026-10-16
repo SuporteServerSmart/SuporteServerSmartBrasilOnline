@@ -427,6 +427,14 @@ window.SSB = {
     orders.unshift(newOrder);
     this.saveOrders(orders);
     this.addLog("order", `Novo pedido criado: ${newOrder.orderId} (${newOrder.serviceName})`);
+
+    // Sincronizar com o Supabase Cloud se configurado
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+      window.SSB_Supabase.createOrder(newOrder).then(res => {
+        if (res) console.log("☁️ Pedido enviado com sucesso ao Supabase:", newOrder.orderId);
+      }).catch(e => console.warn(e));
+    }
+
     return newOrder;
   },
 
@@ -439,9 +447,33 @@ window.SSB = {
       if (resultCode) orders[idx].resultCode = resultCode;
       this.saveOrders(orders);
       this.addLog("order", `Pedido ${orderId} atualizado para [${newStatus.toUpperCase()}]`);
+
+      // Sincronizar status no Supabase Cloud
+      if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+        window.SSB_Supabase.updateOrderStatus(orderId, newStatus, serverNotes, resultCode).catch(e => console.warn(e));
+      }
+
       return orders[idx];
     }
     return null;
+  },
+
+  async syncFromCloud() {
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+      const cloudOrders = await window.SSB_Supabase.fetchOrders();
+      if (cloudOrders && cloudOrders.length > 0) {
+        const localOrders = this.getOrders();
+        const merged = [...cloudOrders];
+        localOrders.forEach(loc => {
+          if (!merged.some(m => m.orderId === loc.orderId)) {
+            merged.push(loc);
+          }
+        });
+        this.saveOrders(merged);
+        return merged;
+      }
+    }
+    return this.getOrders();
   },
 
   findOrder(query) {

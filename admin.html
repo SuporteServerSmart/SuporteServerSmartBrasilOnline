@@ -405,6 +405,57 @@
               </button>
             </div>
           </form>
+
+          <!-- Supabase Cloud Integration Card -->
+          <div style="max-width: 800px; background: var(--bg-card); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: var(--radius-lg); padding: 2rem; margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(0, 255, 136, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-green); font-size: 1.2rem;">
+                  <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                  <h3 style="font-size: 1.2rem; font-weight: 700;">Banco de Dados Supabase (Cloud PostgreSQL)</h3>
+                  <p style="font-size: 0.8rem; color: var(--text-secondary);">Sincronização em tempo real de pedidos e clientes com o Supabase</p>
+                </div>
+              </div>
+              <span id="supabase-status-badge" class="order-badge-status" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid var(--border-color);">
+                Aguardando Configuração
+              </span>
+            </div>
+
+            <form id="supabase-config-form">
+              <div class="form-group">
+                <label class="form-label">Supabase Project URL:</label>
+                <input type="url" id="supabase-url-input" class="form-control" placeholder="https://seu-projeto.supabase.co">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Supabase Anon Public API Key:</label>
+                <input type="text" id="supabase-key-input" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;">
+                <input type="checkbox" id="supabase-enable-check" style="width: 18px; height: 18px; accent-color: var(--accent-green); cursor: pointer;">
+                <label for="supabase-enable-check" style="font-size: 0.88rem; cursor: pointer; color: var(--text-primary); font-weight: 500;">
+                  Ativar Sincronização em Tempo Real com Supabase Cloud
+                </label>
+              </div>
+
+              <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copySupabaseSql()">
+                  <i class="fa-regular fa-copy"></i> Copiar Código SQL para Criar Tabelas
+                </button>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="testSupabaseConnection()">
+                    <i class="fa-solid fa-plug"></i> Testar Conexão
+                  </button>
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar Chaves Supabase
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </section>
 
       </main>
@@ -577,6 +628,8 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
   <script src="js/data.js"></script>
   <script src="js/admin.js"></script>
 </body>

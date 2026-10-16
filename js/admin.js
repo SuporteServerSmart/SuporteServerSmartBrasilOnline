@@ -361,7 +361,58 @@ function renderSettingsForm() {
   document.getElementById('setting-usdRate').value = settings.usdRate;
   document.getElementById('setting-usdtWallet').value = settings.usdtWallet;
   document.getElementById('setting-adminPin').value = settings.adminPin;
+
+  // Render Supabase settings
+  if (window.SSB_Supabase) {
+    const supaConfig = window.SSB_Supabase.getConfig();
+    const urlInput = document.getElementById('supabase-url-input');
+    const keyInput = document.getElementById('supabase-key-input');
+    const checkInput = document.getElementById('supabase-enable-check');
+    const badge = document.getElementById('supabase-status-badge');
+
+    if (urlInput) urlInput.value = supaConfig.url || '';
+    if (keyInput) keyInput.value = supaConfig.key || '';
+    if (checkInput) checkInput.checked = !!supaConfig.enabled;
+
+    if (badge) {
+      if (supaConfig.enabled && supaConfig.url && supaConfig.key) {
+        badge.className = "order-badge-status badge-completed";
+        badge.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Conectado ao Supabase';
+      } else {
+        badge.className = "order-badge-status badge-pending";
+        badge.innerHTML = '<i class="fa-solid fa-laptop"></i> Modo Local Seguro';
+      }
+    }
+  }
 }
+
+function copySupabaseSql() {
+  if (window.SSB_Supabase) {
+    const sql = window.SSB_Supabase.getSqlSchema();
+    navigator.clipboard.writeText(sql).then(() => {
+      showToast('success', 'Código SQL copiado! Cole no SQL Editor do Supabase.');
+    }).catch(() => {
+      showToast('warning', 'Copie o código SQL manualmente nas configurações.');
+    });
+  }
+}
+
+async function testSupabaseConnection() {
+  if (!window.SSB_Supabase) return;
+  showToast('warning', 'Testando conexão com o Supabase...');
+  const res = await window.SSB_Supabase.testConnection();
+  if (res.success) {
+    showToast('success', res.message);
+    const badge = document.getElementById('supabase-status-badge');
+    if (badge) {
+      badge.className = "order-badge-status badge-completed";
+      badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Supabase Conectado!';
+    }
+  } else {
+    showToast('error', res.message);
+  }
+}
+
 
 // 11. Form submissions setup
 function setupFiltersAndForms() {
@@ -503,6 +554,26 @@ function setupFiltersAndForms() {
       window.SSB.saveSettings(updated);
       showToast('success', 'Configurações do servidor salvas com sucesso!');
       renderDashboard();
+    });
+  }
+
+  // Supabase Config Form
+  const supabaseForm = document.getElementById('supabase-config-form');
+  if (supabaseForm) {
+    supabaseForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const url = document.getElementById('supabase-url-input').value.trim();
+      const key = document.getElementById('supabase-key-input').value.trim();
+      const enabled = document.getElementById('supabase-enable-check').checked;
+
+      if (window.SSB_Supabase) {
+        window.SSB_Supabase.saveConfig(url, key, enabled);
+        showToast('success', 'Configurações do Supabase salvas com sucesso!');
+        renderSettingsForm();
+        if (enabled && url && key) {
+          testSupabaseConnection();
+        }
+      }
     });
   }
 }
