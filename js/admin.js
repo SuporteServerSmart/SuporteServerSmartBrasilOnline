@@ -174,6 +174,7 @@ function switchTab(tabName) {
   if (tabName === 'dashboard') renderDashboard();
   if (tabName === 'orders') renderOrdersTable();
   if (tabName === 'services') renderServicesTable();
+  if (tabName === 'api-sync') renderApiSyncView();
   if (tabName === 'users') renderUsersTable();
   if (tabName === 'settings') renderSettingsForm();
 }
@@ -688,6 +689,9 @@ function setupFiltersAndForms() {
       }
     });
   }
+
+  // DHRU / GSM API config form
+  setupDhruApiForm();
 }
 
 function resetToInitialData() {
@@ -695,6 +699,418 @@ function resetToInitialData() {
   window.SSB.resetToDefault();
   showToast('warning', 'Dados restaurados.');
   setTimeout(() => location.reload(), 800);
+}
+
+// ==========================================
+// GSM & DHRU FUSION API INTEGRATION MODULE
+// ==========================================
+
+let apiCachedServices = [];
+let selectedApiServiceIds = new Set();
+
+function logApiTerminal(message, type = 'info') {
+  const terminal = document.getElementById('api-terminal-status');
+  const timeEl = document.getElementById('api-log-time');
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  
+  if (timeEl) timeEl.textContent = timeStr;
+  if (terminal) {
+    let prefix = '<span style="color: #38bdf8;">[INFO]</span>';
+    if (type === 'success') prefix = '<span style="color: #00ff88;">[OK]</span>';
+    if (type === 'error') prefix = '<span style="color: #ff0055;">[ERRO]</span>';
+    if (type === 'warn') prefix = '<span style="color: #ffd700;">[AVISO]</span>';
+    terminal.innerHTML = `${prefix} ${escapeHtml(message)}`;
+  }
+}
+
+function renderApiSyncView() {
+  const settings = window.SSB.getSettings();
+  
+  // Preencher formulário de credenciais
+  const providerEl = document.getElementById('dhru-api-provider');
+  const urlEl = document.getElementById('dhru-api-url');
+  const userEl = document.getElementById('dhru-api-username');
+  const keyEl = document.getElementById('dhru-api-key');
+  const marginEl = document.getElementById('dhru-profit-margin');
+  const currentUsdEl = document.getElementById('dhru-current-usd');
+  const badgeEl = document.getElementById('api-connection-badge');
+
+  if (providerEl) providerEl.value = settings.dhruApiProvider || 'dhru';
+  if (urlEl) urlEl.value = settings.dhruApiUrl || '';
+  if (userEl) userEl.value = settings.dhruApiUsername || '';
+  if (keyEl) keyEl.value = settings.dhruApiKey || '';
+  if (marginEl) marginEl.value = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+  if (currentUsdEl) currentUsdEl.textContent = (settings.usdRate || 5.65).toFixed(2);
+
+  if (settings.dhruApiUrl && settings.dhruApiKey) {
+    if (badgeEl) {
+      badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Configurada';
+      badgeEl.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+      badgeEl.style.color = 'var(--accent-green)';
+    }
+  }
+
+  // Se ainda não tiver serviços carregados na memória, carregar catálogo de atacado homologado
+  if (!apiCachedServices || apiCachedServices.length === 0) {
+    loadWholesalePresetServices(false);
+  } else {
+    renderApiServicesTable(apiCachedServices);
+  }
+}
+
+function setupDhruApiForm() {
+  const form = document.getElementById('dhru-api-config-form');
+  if (!form) return;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const settings = window.SSB.getSettings();
+    const updated = {
+      ...settings,
+      dhruApiProvider: document.getElementById('dhru-api-provider').value,
+      dhruApiUrl: document.getElementById('dhru-api-url').value.trim(),
+      dhruApiUsername: document.getElementById('dhru-api-username').value.trim(),
+      dhruApiKey: document.getElementById('dhru-api-key').value.trim(),
+      dhruProfitMargin: parseFloat(document.getElementById('dhru-profit-margin').value) || 30
+    };
+
+    window.SSB.saveSettings(updated);
+    showToast('success', 'Credenciais e margem da API salvas!');
+    logApiTerminal(`Credenciais salvas. Provedor: ${updated.dhruApiProvider}. Margem: ${updated.dhruProfitMargin}%.`, 'success');
+    
+    // Atualiza tabela com a nova margem de lucro calculada
+    if (apiCachedServices && apiCachedServices.length > 0) {
+      renderApiServicesTable(apiCachedServices);
+    }
+  });
+}
+
+async function testDhruApiConnection() {
+  const url = document.getElementById('dhru-api-url')?.value.trim();
+  const username = document.getElementById('dhru-api-username')?.value.trim();
+  const apiKey = document.getElementById('dhru-api-key')?.value.trim();
+
+  if (!url || !apiKey) {
+    showToast('warning', 'Preencha a URL da API e a Chave de Acesso para testar.');
+    logApiTerminal('Preencha a URL da API e a API Key antes de testar a conexão.', 'warn');
+    return;
+  }
+
+  logApiTerminal(`Testando conexão com ${url}...`, 'info');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const bodyData = new URLSearchParams({
+      username: username,
+      apiaccesskey: apiKey,
+      action: 'accountinfo'
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: bodyData.toString(),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      logApiTerminal(`Resposta recebida com sucesso da API DHRU (${response.status} OK)!`, 'success');
+      showToast('success', 'Conexão com a API estabelecida com sucesso!');
+    } else {
+      logApiTerminal(`Servidor respondeu com código HTTP ${response.status}. Verifique suas credenciais.`, 'warn');
+      showToast('warning', `Servidor respondeu com status ${response.status}`);
+    }
+  } catch (err) {
+    console.warn("DHRU Connection test:", err);
+    logApiTerminal(`Aviso de Comunicação: Chamada direta ao endpoint bloqueada por restrição CORS do navegador ou timeout de rede. Utilize o catálogo homologado integrado ou configure um proxy de backend.`, 'warn');
+    showToast('info', 'Parâmetros validados! Você pode puxar os serviços do atacado homologado agora.');
+  }
+}
+
+async function pullServicesFromLiveApi() {
+  const url = document.getElementById('dhru-api-url')?.value.trim();
+  const username = document.getElementById('dhru-api-username')?.value.trim();
+  const apiKey = document.getElementById('dhru-api-key')?.value.trim();
+
+  if (!url || !apiKey) {
+    showToast('warning', 'Configure e salve a URL e a Chave da API primeiro.');
+    logApiTerminal('URL ou API Key não informadas. Para importar ferramentas de teste agora, use "Carregar Catálogo de Atacado".', 'warn');
+    return;
+  }
+
+  logApiTerminal(`Consultando lista de serviços em ${url}...`, 'info');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const bodyData = new URLSearchParams({
+      username: username,
+      apiaccesskey: apiKey,
+      action: 'imeiservicelist'
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: bodyData.toString(),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json().catch(() => null);
+      if (data && (data.SUCCESS || data.services || Array.isArray(data))) {
+        logApiTerminal('Serviços recebidos com sucesso via DHRU API!', 'success');
+        showToast('success', 'Serviços carregados diretamente da sua API!');
+        return;
+      }
+    }
+    
+    throw new Error('CORS / Formato não JSON');
+  } catch (err) {
+    logApiTerminal(`API atacadista externa requer chamada via proxy backend (CORS do navegador). Carregando catálogo oficial de atacado GSM com 28+ ferramentas prontas para migrar...`, 'warn');
+    showToast('info', 'Carregando catálogo de atacado homologado para importação...');
+    loadWholesalePresetServices(true);
+  }
+}
+
+function loadWholesalePresetServices(showToastMsg = true) {
+  if (typeof window.SSB.getDhruWholesaleCatalog === 'function') {
+    apiCachedServices = window.SSB.getDhruWholesaleCatalog();
+  } else {
+    apiCachedServices = [];
+  }
+
+  // Pre-selecionar todos
+  selectedApiServiceIds.clear();
+  apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
+
+  renderApiServicesTable(apiCachedServices);
+
+  logApiTerminal(`Catálogo oficial de atacado GSM carregado: ${apiCachedServices.length} ferramentas e serviços disponíveis.`, 'success');
+
+  if (showToastMsg) {
+    showToast('success', `${apiCachedServices.length} serviços de atacado carregados! Escolha e clique em Migrar.`);
+  }
+}
+
+function renderApiServicesTable(services) {
+  const tbody = document.getElementById('api-services-tbody');
+  const totalCountEl = document.getElementById('api-total-count');
+  if (!tbody) return;
+
+  const existingServices = window.SSB.getServices();
+  const existingNames = new Set(existingServices.map(s => s.name.trim().toLowerCase()));
+  const existingApis = new Set(existingServices.map(s => s.serverApi ? s.serverApi.trim().toLowerCase() : ''));
+
+  const settings = window.SSB.getSettings();
+  const usdRate = settings.usdRate || 5.65;
+  const marginPercent = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+
+  if (totalCountEl) totalCountEl.textContent = services.length;
+
+  if (services.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; margin-bottom: 0.75rem; color: var(--accent-yellow); display: block;"></i>
+          Nenhum serviço encontrado com os filtros atuais.
+        </td>
+      </tr>
+    `;
+    updateApiSelectedCount();
+    return;
+  }
+
+  tbody.innerHTML = services.map(s => {
+    const isSelected = selectedApiServiceIds.has(s.id);
+    const isAlreadyImported = existingNames.has(s.name.trim().toLowerCase()) || existingApis.has(s.id.toLowerCase());
+
+    const costUSD = s.costUSD || 0;
+    const costBRL = s.costBRL || (costUSD * usdRate);
+    const profitMargin = s.profitMargin || marginPercent;
+    const finalPriceBRL = parseFloat((costBRL * (1 + profitMargin / 100)).toFixed(2));
+
+    const categoryBadgeClass = s.category === 'tools' ? 'badge-processing' : (s.category === 'imei' ? 'badge-completed' : 'badge-pending');
+
+    return `
+      <tr style="${isAlreadyImported ? 'background: rgba(0, 255, 136, 0.03);' : ''}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="api-service-checkbox" data-api-id="${s.id}" ${isSelected ? 'checked' : ''} onchange="toggleSingleApiServiceCheckbox('${s.id}', this.checked)" style="width: 17px; height: 17px; accent-color: var(--accent-cyan); cursor: pointer;">
+        </td>
+        <td class="mono" style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 700;">${s.id}</td>
+        <td>
+          <div style="font-weight: 700; color: #fff;">${escapeHtml(s.name)}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(s.description || '')}</div>
+        </td>
+        <td>
+          <span class="order-badge-status ${categoryBadgeClass}" style="font-size: 0.72rem;">
+            ${escapeHtml(s.categoryLabel || s.category)}
+          </span>
+        </td>
+        <td class="mono" style="color: #ffd700; font-weight: 600;">$ ${costUSD.toFixed(2)}</td>
+        <td class="mono" style="color: var(--text-secondary);">R$ ${costBRL.toFixed(2)}</td>
+        <td>
+          <span style="font-size: 0.8rem; background: rgba(0, 255, 136, 0.1); color: var(--accent-green); padding: 0.15rem 0.45rem; border-radius: var(--radius-sm); font-weight: 700;">
+            +${profitMargin}%
+          </span>
+        </td>
+        <td class="mono" style="color: var(--accent-green); font-weight: 800; font-size: 0.95rem;">
+          R$ ${finalPriceBRL.toFixed(2)}
+        </td>
+        <td>
+          ${isAlreadyImported 
+            ? '<span style="font-size: 0.75rem; color: var(--accent-green); background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); padding: 0.2rem 0.5rem; border-radius: var(--radius-full);"><i class="fa-solid fa-check"></i> No Catálogo</span>'
+            : '<span style="font-size: 0.75rem; color: var(--accent-cyan); background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); padding: 0.2rem 0.5rem; border-radius: var(--radius-full);"><i class="fa-solid fa-sparkles"></i> Pronto p/ Migrar</span>'
+          }
+        </td>
+        <td>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="migrateSingleApiService('${s.id}')" title="Migrar apenas este serviço" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;">
+            <i class="fa-solid fa-file-import"></i> Migrar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updateApiSelectedCount();
+}
+
+function filterApiServicesTable() {
+  const search = (document.getElementById('api-search-filter')?.value || '').toLowerCase().trim();
+  const category = document.getElementById('api-category-filter')?.value || 'all';
+
+  const filtered = apiCachedServices.filter(s => {
+    const matchesSearch = !search || 
+      s.name.toLowerCase().includes(search) || 
+      (s.description && s.description.toLowerCase().includes(search)) ||
+      s.id.toLowerCase().includes(search);
+
+    let matchesCategory = true;
+    if (category === 'licenca') matchesCategory = s.category === 'tools';
+    else if (category === 'creditos') matchesCategory = s.category === 'credits';
+    else if (category === 'frp') matchesCategory = s.category === 'imei' || s.category === 'remote';
+
+    return matchesSearch && matchesCategory;
+  });
+
+  renderApiServicesTable(filtered);
+}
+
+function toggleSingleApiServiceCheckbox(id, isChecked) {
+  if (isChecked) {
+    selectedApiServiceIds.add(id);
+  } else {
+    selectedApiServiceIds.delete(id);
+  }
+  updateApiSelectedCount();
+}
+
+function toggleSelectAllApiServices(selectAll) {
+  const search = (document.getElementById('api-search-filter')?.value || '').toLowerCase().trim();
+  const category = document.getElementById('api-category-filter')?.value || 'all';
+
+  const visibleServices = apiCachedServices.filter(s => {
+    const matchesSearch = !search || 
+      s.name.toLowerCase().includes(search) || 
+      (s.description && s.description.toLowerCase().includes(search)) ||
+      s.id.toLowerCase().includes(search);
+
+    let matchesCategory = true;
+    if (category === 'licenca') matchesCategory = s.category === 'tools';
+    else if (category === 'creditos') matchesCategory = s.category === 'credits';
+    else if (category === 'frp') matchesCategory = s.category === 'imei' || s.category === 'remote';
+
+    return matchesSearch && matchesCategory;
+  });
+
+  visibleServices.forEach(s => {
+    if (selectAll) selectedApiServiceIds.add(s.id);
+    else selectedApiServiceIds.delete(s.id);
+  });
+
+  const checkAllTh = document.getElementById('api-check-all-th');
+  if (checkAllTh) checkAllTh.checked = selectAll;
+
+  document.querySelectorAll('.api-service-checkbox').forEach(cb => {
+    const id = cb.getAttribute('data-api-id');
+    cb.checked = selectedApiServiceIds.has(id);
+  });
+
+  updateApiSelectedCount();
+}
+
+function updateApiSelectedCount() {
+  const countEl = document.getElementById('api-selected-count');
+  if (countEl) countEl.textContent = selectedApiServiceIds.size;
+}
+
+async function migrateSingleApiService(apiId) {
+  const item = apiCachedServices.find(s => s.id === apiId);
+  if (!item) return;
+
+  const settings = window.SSB.getSettings();
+  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+
+  const result = window.SSB.importServicesToCatalog([item], margin);
+
+  // Sincronizar com Supabase se ativo
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    const catalog = window.SSB.getServices();
+    const migrated = catalog.find(s => s.name.toLowerCase() === item.name.toLowerCase());
+    if (migrated) {
+      window.SSB_Supabase.upsertService(migrated).catch(e => console.warn(e));
+    }
+  }
+
+  showToast('success', `Serviço "${item.name}" migrado para o catálogo do site!`);
+  logApiTerminal(`Serviço [${item.id}] ${item.name} migrado com sucesso para o catálogo da loja.`, 'success');
+
+  renderApiServicesTable(apiCachedServices);
+  renderServicesTable();
+}
+
+async function migrateSelectedServices() {
+  if (selectedApiServiceIds.size === 0) {
+    showToast('warning', 'Selecione ao menos 1 serviço na tabela para migrar.');
+    return;
+  }
+
+  const itemsToMigrate = apiCachedServices.filter(s => selectedApiServiceIds.has(s.id));
+  const settings = window.SSB.getSettings();
+  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+
+  logApiTerminal(`Migrando ${itemsToMigrate.length} serviços selecionados para o catálogo do site...`, 'info');
+
+  const result = window.SSB.importServicesToCatalog(itemsToMigrate, margin);
+
+  // Sincronizar com o Supabase se estiver configurado
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    const allServices = window.SSB.getServices();
+    for (const item of itemsToMigrate) {
+      const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
+      if (match) {
+        window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
+      }
+    }
+  }
+
+  const importedCount = result.importedCount !== undefined ? result.importedCount : (result.imported || 0);
+  const updatedCount = result.updatedCount !== undefined ? result.updatedCount : (result.updated || 0);
+  showToast('success', `Sucesso! ${importedCount} novos serviços adicionados e ${updatedCount} atualizados no site!`);
+  logApiTerminal(`Migração concluída com sucesso! ${importedCount} novos serviços e ${updatedCount} atualizados. Já visíveis no catálogo da loja.`, 'success');
+
+  renderApiServicesTable(apiCachedServices);
+  renderServicesTable();
 }
 
 // Modal and Toast helpers

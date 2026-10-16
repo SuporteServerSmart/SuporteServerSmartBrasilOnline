@@ -4,7 +4,9 @@ const STORAGE_KEYS = {
   ORDERS: 'sss_orders_v1',
   SETTINGS: 'sss_settings_v1',
   USERS: 'sss_users_v1',
-  LOGS: 'sss_logs_v1'
+  LOGS: 'sss_logs_v1',
+  DHRU_API: 'sss_dhru_api_config_v1',
+  DHRU_CACHE: 'sss_dhru_cache_v1'
 };
 
 const DEFAULT_SETTINGS = {
@@ -21,7 +23,12 @@ const DEFAULT_SETTINGS = {
   adminPin: "admin123",
   serverStatus: "online",
   serverLoad: "18%",
-  apiStatus: "conectado"
+  apiStatus: "conectado",
+  dhruApiUrl: "",
+  dhruApiUsername: "",
+  dhruApiKey: "",
+  dhruApiProvider: "dhru_fusion",
+  dhruProfitMargin: 30
 };
 
 const DEFAULT_SERVICES = [
@@ -520,11 +527,123 @@ window.SSB = {
     );
   },
 
+  // Catálogo Oficial de Atacado DHRU / Servidores GSM
+  getDhruWholesaleCatalog() {
+    return [
+      { id: "dhru-001", name: "UnlockTool - Licença Digital 3 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 20.00, suggestedPriceUSD: 26.00, deliveryTime: "Instantâneo (1-10 min)", type: "username", inputLabel: "Usuário Cadastrado UnlockTool", inputPlaceholder: "Ex: seu_usuario", description: "Ativação oficial de 3 meses. Suporte a Samsung, Xiaomi, iPhone, Oppo, Vivo.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-002", name: "UnlockTool - Licença Digital 6 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 33.00, suggestedPriceUSD: 42.00, deliveryTime: "Instantâneo (1-10 min)", type: "username", inputLabel: "Usuário Cadastrado UnlockTool", inputPlaceholder: "Ex: seu_usuario", description: "Ativação oficial de 6 meses com suporte a todos os modelos recentes.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-003", name: "UnlockTool - Licença Digital 12 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 50.00, suggestedPriceUSD: 62.00, deliveryTime: "Instantâneo (1-10 min)", type: "username", inputLabel: "Usuário Cadastrado UnlockTool", inputPlaceholder: "Ex: seu_usuario", description: "Plano anual completo UnlockTool com atualizações prioritárias.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-004", name: "Chimera Tool - Ativação Samsung 12 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 75.00, suggestedPriceUSD: 95.00, deliveryTime: "Instantâneo (5-15 min)", type: "username", inputLabel: "Nome de Usuário Chimera", inputPlaceholder: "Ex: chimera_user", description: "Licença anual Chimera com suporte a todos os modelos Samsung Exynos e Snapdragon.", serverApi: "Chimera Direct API" },
+      { id: "dhru-005", name: "Chimera Tool - PRO All Modules 12 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 135.00, suggestedPriceUSD: 165.00, deliveryTime: "Instantâneo (5-15 min)", type: "username", inputLabel: "Nome de Usuário Chimera", inputPlaceholder: "Ex: chimera_pro", description: "Licença profissional completa para todas as marcas: Samsung, Huawei, Xiaomi, LG, MTK, Qualcomm.", serverApi: "Chimera Direct API" },
+      { id: "dhru-006", name: "Pandora Box / Tool - Licença Digital 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 38.00, suggestedPriceUSD: 52.00, deliveryTime: "Instantâneo (1-10 min)", type: "email", inputLabel: "E-mail de Cadastro Pandora", inputPlaceholder: "Ex: tec@gmail.com", description: "Ativação standalone Pandora Tool sem necessidade de box física para MTK e Unisoc.", serverApi: "DHRU Server Cluster" },
+      { id: "dhru-007", name: "Octoplus FRP Tool - Licença Digital 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 65.00, suggestedPriceUSD: 85.00, deliveryTime: "Instantâneo (1-15 min)", type: "username", inputLabel: "Usuário Octoplus Digital", inputPlaceholder: "Ex: octo_user", description: "Remoção de FRP rápida para Samsung, Motorola, LG, Huawei com 1 ano de suporte.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-008", name: "Hydra Tool - Licença Digital 6 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 29.00, suggestedPriceUSD: 39.00, deliveryTime: "Instantâneo (5-20 min)", type: "email", inputLabel: "E-mail Hydra Tool", inputPlaceholder: "Ex: seu@email.com", description: "Suporte especializado em chipsets MTK, Qualcomm, Spreadtrum e Kirin.", serverApi: "Hydra Cluster" },
+      { id: "dhru-009", name: "Hydra Tool - Licença Digital 12 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 45.00, suggestedPriceUSD: 59.00, deliveryTime: "Instantâneo (5-20 min)", type: "email", inputLabel: "E-mail Hydra Tool", inputPlaceholder: "Ex: seu@email.com", description: "Licença anual Hydra Tool com atualizações automáticas.", serverApi: "Hydra Cluster" },
+      { id: "dhru-010", name: "Griffin Unlocker Tool - Ativação 3 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 18.00, suggestedPriceUSD: 25.00, deliveryTime: "Instantâneo (1-10 min)", type: "username", inputLabel: "Usuário Griffin Unlocker", inputPlaceholder: "Ex: griffin_user", description: "Solução econômica e rápida para remoção de FRP, reparo de IMEI e Mi Account.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-011", name: "Griffin Unlocker Tool - Ativação 12 Meses", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 36.00, suggestedPriceUSD: 48.00, deliveryTime: "Instantâneo (1-10 min)", type: "username", inputLabel: "Usuário Griffin Unlocker", inputPlaceholder: "Ex: griffin_user", description: "Plano anual Griffin Unlocker sem necessidade de dongle físico.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-012", name: "TFM Tool Pro - Licença Oficial 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 30.00, suggestedPriceUSD: 42.00, deliveryTime: "Instantâneo (5-15 min)", type: "username", inputLabel: "Usuário TFM Tool Pro", inputPlaceholder: "Ex: tfm_user", description: "Ferramenta multi-marca profissional para bancada técnica com servidores dedicados.", serverApi: "TFM Server API" },
+      { id: "dhru-013", name: "Cheetah Tool Pro - Ativação 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 28.00, suggestedPriceUSD: 38.00, deliveryTime: "Instantâneo (5-20 min)", type: "username", inputLabel: "Usuário Cheetah Pro", inputPlaceholder: "Ex: cheetah_user", description: "Ativação anual oficial Cheetah Tool para operações de flash e unlock.", serverApi: "Cheetah API" },
+      { id: "dhru-014", name: "EFT Pro Dongle - Ativação Digital 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 42.00, suggestedPriceUSD: 56.00, deliveryTime: "Instantâneo (5-15 min)", type: "serial", inputLabel: "Número de Série do Dongle EFT", inputPlaceholder: "Ex: EFT12345678", description: "Renovação oficial de 1 ano do software Easy Firmware Team (EFT Pro).", serverApi: "DHRU Fusion API" },
+      { id: "dhru-015", name: "SamFW FRP Tool - Pacote 50 Créditos Server", category: "credits", categoryLabel: "Créditos & Servidores", costUSD: 15.00, suggestedPriceUSD: 22.00, deliveryTime: "Instantâneo (1-5 min)", type: "username", inputLabel: "Usuário Cadastrado SamFW", inputPlaceholder: "Ex: samfw_user", description: "Créditos para bypass de FRP Samsung Knox, Xiaomi e LG via servidor SamFW.", serverApi: "SamFW Server API" },
+      { id: "dhru-016", name: "SamFW FRP Tool - Pacote 100 Créditos Server", category: "credits", categoryLabel: "Créditos & Servidores", costUSD: 28.00, suggestedPriceUSD: 39.00, deliveryTime: "Instantâneo (1-5 min)", type: "username", inputLabel: "Usuário Cadastrado SamFW", inputPlaceholder: "Ex: samfw_user", description: "Pacote econômico de 100 créditos para revendedores com custo reduzido.", serverApi: "SamFW Server API" },
+      { id: "dhru-017", name: "Xiaomi Auth EDL 9008 Flash - 10 Créditos Servidor", category: "credits", categoryLabel: "Créditos & Servidores", costUSD: 25.00, suggestedPriceUSD: 35.00, deliveryTime: "Instantâneo (1-5 min)", type: "username", inputLabel: "Usuário Mi Flash / Auth Tool", inputPlaceholder: "Ex: mi_auth_user", description: "Créditos oficiais para autorização de flash EDL 9008 em Xiaomi, Redmi e POCO.", serverApi: "Xiaomi Cloud Cluster" },
+      { id: "dhru-018", name: "Xiaomi Auth EDL 9008 Flash - 25 Créditos Servidor", category: "credits", categoryLabel: "Créditos & Servidores", costUSD: 60.00, suggestedPriceUSD: 79.00, deliveryTime: "Instantâneo (1-5 min)", type: "username", inputLabel: "Usuário Mi Flash / Auth Tool", inputPlaceholder: "Ex: mi_auth_user", description: "Pacote para assistências técnicas com alta demanda de recuperação de bootloop.", serverApi: "Xiaomi Cloud Cluster" },
+      { id: "dhru-019", name: "Xiaomi Mi Account Clean Instantâneo (World/BR)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 22.00, suggestedPriceUSD: 32.00, deliveryTime: "10 a 60 minutos", type: "imei", inputLabel: "Código de Bloqueio (Unlock Code) da Tela", inputPlaceholder: "Ex: 7G82X19K ou IMEI", description: "Remoção permanente de conta Mi do servidor oficial Xiaomi para aparelhos Clean.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-020", name: "Samsung FRP Reset Instantâneo All Android 2024/2026 (Server)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 12.00, suggestedPriceUSD: 18.00, deliveryTime: "Instantâneo (1-10 min)", type: "imei", inputLabel: "IMEI do Aparelho (15 dígitos)", inputPlaceholder: "Ex: 356789123456789", description: "Desbloqueio de Conta Google Samsung direto no servidor oficial sem abrir o aparelho.", serverApi: "Samsung Server Hub" },
+      { id: "dhru-021", name: "Samsung Knox / KG Locked Bypass (Exynos/MTK)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 18.00, suggestedPriceUSD: 27.00, deliveryTime: "15 a 45 minutos", type: "imei", inputLabel: "IMEI do Aparelho", inputPlaceholder: "Ex: 351234567890123", description: "Bypass definitivo para aparelhos Samsung com bloqueio de operadora ou empresa.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-022", name: "Apple iPhone GSX Check Completo (iCloud + SimLock + Sold To)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 1.20, suggestedPriceUSD: 3.00, deliveryTime: "Instantâneo (1-3 min)", type: "imei", inputLabel: "IMEI ou Serial Number Apple", inputPlaceholder: "Ex: 353456789012345", description: "Relatório oficial completo dos servidores Apple: status FMI, operadora, garantia e país.", serverApi: "Apple GSX API" },
+      { id: "dhru-023", name: "Apple iPhone Clean / Lost Mode IMEI Check Instantâneo", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 0.60, suggestedPriceUSD: 1.80, deliveryTime: "Instantâneo (1-2 min)", type: "imei", inputLabel: "IMEI do iPhone/iPad", inputPlaceholder: "Ex: 352123456789012", description: "Verificação rápida para saber se o aparelho está Clean ou Lost no servidor do iCloud.", serverApi: "Apple GSX API" },
+      { id: "dhru-024", name: "Apple MDM Remote Management Bypass iOS (Token Instantâneo)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 14.00, suggestedPriceUSD: 22.00, deliveryTime: "Instantâneo (1-5 min)", type: "serial", inputLabel: "Número de Série Apple (Serial Number)", inputPlaceholder: "Ex: C39Z10ABC123", description: "Remoção de tela de Gerenciamento Remoto Corporativo (MDM) em iPhone e iPad.", serverApi: "DHRU Fusion API" },
+      { id: "dhru-025", name: "iRemoval PRO Premium A12+ (iPhone XR até 14 Pro Max)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 48.00, suggestedPriceUSD: 65.00, deliveryTime: "Instantâneo (1-10 min)", type: "serial", inputLabel: "Serial do Aparelho (SN)", inputPlaceholder: "Ex: F17X12345678", description: "Bypass completo com sinal de chip e operadora para iPhone XR até 14 Pro Max.", serverApi: "iRemoval Server API" },
+      { id: "dhru-026", name: "Motorola FRP Key Instant Server (Todos os Modelos)", category: "imei", categoryLabel: "Serviços IMEI & Desbloqueio", costUSD: 8.00, suggestedPriceUSD: 14.00, deliveryTime: "Instantâneo (1-5 min)", type: "imei", inputLabel: "IMEI Motorola", inputPlaceholder: "Ex: 358901234567890", description: "Geração de chave de desbloqueio oficial para Motorola Moto G, Edge e E Series.", serverApi: "Moto Server API" },
+      { id: "dhru-027", name: "VIVO / OPPO / Realme EDL Server Authorization Token", category: "credits", categoryLabel: "Créditos & Servidores", costUSD: 9.00, suggestedPriceUSD: 16.00, deliveryTime: "Instantâneo (5-15 min)", type: "imei", inputLabel: "IMEI ou ID de Desbloqueio", inputPlaceholder: "Ex: 864512048596321", description: "Autorização remota para flash e unbrick via porta EDL Qualcomm.", serverApi: "BBK Group API" },
+      { id: "dhru-028", name: "Android Multi Tools - Licença 1 Ano", category: "tools", categoryLabel: "Ferramentas & Dongles", costUSD: 25.00, suggestedPriceUSD: 36.00, deliveryTime: "Instantâneo (5-15 min)", type: "username", inputLabel: "Usuário Android Multi Tools", inputPlaceholder: "Ex: amt_user", description: "Ferramenta multiuso de reparo, remoção de senha e leitura de dados.", serverApi: "DHRU Fusion API" }
+    ];
+  },
+
+  // Importar / Migrar Serviços em Massa para o Catálogo do Site
+  importServicesToCatalog(servicesToImport, profitMargin = 30) {
+    const existingServices = this.getServices();
+    const settings = this.getSettings();
+    const usdRate = settings.usdRate || 5.65;
+    let importedCount = 0;
+    let updatedCount = 0;
+
+    servicesToImport.forEach(item => {
+      const costBRL = item.costBRL || (item.costUSD * usdRate);
+      const calculatedPriceBRL = item.priceBRL || (costBRL * (1 + (profitMargin / 100)));
+      const calculatedPriceUSD = item.priceUSD || (item.costUSD ? item.costUSD * (1 + (profitMargin / 100)) : (calculatedPriceBRL / usdRate));
+
+      const serviceObj = {
+        id: item.id || `srv-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}`,
+        name: item.name,
+        category: item.category || 'tools',
+        categoryLabel: item.categoryLabel || 'Ferramentas & Dongles',
+        priceBRL: Math.round(calculatedPriceBRL * 100) / 100,
+        priceUSD: Math.round(calculatedPriceUSD * 100) / 100,
+        costBRL: Math.round(costBRL * 100) / 100,
+        deliveryTime: item.deliveryTime || 'Instantâneo (1-15 min)',
+        status: 'active',
+        type: item.type || 'username',
+        inputLabel: item.inputLabel || 'Dado para Ativação',
+        inputPlaceholder: item.inputPlaceholder || 'Ex: Usuário ou IMEI',
+        description: item.description || `Serviço oficial integrado via ${item.serverApi || 'DHRU GSM Server'}.`,
+        serverApi: item.serverApi || 'DHRU Fusion API',
+        featured: item.featured || false,
+        badge: item.badge || ''
+      };
+
+      const existingIndex = existingServices.findIndex(s => s.id === serviceObj.id || s.name.toLowerCase() === serviceObj.name.toLowerCase());
+      if (existingIndex >= 0) {
+        existingServices[existingIndex] = { ...existingServices[existingIndex], ...serviceObj };
+        updatedCount++;
+      } else {
+        existingServices.push(serviceObj);
+        importedCount++;
+      }
+    });
+
+    this.saveServices(existingServices);
+    this.addLog('api', `${importedCount} novos serviços migrados e ${updatedCount} atualizados da API GSM/DHRU.`);
+
+    // Sincronizar com Supabase se disponível
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('services').upsert(
+        existingServices.map(s => ({
+          service_id: s.id,
+          name: s.name,
+          category: s.category,
+          category_label: s.categoryLabel,
+          price_brl: s.priceBRL,
+          price_usd: s.priceUSD,
+          cost_brl: s.costBRL,
+          delivery_time: s.deliveryTime,
+          status: s.status,
+          type: s.type,
+          input_label: s.inputLabel,
+          input_placeholder: s.inputPlaceholder,
+          description: s.description,
+          server_api: s.serverApi,
+          featured: s.featured || false,
+          badge: s.badge || null
+        }))
+      ).then(() => {
+        console.log("☁️ Serviços migrados sincronizados com o Supabase com sucesso!");
+      }).catch(err => {
+        console.warn("Aviso ao sincronizar serviços com Supabase:", err);
+      });
+    }
+
+    return { importedCount, updatedCount, total: existingServices.length };
+  },
+
   resetToDefault() {
     localStorage.removeItem(STORAGE_KEYS.SERVICES);
     localStorage.removeItem(STORAGE_KEYS.ORDERS);
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     localStorage.removeItem(STORAGE_KEYS.USERS);
     localStorage.removeItem(STORAGE_KEYS.LOGS);
+    localStorage.removeItem(STORAGE_KEYS.DHRU_API);
+    localStorage.removeItem(STORAGE_KEYS.DHRU_CACHE);
   }
 };
