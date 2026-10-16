@@ -35,7 +35,7 @@
           <i class="fa-solid fa-magnifying-glass"></i> Rastrear Pedido
         </a>
         <a id="top-auth-action" href="javascript:void(0)" onclick="openCustomerAuthModal('login')" class="status-link" style="color: var(--accent-cyan);">
-          <i class="fa-solid fa-user"></i> Área do Cliente / Revenda
+          <i class="fa-solid fa-user-lock"></i> Entrar / Criar Conta
         </a>
       </div>
     </div>
@@ -69,7 +69,12 @@
           <i class="fa-brands fa-whatsapp"></i> WhatsApp
         </a>
         <div id="nav-auth-container" style="display: flex; align-items: center; gap: 0.5rem;">
-          <!-- Injetado dinamicamente: Botões Entrar/Cadastrar ou Usuário Logado -->
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
+            <i class="fa-solid fa-user-plus"></i> Criar Conta
+          </button>
         </div>
       </div>
     </div>
@@ -438,7 +443,7 @@
             <li><a href="#cluster-status">Monitoramento de Servidores</a></li>
             <li><a href="#servicos">Xiaomi Auth EDL Server</a></li>
             <li><a href="#servicos">Desbloqueio FRP Samsung</a></li>
-            <li><a href="admin.html">Acesso Administrativo</a></li>
+            <li><a href="javascript:void(0)" onclick="openCustomerAuthModal('login')">Área do Cliente</a></li>
           </ul>
         </div>
 
@@ -591,6 +596,13 @@
       <div class="modal-body">
         <!-- FORMULÁRIO DE LOGIN -->
         <form id="customer-login-form">
+          <div id="first-admin-login-notice" style="display: none; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.35); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.15rem; font-size: 0.82rem; color: #ffd700; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-crown" style="font-size: 1.25rem; color: #ffd700; flex-shrink: 0;"></i>
+            <div>
+              <strong>Primeiro Acesso:</strong> O primeiro usuário que criar conta ou logar será automaticamente o <strong>Administrador Geral</strong> do servidor!
+            </div>
+          </div>
+
           <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
             Entre na sua conta para desbloquear a visualização de preços oficiais e efetuar pedidos no servidor.
           </p>
@@ -622,6 +634,13 @@
 
         <!-- FORMULÁRIO DE CADASTRO -->
         <form id="customer-register-form" style="display: none;">
+          <div id="first-admin-notice" style="display: none; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.35); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.15rem; font-size: 0.82rem; color: #ffd700; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-crown" style="font-size: 1.25rem; color: #ffd700; flex-shrink: 0;"></i>
+            <div>
+              <strong>Primeiro Registro do Sistema:</strong> Como nenhum administrador está cadastrado, esta primeira conta criada se tornará o <strong>Administrador Geral</strong>!
+            </div>
+          </div>
+
           <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
             Cadastre sua bancada ou assistência técnica para liberar preços de revenda imediatos.
           </p>

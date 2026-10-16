@@ -1,6 +1,9 @@
 // Suporte Server Smart Brasil Online - Admin Engine (GSMThemer Management)
 
 const AUTH_SESSION_KEY = 'sss_admin_authenticated';
+const CUSTOMER_SESSION_KEY = 'sss_customer_session_v1';
+const CUSTOMER_ACCOUNTS_KEY = 'sss_customer_accounts_v1';
+const ADMIN_EMAIL_KEY = 'sss_admin_email_v1';
 
 document.addEventListener('DOMContentLoaded', () => {
   initAdmin();
@@ -13,19 +16,78 @@ function initAdmin() {
   setupFiltersAndForms();
 }
 
+function getStoredCustomer() {
+  try {
+    const data = localStorage.getItem(CUSTOMER_SESSION_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getStoredAccounts() {
+  try {
+    const data = localStorage.getItem(CUSTOMER_ACCOUNTS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function hasAdminAccountConfigured() {
+  const accounts = getStoredAccounts();
+  const designatedEmail = localStorage.getItem(ADMIN_EMAIL_KEY);
+  return accounts.some(acc => acc.role === 'admin' || acc.isAdmin === true || (designatedEmail && acc.email.toLowerCase() === designatedEmail.toLowerCase()));
+}
+
 // 1. Auth check
 function checkAuth() {
-  const isAuth = sessionStorage.getItem(AUTH_SESSION_KEY);
+  const customer = getStoredCustomer();
   const loginScreen = document.getElementById('admin-login-screen');
   const adminApp = document.getElementById('admin-app');
+  const deniedBox = document.getElementById('admin-denied-box');
+  const formBox = document.getElementById('admin-form-box');
+  const deniedMsg = document.getElementById('admin-denied-msg');
+  const noAdminNotice = document.getElementById('admin-no-admin-notice');
+  const adminUserName = document.getElementById('admin-user-name');
+
+  // Caso 1: Usuário está logado como Cliente Comum (não é admin) -> Bloqueia o acesso
+  if (customer && customer.role !== 'admin' && !customer.isAdmin) {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    if (adminApp) adminApp.style.display = 'none';
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (deniedBox) deniedBox.style.display = 'block';
+    if (formBox) formBox.style.display = 'none';
+    if (deniedMsg) {
+      deniedMsg.innerHTML = `Você está conectado como <strong>${escapeHtml(customer.name)}</strong> (${escapeHtml(customer.email)}), cujo perfil é de <strong>Cliente / Técnico</strong>.<br><br>O Painel Administrativo é de acesso exclusivo para o Administrador.`;
+    }
+    return;
+  }
+
+  // Caso 2: Usuário está logado como Administrador
+  if (customer && (customer.role === 'admin' || customer.isAdmin)) {
+    sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
+  }
+
+  const isAuth = sessionStorage.getItem(AUTH_SESSION_KEY);
 
   if (isAuth === 'true') {
     if (loginScreen) loginScreen.style.display = 'none';
     if (adminApp) adminApp.style.display = 'block';
+    if (adminUserName) {
+      adminUserName.textContent = customer ? customer.name.split(' ')[0] : 'Administrador Geral';
+    }
     loadAllAdminData();
   } else {
     if (loginScreen) loginScreen.style.display = 'flex';
     if (adminApp) adminApp.style.display = 'none';
+    if (deniedBox) deniedBox.style.display = 'none';
+    if (formBox) formBox.style.display = 'block';
+
+    // Se nenhum admin foi cadastrado ainda no sistema, exibe o aviso orientando
+    if (noAdminNotice) {
+      noAdminNotice.style.display = !hasAdminAccountConfigured() ? 'flex' : 'none';
+    }
   }
 }
 
@@ -34,22 +96,58 @@ function setupAuthForm() {
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const pinInput = document.getElementById('admin-pin-input').value.trim();
+      const identity = document.getElementById('admin-login-identity').value.trim();
+      const password = (document.getElementById('admin-login-password')?.value || '').trim();
       const settings = window.SSB.getSettings();
 
-      if (pinInput === settings.adminPin || pinInput === 'admin123') {
+      // Opção A: Login via PIN Mestre (admin123 ou settings.adminPin)
+      if (identity === settings.adminPin || identity === 'admin123') {
         sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
-        showToast('success', 'Acesso autorizado ao painel GSM!');
+        showToast('success', 'Acesso autorizado via Chave Mestre!');
         checkAuth();
-      } else {
-        showToast('error', 'Chave de acesso incorreta! Tente admin123');
+        return;
       }
+
+      // Opção B: Login via Conta de Administrador (E-mail + Senha)
+      const accounts = getStoredAccounts();
+      const designatedAdmin = localStorage.getItem(ADMIN_EMAIL_KEY);
+      const acc = accounts.find(a => a.email.toLowerCase() === identity.toLowerCase());
+
+      if (acc && acc.password === password) {
+        // Se ainda não havia admin, esta conta se torna o Administrador Geral!
+        if (!hasAdminAccountConfigured()) {
+          acc.role = 'admin';
+          acc.isAdmin = true;
+          localStorage.setItem(ADMIN_EMAIL_KEY, acc.email);
+          localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts));
+        }
+
+        if (acc.role === 'admin' || acc.isAdmin || (designatedAdmin && acc.email.toLowerCase() === designatedAdmin.toLowerCase())) {
+          localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(acc));
+          sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
+          showToast('success', `Bem-vindo, Administrador ${acc.name}!`);
+          checkAuth();
+          return;
+        } else {
+          showToast('error', 'Esta conta de usuário não possui privilégios de Administrador.');
+          return;
+        }
+      }
+
+      showToast('error', 'Chave ou credenciais incorretas! Tente o PIN padrão admin123 ou a conta do Administrador.');
     });
   }
 }
 
 function logoutAdmin() {
   sessionStorage.removeItem(AUTH_SESSION_KEY);
+  localStorage.removeItem(CUSTOMER_SESSION_KEY);
+  window.location.href = 'index.html';
+}
+
+function logoutAndSwitchAccount() {
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  localStorage.removeItem(CUSTOMER_SESSION_KEY);
   location.reload();
 }
 

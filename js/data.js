@@ -385,7 +385,31 @@ window.SSB = {
   getUsers() {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.USERS);
-      return stored ? JSON.parse(stored) : DEFAULT_USERS;
+      let list = stored ? JSON.parse(stored) : [...DEFAULT_USERS];
+
+      // Sincronizar contas cadastradas pelos clientes/técnicos e primeiro admin
+      const customerAccounts = JSON.parse(localStorage.getItem('sss_customer_accounts_v1') || '[]');
+      const designatedAdmin = localStorage.getItem('sss_admin_email_v1');
+
+      customerAccounts.forEach(c => {
+        const isAdm = c.role === 'admin' || c.isAdmin === true || (designatedAdmin && c.email.toLowerCase() === designatedAdmin.toLowerCase());
+        const existing = list.find(u => u.email.toLowerCase() === c.email.toLowerCase());
+        if (!existing) {
+          list.push({
+            id: `usr-${c.email.split('@')[0]}`,
+            name: c.name,
+            email: c.email,
+            role: isAdm ? '👑 Administrador Geral' : 'Cliente Técnico',
+            balanceBRL: c.balance || 0,
+            ordersCount: 0,
+            discountPercent: isAdm ? 25 : 0
+          });
+        } else if (isAdm) {
+          existing.role = '👑 Administrador Geral';
+        }
+      });
+
+      return list;
     } catch (e) {
       return DEFAULT_USERS;
     }

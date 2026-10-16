@@ -3,6 +3,8 @@
 
 const CUSTOMER_SESSION_KEY = 'sss_customer_session_v1';
 const CUSTOMER_ACCOUNTS_KEY = 'sss_customer_accounts_v1';
+const ADMIN_SESSION_KEY = 'sss_admin_authenticated';
+const ADMIN_EMAIL_KEY = 'sss_admin_email_v1';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -10,7 +12,9 @@ const DEFAULT_ACCOUNTS = [
     email: "cliente@smart.com",
     password: "123",
     whatsapp: "11999999999",
-    balance: 0.00
+    balance: 0.00,
+    role: "cliente",
+    isAdmin: false
   }
 ];
 
@@ -41,7 +45,7 @@ async function initApp() {
   }
 }
 
-// 1. Gerenciamento de Sessão de Cliente
+// 1. Gerenciamento de Sessão de Cliente & Detecção de Primeiro Admin
 function getCurrentCustomer() {
   try {
     const session = localStorage.getItem(CUSTOMER_SESSION_KEY);
@@ -64,6 +68,12 @@ function saveCustomerAccounts(accounts) {
   localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
+function hasAdminAccount() {
+  const accounts = getCustomerAccounts();
+  const designatedEmail = localStorage.getItem(ADMIN_EMAIL_KEY);
+  return accounts.some(acc => acc.role === 'admin' || acc.isAdmin === true || (designatedEmail && acc.email.toLowerCase() === designatedEmail.toLowerCase()));
+}
+
 function renderAuthUI() {
   const customer = getCurrentCustomer();
   const navContainer = document.getElementById('nav-auth-container');
@@ -71,25 +81,52 @@ function renderAuthUI() {
   const topAuthAction = document.getElementById('top-auth-action');
 
   if (customer) {
+    const isUserAdmin = customer.role === 'admin' || customer.isAdmin === true;
+
     // Logado
     if (navContainer) {
-      navContainer.innerHTML = `
-        <div class="user-pill" title="Conta de Técnico Conectada">
-          <i class="fa-solid fa-user-check" style="color: var(--accent-cyan);"></i>
-          <span>${escapeHtml(customer.name.split(' ')[0])}</span>
-          <span class="user-pill-balance">R$ ${(customer.balance || 0).toFixed(2)}</span>
-        </div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
-      `;
+      if (isUserAdmin) {
+        // Usuário é Administrador: Mostra badge Admin e botão de acesso ao Painel Admin
+        navContainer.innerHTML = `
+          <div class="user-pill admin-pill" title="Administrador Geral Conectado">
+            <i class="fa-solid fa-crown" style="color: #ffd700;"></i>
+            <span>${escapeHtml(customer.name.split(' ')[0])}</span>
+            <span class="admin-badge-tag">ADMIN</span>
+          </div>
+          <a href="admin.html" class="btn btn-admin btn-sm" title="Acessar Painel Administrativo">
+            <i class="fa-solid fa-shield-halved"></i> Painel Admin
+          </a>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        `;
+      } else {
+        // Usuário Técnico Comum: Mostra perfil e saldo, SEM botão Admin
+        navContainer.innerHTML = `
+          <div class="user-pill" title="Conta de Técnico Conectada">
+            <i class="fa-solid fa-user-check" style="color: var(--accent-cyan);"></i>
+            <span>${escapeHtml(customer.name.split(' ')[0])}</span>
+            <span class="user-pill-balance">R$ ${(customer.balance || 0).toFixed(2)}</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        `;
+      }
     }
 
     if (topAuthAction) {
-      topAuthAction.innerHTML = `<i class="fa-solid fa-user-check"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])}`;
-      topAuthAction.onclick = () => {
-        showToast('info', `Você está logado como: ${customer.name}`);
-      };
+      if (isUserAdmin) {
+        topAuthAction.innerHTML = `<i class="fa-solid fa-crown" style="color: #ffd700;"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])} <span class="admin-badge-tag" style="margin-left: 0.35rem;">ADMIN</span>`;
+        topAuthAction.onclick = () => {
+          window.location.href = 'admin.html';
+        };
+      } else {
+        topAuthAction.innerHTML = `<i class="fa-solid fa-user-check"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])}`;
+        topAuthAction.onclick = () => {
+          showToast('info', `Você está logado como: ${customer.name}`);
+        };
+      }
     }
 
     if (catalogBanner) {
@@ -97,7 +134,7 @@ function renderAuthUI() {
       catalogBanner.style.display = 'none';
     }
   } else {
-    // Não Logado
+    // Não Logado: exibe estritamente botões Entrar e Criar Conta (Painel Admin oculto)
     if (navContainer) {
       navContainer.innerHTML = `
         <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
@@ -110,7 +147,7 @@ function renderAuthUI() {
     }
 
     if (topAuthAction) {
-      topAuthAction.innerHTML = `<i class="fa-solid fa-user"></i> Área do Cliente / Revenda`;
+      topAuthAction.innerHTML = `<i class="fa-solid fa-user-lock"></i> Entrar / Criar Conta`;
       topAuthAction.onclick = () => openCustomerAuthModal('login');
     }
 
@@ -143,6 +180,18 @@ function renderAuthUI() {
 // 2. Modais e Controle de Auth
 function openCustomerAuthModal(tab = 'login') {
   switchAuthTab(tab);
+
+  const hasAdmin = hasAdminAccount();
+  const firstNotice = document.getElementById('first-admin-notice');
+  const firstLoginNotice = document.getElementById('first-admin-login-notice');
+
+  if (firstNotice) {
+    firstNotice.style.display = !hasAdmin ? 'flex' : 'none';
+  }
+  if (firstLoginNotice) {
+    firstLoginNotice.style.display = !hasAdmin ? 'flex' : 'none';
+  }
+
   openModal('customer-auth-modal');
 }
 
@@ -166,17 +215,31 @@ function switchAuthTab(tab) {
 }
 
 function handleCustomerLogin(email, password) {
-  const accounts = getCustomerAccounts();
-  const customer = accounts.find(c => c.email.toLowerCase() === email.toLowerCase() && c.password === password);
+  let accounts = getCustomerAccounts();
+  let customer = accounts.find(c => c.email.toLowerCase() === email.toLowerCase() && c.password === password);
 
   if (customer) {
+    // Se ainda não houver admin no sistema, quem loga primeiro vira admin!
+    if (!hasAdminAccount()) {
+      customer.role = 'admin';
+      customer.isAdmin = true;
+      localStorage.setItem(ADMIN_EMAIL_KEY, customer.email);
+      saveCustomerAccounts(accounts);
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      showToast('success', `👑 Como primeiro acesso verificado, você agora é o ADMINISTRADOR GERAL!`);
+    } else if (customer.role === 'admin' || customer.isAdmin === true) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      showToast('success', `👑 Bem-vindo de volta, Administrador ${customer.name}!`);
+    } else {
+      showToast('success', `Bem-vindo de volta, ${customer.name}!`);
+    }
+
     localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(customer));
     closeModal('customer-auth-modal');
     renderAuthUI();
     renderServices();
-    showToast('success', `Bem-vindo de volta, ${customer.name}!`);
   } else {
-    showToast('error', 'E-mail ou senha incorretos! Se ainda não tem cadastro, crie uma conta.');
+    showToast('error', 'E-mail ou senha incorretos! Se ainda não tem cadastro, clique em Criar Conta.');
   }
 }
 
@@ -190,39 +253,56 @@ function handleCustomerRegister(name, email, whatsapp, password) {
     return;
   }
 
+  // Se for o primeiro usuário a cadastrar no sistema, torna-se Administrador Geral!
+  const isFirstUser = !hasAdminAccount();
+
   const newCustomer = {
     name,
     email,
     whatsapp,
     password,
-    balance: 0.00
+    role: isFirstUser ? 'admin' : 'cliente',
+    isAdmin: isFirstUser,
+    balance: isFirstUser ? 500.00 : 0.00,
+    createdAt: new Date().toISOString()
   };
 
   accounts.push(newCustomer);
   saveCustomerAccounts(accounts);
   localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(newCustomer));
 
-  // Sincronizar novo revendedor no Supabase
+  if (isFirstUser) {
+    localStorage.setItem(ADMIN_EMAIL_KEY, newCustomer.email);
+    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+  }
+
+  // Sincronizar novo revendedor/admin no Supabase
   if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
     window.SSB_Supabase.client.from('resellers').insert([{
       id: `usr-${Date.now().toString().slice(-4)}`,
       name: newCustomer.name,
       email: newCustomer.email,
-      role: 'Cliente Técnico',
-      balance_brl: 0.00
+      role: isFirstUser ? 'Administrador Geral' : 'Cliente Técnico',
+      balance_brl: newCustomer.balance
     }]).then(res => {
-      console.log("☁️ Revendedor sincronizado com Supabase:", newCustomer.name);
+      console.log("☁️ Usuário sincronizado com Supabase:", newCustomer.name);
     }).catch(e => console.warn(e));
   }
 
   closeModal('customer-auth-modal');
   renderAuthUI();
   renderServices();
-  showToast('success', `Conta criada com sucesso! Bem-vindo, ${newCustomer.name}!`);
+
+  if (isFirstUser) {
+    showToast('success', `👑 Parabéns ${newCustomer.name}! Você é o primeiro usuário e agora é o ADMINISTRADOR GERAL do servidor!`);
+  } else {
+    showToast('success', `Conta criada com sucesso! Bem-vindo, ${newCustomer.name}!`);
+  }
 }
 
 function handleCustomerLogout() {
   localStorage.removeItem(CUSTOMER_SESSION_KEY);
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
   renderAuthUI();
   renderServices();
   showToast('warning', 'Você saiu da sua conta.');
