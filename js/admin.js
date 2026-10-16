@@ -1143,8 +1143,17 @@ async function testDhruApiConnection() {
   // Auto-completar https:// se o usuário digitou sem protocolo
   if (!/^https?:\/\//i.test(url)) {
     url = 'https://' + url;
-    if (urlInput) urlInput.value = url;
   }
+
+  // Se o usuário digitou /public ou esqueceu /api/index.php
+  if (/\/public\/?$/i.test(url)) {
+    url = url.replace(/\/public\/?$/i, '/public/api/index.php');
+  } else if (!url.includes('.php') && !url.includes('/api/')) {
+    if (url.includes('conectproo.com')) {
+      url = url.replace(/\/+$/, '') + '/public/api/index.php';
+    }
+  }
+  if (urlInput) urlInput.value = url;
 
   const provider = document.getElementById('dhru-api-provider')?.value || 'dhru';
   logApiTerminal(`Iniciando teste de conexão na API: ${url}...`, 'info');
@@ -1236,8 +1245,16 @@ async function pullServicesFromLiveApi() {
 
   if (!/^https?:\/\//i.test(url)) {
     url = 'https://' + url;
-    if (urlInput) urlInput.value = url;
   }
+
+  if (/\/public\/?$/i.test(url)) {
+    url = url.replace(/\/public\/?$/i, '/public/api/index.php');
+  } else if (!url.includes('.php') && !url.includes('/api/')) {
+    if (url.includes('conectproo.com')) {
+      url = url.replace(/\/+$/, '') + '/public/api/index.php';
+    }
+  }
+  if (urlInput) urlInput.value = url;
 
   logApiTerminal(`Consultando lista de serviços via proxy seguro em ${url}...`, 'info');
   showToast('info', 'Consultando serviços no servidor atacadista...');

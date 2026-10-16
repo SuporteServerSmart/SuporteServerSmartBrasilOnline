@@ -58,6 +58,11 @@ module.exports = async function handler(req, res) {
     targetUrl = 'https://' + targetUrl;
   }
 
+  // Se o usuário digitou uma pasta pública comum (ex: /public ou /public/), direcionar para o endpoint real da API DHRU
+  if (/\/public\/?$/i.test(targetUrl)) {
+    targetUrl = targetUrl.replace(/\/public\/?$/i, '/public/api/index.php');
+  }
+
   // DHRU Fusion aceita envio em form urlencoded ou parameters JSON
   const postPayload = new URLSearchParams({
     username: username,
@@ -69,27 +74,32 @@ module.exports = async function handler(req, res) {
   try {
     let targetResponse = await executeRequestWithRedirects(targetUrl, postPayload);
 
-    // Se o retorno foi HTML puro ou erro 404 e a URL informada não continha '/api', tentar fallback automático para /api/index.php
+    // Se o retorno foi HTML puro ou erro 404 e a URL informada não continha '.php', tentar endpoints clássicos do DHRU
     let rawBody = targetResponse.body.trim();
     const isHtmlOrError = targetResponse.statusCode === 404 || 
       (targetResponse.statusCode === 200 && (rawBody.toLowerCase().startsWith('<!doctype html') || rawBody.toLowerCase().startsWith('<html')));
 
-    if (isHtmlOrError && !targetUrl.toLowerCase().includes('/api')) {
-      try {
-        const candidateUrl = new URL('/api/index.php', targetUrl).href;
-        const retryResponse = await executeRequestWithRedirects(candidateUrl, postPayload);
-        const retryBody = retryResponse.body.trim();
-        const retryIsXml = retryBody.startsWith('<?xml') || retryBody.startsWith('<RESPONSE') || retryBody.startsWith('<response');
-        let retryIsJson = false;
-        try { JSON.parse(retryBody); retryIsJson = true; } catch (e) {}
+    if (isHtmlOrError && !targetUrl.toLowerCase().includes('.php')) {
+      const candidates = [
+        targetUrl.replace(/\/+$/, '') + '/public/api/index.php',
+        targetUrl.replace(/\/+$/, '') + '/api/index.php'
+      ];
 
-        if (retryResponse.statusCode === 200 && (retryIsJson || retryIsXml)) {
-          targetResponse = retryResponse;
-          rawBody = retryBody;
-          targetUrl = candidateUrl;
-        }
-      } catch (retryErr) {
-        // Ignora erro de fallback e prossegue com o resultado original
+      for (const cand of candidates) {
+        try {
+          const retryResponse = await executeRequestWithRedirects(cand, postPayload);
+          const retryBody = retryResponse.body.trim();
+          const retryIsXml = retryBody.startsWith('<?xml') || retryBody.startsWith('<RESPONSE') || retryBody.startsWith('<response');
+          let retryIsJson = false;
+          try { JSON.parse(retryBody); retryIsJson = true; } catch (e) {}
+
+          if (retryResponse.statusCode === 200 && (retryIsJson || retryIsXml)) {
+            targetResponse = retryResponse;
+            rawBody = retryBody;
+            targetUrl = cand;
+            break;
+          }
+        } catch (retryErr) {}
       }
     }
 
@@ -97,9 +107,9 @@ module.exports = async function handler(req, res) {
     if (targetResponse.statusCode !== 200 && targetResponse.statusCode !== 201) {
       let advice = '';
       if (targetResponse.statusCode === 301 || targetResponse.statusCode === 302) {
-        advice = ' O servidor atacadista enviou um redirecionamento sem rota válida. Verifique se o endereço da API está correto (ex: https://seusite.com/api/index.php).';
+        advice = ' O servidor atacadista enviou um redirecionamento sem rota válida. Verifique se o endereço da API está correto (ex: https://conectproo.com/public/api/index.php).';
       } else if (targetResponse.statusCode === 404) {
-        advice = ' O endpoint da API não foi encontrado. Em servidores DHRU Fusion, a URL costuma terminar em /api/index.php ou /api/.';
+        advice = ' O endpoint da API não foi encontrado. Em servidores DHRU Fusion, a URL costuma terminar em /public/api/index.php ou /api/index.php.';
       } else if (targetResponse.statusCode === 403) {
         advice = ' Acesso negado pelo servidor atacadista. Verifique se o seu IP está liberado na API do fornecedor.';
       }
@@ -133,9 +143,28 @@ module.exports = async function handler(req, res) {
     if (parsedData) {
       // Verificar se o DHRU retornou erro explícito na resposta JSON
       if (parsedData.ERROR) {
-        const errorMsg = Array.isArray(parsedData.ERROR) && parsedData.ERROR[0] && parsedData.ERROR[0].MESSAGE
-          ? parsedData.ERROR[0].MESSAGE
-          : JSON.stringify(parsedData.ERROR);
+        let errorMsg = '';
+        const errEntry = Array.isArray(parsedData.ERROR) ? parsedData.ERROR[0] : parsedData.ERROR;
+        if (errEntry && errEntry.MESSAGE) {
+          if (typeof errEntry.MESSAGE === 'string') {
+            errorMsg = errEntry.MESSAGE;
+          } else if (typeof errEntry.MESSAGE === 'object') {
+            // Caso como {"username":["User name must be an email"]}
+            const parts = [];
+            for (const [field, val] of Object.entries(errEntry.MESSAGE)) {
+              const msgText = Array.isArray(val) ? val.join(', ') : String(val);
+              parts.push(`${field}: ${msgText}`);
+            }
+            errorMsg = parts.join(' | ');
+          }
+        }
+        if (!errorMsg) errorMsg = JSON.stringify(parsedData.ERROR);
+
+        // Traduzir ou amigabilizar mensagens comuns da API
+        if (errorMsg.includes('must be an email')) {
+          errorMsg = 'O Usuário da API deve ser o seu e-mail de login no painel do fornecedor (ex: seuemail@gmail.com).';
+        }
+
         return res.end(JSON.stringify({
           success: false,
           error: `Erro retornado pela API DHRU: ${errorMsg}`
@@ -234,6 +263,24 @@ async function executeRequestWithRedirects(startUrl, postPayload, maxRedirects =
     if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
       redirects++;
       const nextUrl = new URL(res.headers.location, currentUrl).href;
+
+      // Detectar loop de redirecionamento cíclico (ex: https://site.com/public <-> https://site.com/public/)
+      const isLoop = history.includes(nextUrl) || (nextUrl.replace(/\/$/, '') === currentUrl.replace(/\/$/, ''));
+      if (isLoop) {
+        if (/\/public\/?$/i.test(nextUrl)) {
+          // No Laravel/DHRU, pasta /public em loop deve apontar para o endpoint real de API:
+          currentUrl = nextUrl.replace(/\/public\/?$/i, '/public/api/index.php');
+          history.push(currentUrl);
+          continue;
+        } else if (!nextUrl.toLowerCase().includes('.php')) {
+          currentUrl = nextUrl.replace(/\/+$/, '') + '/api/index.php';
+          history.push(currentUrl);
+          continue;
+        } else {
+          throw new Error(`Loop de redirecionamento detectado no servidor atacadista (${currentUrl} <-> ${nextUrl}). Verifique se a URL termina com o arquivo da API (ex: https://conectproo.com/public/api/index.php).`);
+        }
+      }
+
       history.push(nextUrl);
       currentUrl = nextUrl;
       continue;
