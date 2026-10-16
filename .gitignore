@@ -1,4 +1,6 @@
 # Local dev
 serve.ps1
+server.js
+.vercel
 .DS_Store
 Thumbs.db
