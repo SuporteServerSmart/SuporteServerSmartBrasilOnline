@@ -837,15 +837,189 @@ window.SSB = {
     return apiData;
   },
 
-  deleteApi(apiId) {
-    let apis = this.getApis();
-    const removed = apis.find(a => a.id === apiId);
-    apis = apis.filter(a => a.id !== apiId);
-    this.saveApis(apis);
-    if (removed) {
-      this.addLog('api', `API [${removed.name}] removida do gerenciador.`);
+  // Gerenciador de Grupos de Serviços
+  getGroups() {
+    try {
+      const stored = localStorage.getItem('sss_service_groups_v1');
+      if (stored) return JSON.parse(stored);
+
+      const defaultGroups = [
+        { id: 'grp-1', name: 'Licenças Digitais & Ferramentas', type: 'Ferramentas' },
+        { id: 'grp-2', name: 'Samsung FRP & KG Server', type: 'IMEI / Servidor' },
+        { id: 'grp-3', name: 'Xiaomi Mi Account & Auth EDL', type: 'Créditos / Servidor' },
+        { id: 'grp-4', name: 'Apple iCloud & Check GSX', type: 'Verificação / IMEI' },
+        { id: 'grp-5', name: 'Motorola & Servidores Remotos', type: 'Remoto' }
+      ];
+      this.saveGroups(defaultGroups);
+      return defaultGroups;
+    } catch (e) {
+      return [];
     }
-    return apis;
+  },
+
+  saveGroups(groups) {
+    localStorage.setItem('sss_service_groups_v1', JSON.stringify(groups));
+  },
+
+  saveGroup(groupData) {
+    const groups = this.getGroups();
+    if (groupData.id) {
+      const idx = groups.findIndex(g => g.id === groupData.id);
+      if (idx !== -1) {
+        groups[idx] = { ...groups[idx], ...groupData };
+      } else {
+        groups.push(groupData);
+      }
+    } else {
+      groupData.id = 'grp-' + Date.now();
+      groups.push(groupData);
+    }
+    this.saveGroups(groups);
+    this.addLog('system', `Grupo de serviços [${groupData.name}] salvo.`);
+    return groupData;
+  },
+
+  deleteGroup(groupId) {
+    let groups = this.getGroups();
+    const removed = groups.find(g => g.id === groupId);
+    groups = groups.filter(g => g.id !== groupId);
+    this.saveGroups(groups);
+    if (removed) {
+      this.addLog('system', `Grupo [${removed.name}] removido.`);
+    }
+    return groups;
+  },
+
+  applyGroupToServices(serviceIds, groupName) {
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) return 0;
+    const services = this.getServices();
+    let updated = 0;
+    services.forEach(s => {
+      if (serviceIds.includes(s.id)) {
+        s.group = groupName;
+        s.categoryLabel = groupName;
+        updated++;
+      }
+    });
+    this.saveServices(services);
+    this.addLog('system', `Grupo [${groupName}] aplicado a ${updated} serviços.`);
+    return updated;
+  },
+
+  deleteServicesBatch(serviceIds) {
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) return 0;
+    let services = this.getServices();
+    const initialLen = services.length;
+    services = services.filter(s => !serviceIds.includes(s.id));
+    this.saveServices(services);
+    const removedCount = initialLen - services.length;
+    this.addLog('system', `${removedCount} serviços removidos em lote do catálogo.`);
+    return removedCount;
+  },
+
+  updatePricesBatch(serviceIds, percentDelta) {
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) return 0;
+    const services = this.getServices();
+    let updated = 0;
+    const factor = 1 + (percentDelta / 100);
+    services.forEach(s => {
+      if (serviceIds.includes(s.id)) {
+        s.priceBRL = Math.round(s.priceBRL * factor * 100) / 100;
+        if (s.priceUSD) s.priceUSD = Math.round(s.priceUSD * factor * 100) / 100;
+        updated++;
+      }
+    });
+    this.saveServices(services);
+    this.addLog('system', `Preço de ${updated} serviços reajustado em ${percentDelta}%.`);
+    return updated;
+  },
+
+  // Gerenciador de Arquivos & Firmwares
+  getFiles() {
+    try {
+      const stored = localStorage.getItem('sss_files_v1');
+      if (stored) return JSON.parse(stored);
+      const defaultFiles = [
+        { id: 'file-1', name: 'Samsung USB Driver v1.7.59 Official', category: 'Drivers', size: '35 MB', url: 'https://developer.samsung.com', downloads: 1420 },
+        { id: 'file-2', name: 'Qualcomm QDLoader HS-USB 9008 Driver x64', category: 'Drivers', size: '18 MB', url: '#', downloads: 2890 },
+        { id: 'file-3', name: 'MTK MediaTek VCOM Driver All Windows', category: 'Drivers', size: '12 MB', url: '#', downloads: 3100 },
+        { id: 'file-4', name: 'Xiaomi Mi Flash Tool 2024 Stable', category: 'Ferramentas', size: '65 MB', url: '#', downloads: 1850 },
+        { id: 'file-5', name: 'Odin3 v3.14.4 Patched Clean Flash', category: 'Ferramentas', size: '4 MB', url: '#', downloads: 4500 }
+      ];
+      this.saveFiles(defaultFiles);
+      return defaultFiles;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveFiles(files) {
+    localStorage.setItem('sss_files_v1', JSON.stringify(files));
+  },
+
+  saveFile(fileData) {
+    const files = this.getFiles();
+    if (fileData.id) {
+      const idx = files.findIndex(f => f.id === fileData.id);
+      if (idx !== -1) files[idx] = { ...files[idx], ...fileData };
+      else files.push(fileData);
+    } else {
+      fileData.id = 'file-' + Date.now();
+      fileData.downloads = fileData.downloads || 0;
+      files.push(fileData);
+    }
+    this.saveFiles(files);
+    return fileData;
+  },
+
+  deleteFile(fileId) {
+    let files = this.getFiles();
+    files = files.filter(f => f.id !== fileId);
+    this.saveFiles(files);
+    return files;
+  },
+
+  // Gerenciador de Cursos & Aulas
+  getCourses() {
+    try {
+      const stored = localStorage.getItem('sss_courses_v1');
+      if (stored) return JSON.parse(stored);
+      const defaultCourses = [
+        { id: 'crs-1', title: 'Treinamento Software GSM Master 2026', instructor: 'Equipe Suporte Server Smart', modules: 12, students: 48, status: 'Ativo' },
+        { id: 'crs-2', title: 'Desbloqueio Xiaomi & Samsung EDL 9008 Avançado', instructor: 'Especialista GSM', modules: 8, students: 65, status: 'Ativo' },
+        { id: 'crs-3', title: 'Diagnóstico e Reparo Apple FMI & GSX Check', instructor: 'Equipe Suporte Server Smart', modules: 6, students: 39, status: 'Ativo' }
+      ];
+      this.saveCourses(defaultCourses);
+      return defaultCourses;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveCourses(courses) {
+    localStorage.setItem('sss_courses_v1', JSON.stringify(courses));
+  },
+
+  saveCourse(courseData) {
+    const courses = this.getCourses();
+    if (courseData.id) {
+      const idx = courses.findIndex(c => c.id === courseData.id);
+      if (idx !== -1) courses[idx] = { ...courses[idx], ...courseData };
+      else courses.push(courseData);
+    } else {
+      courseData.id = 'crs-' + Date.now();
+      courseData.students = courseData.students || 0;
+      courses.push(courseData);
+    }
+    this.saveCourses(courses);
+    return courseData;
+  },
+
+  deleteCourse(courseId) {
+    let courses = this.getCourses();
+    courses = courses.filter(c => c.id !== courseId);
+    this.saveCourses(courses);
+    return courses;
   },
 
   resetToDefault() {

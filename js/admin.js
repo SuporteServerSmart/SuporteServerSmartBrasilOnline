@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initAdmin() {
   window.switchTab = switchTab;
+  window.toggleServicesSubmenu = toggleServicesSubmenu;
   window.renderUsersTable = renderUsersTable;
   window.toggleSingleUserCheckbox = toggleSingleUserCheckbox;
   window.toggleSelectAllUsers = toggleSelectAllUsers;
@@ -29,6 +30,37 @@ function initAdmin() {
   window.syncServicesFromApi = syncServicesFromApi;
   window.updateApiColorPreview = updateApiColorPreview;
   window.renderApisTable = renderApisTable;
+
+  // Gerenciador de Serviços e Grupos (Novas telas fotos 2, 3 e 4)
+  window.renderServicesListTable = renderServicesListTable;
+  window.toggleSelectAllServicesList = toggleSelectAllServicesList;
+  window.toggleSingleServiceListCheckbox = toggleSingleServiceListCheckbox;
+  window.toggleServiceActiveStatus = toggleServiceActiveStatus;
+  window.applyBulkGroupToSelected = applyBulkGroupToSelected;
+  window.removeSelectedServicesFromCatalog = removeSelectedServicesFromCatalog;
+  window.promptBulkPriceUpdate = promptBulkPriceUpdate;
+  window.applyBulkPriceUpdate = applyBulkPriceUpdate;
+  window.openNewServiceModal = openNewServiceModal;
+  window.editService = editService;
+  window.deleteService = deleteService;
+
+  window.renderServicesGroupsTable = renderServicesGroupsTable;
+  window.openNewGroupModal = openNewGroupModal;
+  window.editGroupItem = editGroupItem;
+  window.handleSaveGroup = handleSaveGroup;
+  window.deleteGroupItem = deleteGroupItem;
+
+  window.renderAddCreditView = renderAddCreditView;
+  window.handleQuickAddCredit = handleQuickAddCredit;
+  window.renderFinancialView = renderFinancialView;
+
+  window.renderCoursesTable = renderCoursesTable;
+  window.openNewCourseModal = openNewCourseModal;
+  window.deleteCourseItem = deleteCourseItem;
+
+  window.renderFilesTable = renderFilesTable;
+  window.openNewFileModal = openNewFileModal;
+  window.deleteFileItem = deleteFileItem;
 
   try { setupNavigation(); } catch (e) { console.error('Navigation error:', e); }
   try { setupAuthForm(); } catch (e) { console.error('Auth form error:', e); }
@@ -172,67 +204,110 @@ function logoutAndSwitchAccount() {
 }
 
 // 2. Navigation Tabs
+function toggleServicesSubmenu(e) {
+  if (e) e.stopPropagation();
+  const submenu = document.getElementById('submenu-manage-services');
+  const arrow = document.getElementById('services-submenu-arrow');
+  if (!submenu) return;
+
+  const isOpen = submenu.style.display === 'flex';
+  if (isOpen) {
+    submenu.style.display = 'none';
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  } else {
+    submenu.style.display = 'flex';
+    if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    // Se nenhuma sub-aba estiver ativa, já abre por padrão a aba de Serviços
+    const activeSub = submenu.querySelector('.admin-sub-item.active');
+    if (!activeSub) {
+      switchTab('services-list');
+    }
+  }
+}
+
+// 2. Navigation Tabs
 function setupNavigation() {
   window.switchTab = switchTab;
+  window.toggleServicesSubmenu = toggleServicesSubmenu;
 
   // Delegação de eventos no container pai nav
   const navContainer = document.querySelector('.admin-nav');
   if (navContainer) {
     navContainer.addEventListener('click', (e) => {
       const item = e.target.closest('.admin-nav-item');
-      if (item) {
+      if (item && !item.classList.contains('nav-has-submenu')) {
         const tab = item.getAttribute('data-tab');
         if (tab) switchTab(tab);
       }
     });
   }
-
-  // Listeners diretos em cada item como redundância
-  const navItems = document.querySelectorAll('.admin-nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      const tab = item.getAttribute('data-tab');
-      if (tab) switchTab(tab);
-    });
-  });
 }
 
 function switchTab(tabName) {
   if (!tabName) return;
 
+  // Mapeamentos de compatibilidade
+  if (tabName === 'services') tabName = 'services-list';
+  if (tabName === 'api-sync') tabName = 'apis';
+
+  // Se a aba for uma sub-aba de Gerenciar Serviços, manter o submenu aberto
+  const submenu = document.getElementById('submenu-manage-services');
+  const arrow = document.getElementById('services-submenu-arrow');
+  const parentNavItem = document.getElementById('nav-item-manage-services');
+
+  if (tabName === 'services-list' || tabName === 'services-groups') {
+    if (submenu) submenu.style.display = 'flex';
+    if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    if (parentNavItem) parentNavItem.classList.add('active');
+  } else {
+    if (parentNavItem) parentNavItem.classList.remove('active');
+  }
+
   // 1. Alterna estado ativo nos botões do menu lateral
   const navItems = document.querySelectorAll('.admin-nav-item');
   navItems.forEach(el => {
-    const isTarget = el.getAttribute('data-tab') === tabName;
+    const itemTab = el.getAttribute('data-tab');
+    const isTarget = itemTab === tabName;
     el.classList.toggle('active', isTarget);
   });
 
   // 2. Alterna exibição das seções
   const views = document.querySelectorAll('.admin-view');
   views.forEach(view => {
-    const isTarget = view.id === `view-${tabName}`;
+    let isTarget = view.id === `view-${tabName}`;
+    // Fallbacks para compatibilidade
+    if (tabName === 'apis' && view.id === 'view-api-sync') isTarget = true;
+    if (tabName === 'services-list' && view.id === 'view-services') isTarget = false;
     view.style.display = isTarget ? 'block' : 'none';
   });
 
-  // 3. Renderiza dados da aba selecionada de forma isolada e segura
+  // 3. Renderiza dados da aba selecionada
   try {
     if (tabName === 'dashboard') renderDashboard();
     else if (tabName === 'orders') renderOrdersTable();
-    else if (tabName === 'services') renderServicesTable();
-    else if (tabName === 'api-sync') renderApiSyncView();
+    else if (tabName === 'services-list') renderServicesListTable();
+    else if (tabName === 'services-groups') renderServicesGroupsTable();
+    else if (tabName === 'apis') renderApiSyncView();
     else if (tabName === 'users') renderUsersTable();
+    else if (tabName === 'add-credit') renderAddCreditView();
+    else if (tabName === 'financial') renderFinancialView();
+    else if (tabName === 'courses') renderCoursesTable();
+    else if (tabName === 'files') renderFilesTable();
     else if (tabName === 'settings') renderSettingsForm();
   } catch (err) {
     console.error(`Erro ao carregar dados da aba ${tabName}:`, err);
   }
 }
 window.switchTab = switchTab;
+window.toggleServicesSubmenu = toggleServicesSubmenu;
 
 // 3. Load all admin views
 function loadAllAdminData() {
   try { renderDashboard(); } catch (e) { console.error('Dashboard load error:', e); }
   try { renderOrdersTable(); } catch (e) { console.error('Orders load error:', e); }
+  try { renderServicesListTable(); } catch (e) { console.error('Services list load error:', e); }
   try { renderServicesTable(); } catch (e) { console.error('Services load error:', e); }
+  try { renderServicesGroupsTable(); } catch (e) { console.error('Groups load error:', e); }
   try { renderUsersTable(); } catch (e) { console.error('Users load error:', e); }
   try { renderSettingsForm(); } catch (e) { console.error('Settings load error:', e); }
 }
@@ -535,6 +610,7 @@ function deleteService(serviceId) {
 
   showToast('success', 'Serviço excluído!');
   renderServicesTable();
+  renderServicesListTable();
 }
 
 let selectedUserIds = new Set();
@@ -941,6 +1017,7 @@ function setupFiltersAndForms() {
 
       closeModal('modal-service-crud');
       renderServicesTable();
+      renderServicesListTable();
     });
   }
 
@@ -1041,8 +1118,6 @@ function setupFiltersAndForms() {
     });
   }
 
-  // DHRU / GSM API config form
-  setupDhruApiForm();
 }
 
 function resetToInitialData() {
@@ -1896,3 +1971,538 @@ function escapeHtml(str) {
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
 }
+
+// ==========================================
+// SEÇÃO: GERENCIAR SERVIÇOS & GRUPOS (FOTOS 1, 2, 3, 4)
+// ==========================================
+
+let selectedServicesListIds = new Set();
+
+function renderServicesListTable() {
+  const tbody = document.getElementById('services-list-tbody');
+  if (!tbody) return;
+
+  const services = window.SSB.getServices();
+  const groups = window.SSB.getGroups();
+  const apis = window.SSB.getApis ? window.SSB.getApis() : [];
+
+  // 1. Atualizar dropdowns de grupos e APIs
+  const bulkGroupSelect = document.getElementById('services-bulk-group-select');
+  if (bulkGroupSelect) {
+    const currentVal = bulkGroupSelect.value;
+    bulkGroupSelect.innerHTML = '<option value="">Selecionar Grupo</option>' +
+      groups.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
+    if (currentVal) bulkGroupSelect.value = currentVal;
+  }
+
+  const groupFilterSelect = document.getElementById('services-group-filter');
+  if (groupFilterSelect) {
+    const currentVal = groupFilterSelect.value;
+    groupFilterSelect.innerHTML = '<option value="all">Todos os Grupos</option>' +
+      groups.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
+    if (currentVal) groupFilterSelect.value = currentVal;
+  }
+
+  const apiFilterSelect = document.getElementById('services-api-filter');
+  if (apiFilterSelect) {
+    const currentVal = apiFilterSelect.value;
+    apiFilterSelect.innerHTML = '<option value="all">Todas APIs</option>' +
+      apis.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)} (${escapeHtml(a.type)})</option>`).join('');
+    if (currentVal) apiFilterSelect.value = currentVal;
+  }
+
+  // 2. Aplicar Filtros
+  const search = (document.getElementById('services-search-filter')?.value || '').toLowerCase().trim();
+  const apiFilter = document.getElementById('services-api-filter')?.value || 'all';
+  const typeFilter = document.getElementById('services-type-filter')?.value || 'all';
+  const groupFilter = document.getElementById('services-group-filter')?.value || 'all';
+
+  const filtered = services.filter(s => {
+    // Busca por texto
+    if (search) {
+      const matchName = s.name && s.name.toLowerCase().includes(search);
+      const matchDesc = s.description && s.description.toLowerCase().includes(search);
+      const matchId = s.id && s.id.toLowerCase().includes(search);
+      const matchApi = (s.apiName || s.serverApi) && (s.apiName || s.serverApi).toLowerCase().includes(search);
+      if (!matchName && !matchDesc && !matchId && !matchApi) return false;
+    }
+
+    // Filtro por API
+    if (apiFilter !== 'all') {
+      const sApi = s.apiName || s.serverApi || '';
+      if (sApi.toLowerCase() !== apiFilter.toLowerCase()) return false;
+    }
+
+    // Filtro por Tipo / Categoria
+    if (typeFilter !== 'all') {
+      if (s.category !== typeFilter) return false;
+    }
+
+    // Filtro por Grupo
+    if (groupFilter !== 'all') {
+      const sGroup = s.group || s.categoryLabel || '';
+      if (sGroup.toLowerCase() !== groupFilter.toLowerCase()) return false;
+    }
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+          <i class="fa-solid fa-wrench" style="font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; display: block;"></i>
+          Nenhum serviço cadastrado encontrado com os filtros aplicados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(s => {
+    const isChecked = selectedServicesListIds.has(s.id);
+    const cost = (typeof s.costBRL === 'number' ? s.costBRL : parseFloat(s.costBRL) || s.priceBRL || 0).toFixed(2);
+    const groupName = s.group || s.categoryLabel || 'Sem Grupo';
+    const apiName = s.apiName || s.serverApi || 'DHRU / GSM';
+    const categoryName = s.categoryLabel || s.category || 'Ferramentas';
+    const isActive = s.status !== 'inactive';
+
+    return `
+      <tr style="${isChecked ? 'background: rgba(37, 99, 235, 0.08);' : ''}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="services-list-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} onchange="toggleSingleServiceListCheckbox('${s.id}', this.checked)" style="width: 17px; height: 17px; accent-color: #2563eb; cursor: pointer;">
+        </td>
+        <td>
+          <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">${escapeHtml(s.name)}</div>
+          ${s.badge ? `<span style="font-size: 0.7rem; background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.3); padding: 1px 6px; border-radius: 4px; font-weight: 700;">${escapeHtml(s.badge)}</span>` : ''}
+        </td>
+        <td>
+          <span style="font-family: var(--font-mono); font-size: 0.8rem; color: #94a3b8;">${escapeHtml(apiName)}</span>
+        </td>
+        <td>
+          <span style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.35); font-size: 0.78rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; display: inline-block;">
+            ${escapeHtml(groupName)}
+          </span>
+        </td>
+        <td>
+          <span style="font-size: 0.82rem; color: #cbd5e1;">${escapeHtml(categoryName)}</span>
+        </td>
+        <td>
+          <span class="mono" style="color: var(--accent-cyan); font-weight: 700;">R$ ${cost}</span>
+        </td>
+        <td>
+          <span onclick="toggleServiceActiveStatus('${s.id}')" style="cursor: pointer; font-size: 0.76rem; font-weight: 800; color: ${isActive ? 'var(--accent-green)' : 'var(--accent-red)'}; background: ${isActive ? 'rgba(0, 255, 136, 0.12)' : 'rgba(255, 0, 85, 0.12)'}; border: 1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 0, 85, 0.3)'}; padding: 3px 8px; border-radius: 4px; display: inline-block;" title="Clique para ativar/desativar">
+            ${isActive ? 'ATIVO' : 'INATIVO'}
+          </span>
+        </td>
+        <td style="text-align: center;">
+          <div class="action-btn-group" style="justify-content: center;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="editService('${s.id}')" title="Editar">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="deleteService('${s.id}')" style="color: var(--accent-red);" title="Remover">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Atualizar master checkbox
+  const masterCheck = document.getElementById('services-check-all');
+  if (masterCheck) {
+    const allChecked = filtered.length > 0 && filtered.every(s => selectedServicesListIds.has(s.id));
+    masterCheck.checked = allChecked;
+  }
+}
+
+function toggleSingleServiceListCheckbox(serviceId, checked) {
+  if (checked) selectedServicesListIds.add(serviceId);
+  else selectedServicesListIds.delete(serviceId);
+  renderServicesListTable();
+}
+
+function toggleSelectAllServicesList(checked) {
+  const services = window.SSB.getServices();
+  const search = (document.getElementById('services-search-filter')?.value || '').toLowerCase().trim();
+  const apiFilter = document.getElementById('services-api-filter')?.value || 'all';
+  const typeFilter = document.getElementById('services-type-filter')?.value || 'all';
+  const groupFilter = document.getElementById('services-group-filter')?.value || 'all';
+
+  const visible = services.filter(s => {
+    if (search && !(s.name && s.name.toLowerCase().includes(search))) return false;
+    if (apiFilter !== 'all' && (s.apiName || s.serverApi || '').toLowerCase() !== apiFilter.toLowerCase()) return false;
+    if (typeFilter !== 'all' && s.category !== typeFilter) return false;
+    if (groupFilter !== 'all' && (s.group || s.categoryLabel || '').toLowerCase() !== groupFilter.toLowerCase()) return false;
+    return true;
+  });
+
+  visible.forEach(s => {
+    if (checked) selectedServicesListIds.add(s.id);
+    else selectedServicesListIds.delete(s.id);
+  });
+
+  renderServicesListTable();
+}
+
+function toggleServiceActiveStatus(serviceId) {
+  const services = window.SSB.getServices();
+  const target = services.find(s => s.id === serviceId);
+  if (!target) return;
+
+  target.status = target.status === 'inactive' ? 'active' : 'inactive';
+  window.SSB.saveServices(services);
+
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    window.SSB_Supabase.upsertService(target).catch(e => console.warn(e));
+  }
+
+  showToast('info', `Serviço "${target.name}" marcado como ${target.status.toUpperCase()}`);
+  renderServicesListTable();
+  renderServicesTable();
+}
+
+function applyBulkGroupToSelected() {
+  const groupName = document.getElementById('services-bulk-group-select')?.value;
+  if (!groupName) {
+    showToast('warning', 'Selecione um grupo no dropdown antes de aplicar.');
+    return;
+  }
+
+  let targetIds = Array.from(selectedServicesListIds);
+  if (targetIds.length === 0) {
+    const services = window.SSB.getServices();
+    const search = (document.getElementById('services-search-filter')?.value || '').toLowerCase().trim();
+    const visible = services.filter(s => !search || (s.name && s.name.toLowerCase().includes(search)));
+    if (visible.length === 0) {
+      showToast('warning', 'Nenhum serviço disponível para aplicar grupo.');
+      return;
+    }
+    if (!confirm(`Nenhum serviço marcado individualmente. Deseja aplicar o grupo "${groupName}" a TODOS os ${visible.length} serviços filtrados na tela?`)) {
+      return;
+    }
+    targetIds = visible.map(s => s.id);
+  }
+
+  const updatedCount = window.SSB.applyGroupToServices(targetIds, groupName);
+
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    const allServices = window.SSB.getServices();
+    targetIds.forEach(id => {
+      const s = allServices.find(item => item.id === id);
+      if (s) window.SSB_Supabase.upsertService(s).catch(e => console.warn(e));
+    });
+  }
+
+  showToast('success', `Grupo "${groupName}" aplicado com sucesso a ${updatedCount} serviços!`);
+  selectedServicesListIds.clear();
+  renderServicesListTable();
+  renderServicesGroupsTable();
+}
+
+function removeSelectedServicesFromCatalog() {
+  if (selectedServicesListIds.size === 0) {
+    showToast('warning', 'Selecione ao menos um serviço com a caixinha marcada para remover.');
+    return;
+  }
+
+  if (!confirm(`Deseja realmente remover os ${selectedServicesListIds.size} serviços selecionados do catálogo público?`)) {
+    return;
+  }
+
+  const ids = Array.from(selectedServicesListIds);
+  const count = window.SSB.deleteServicesBatch(ids);
+
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    ids.forEach(id => {
+      window.SSB_Supabase.deleteService(id).catch(e => console.warn(e));
+    });
+  }
+
+  selectedServicesListIds.clear();
+  showToast('success', `${count} serviços foram removidos do catálogo com sucesso.`);
+  renderServicesListTable();
+  renderServicesTable();
+  renderServicesGroupsTable();
+}
+
+function promptBulkPriceUpdate() {
+  if (selectedServicesListIds.size === 0) {
+    showToast('warning', 'Marque os serviços que deseja reajustar o preço.');
+    return;
+  }
+  openModal('modal-bulk-price');
+}
+
+function applyBulkPriceUpdate() {
+  const percentVal = parseFloat(document.getElementById('bulk-price-percent')?.value);
+  if (isNaN(percentVal) || percentVal === 0) {
+    showToast('warning', 'Informe uma porcentagem válida de reajuste (ex: 10 para aumentar ou -5 para reduzir).');
+    return;
+  }
+
+  const targetIds = Array.from(selectedServicesListIds);
+  const updatedCount = window.SSB.updatePricesBatch(targetIds, percentVal);
+
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    const allServices = window.SSB.getServices();
+    targetIds.forEach(id => {
+      const s = allServices.find(item => item.id === id);
+      if (s) window.SSB_Supabase.upsertService(s).catch(e => console.warn(e));
+    });
+  }
+
+  closeModal('modal-bulk-price');
+  showToast('success', `Preço de ${updatedCount} serviços reajustado em ${percentVal}% com sucesso!`);
+  renderServicesListTable();
+  renderServicesTable();
+}
+
+// ----------------------------------------------------
+// GRUPOS DE SERVIÇOS (FOTO 4)
+// ----------------------------------------------------
+function renderServicesGroupsTable() {
+  const tbody = document.getElementById('services-groups-tbody');
+  if (!tbody) return;
+
+  const groups = window.SSB.getGroups();
+  const services = window.SSB.getServices();
+
+  if (groups.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+          <i class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; display: block;"></i>
+          Nenhum grupo de serviços cadastrado ainda. Clique em "+ Novo Grupo" para criar.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = groups.map(g => {
+    const count = services.filter(s => (s.group && s.group.toLowerCase() === g.name.toLowerCase()) || (s.categoryLabel && s.categoryLabel.toLowerCase() === g.name.toLowerCase())).length;
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 700; color: #fff; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-folder-closed" style="color: #8b5cf6;"></i>
+            <span>${escapeHtml(g.name)}</span>
+          </div>
+        </td>
+        <td>
+          <span style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; font-size: 0.82rem; color: #cbd5e1;">
+            ${escapeHtml(g.type || 'Geral')}
+          </span>
+        </td>
+        <td>
+          <span class="badge mono" style="background: rgba(139, 92, 246, 0.2); color: #c084fc; font-weight: 700; padding: 3px 10px; border-radius: 999px; font-size: 0.82rem;">
+            ${count} serviços
+          </span>
+        </td>
+        <td style="text-align: center;">
+          <div class="action-btn-group" style="justify-content: center;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="editGroupItem('${g.id}')" title="Editar Grupo">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="deleteGroupItem('${g.id}')" style="color: var(--accent-red);" title="Excluir Grupo">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openNewGroupModal() {
+  document.getElementById('group-modal-title').textContent = 'Novo Grupo de Serviços';
+  document.getElementById('group-edit-id').value = '';
+  document.getElementById('group-edit-name').value = '';
+  document.getElementById('group-edit-type').value = 'Ferramentas';
+  openModal('modal-group-edit');
+}
+
+function editGroupItem(groupId) {
+  const groups = window.SSB.getGroups();
+  const group = groups.find(g => g.id === groupId);
+  if (!group) return;
+
+  document.getElementById('group-modal-title').textContent = 'Editar Grupo de Serviços';
+  document.getElementById('group-edit-id').value = group.id;
+  document.getElementById('group-edit-name').value = group.name;
+  document.getElementById('group-edit-type').value = group.type || 'Ferramentas';
+  openModal('modal-group-edit');
+}
+
+function handleSaveGroup(event) {
+  event.preventDefault();
+  const id = document.getElementById('group-edit-id').value;
+  const name = document.getElementById('group-edit-name').value.trim();
+  const type = document.getElementById('group-edit-type').value;
+
+  if (!name) {
+    showToast('warning', 'Preencha o nome do grupo.');
+    return;
+  }
+
+  window.SSB.saveGroup({ id: id || undefined, name, type });
+  closeModal('modal-group-edit');
+  showToast('success', `Grupo "${name}" salvo com sucesso!`);
+  renderServicesGroupsTable();
+  renderServicesListTable();
+}
+
+function deleteGroupItem(groupId) {
+  const groups = window.SSB.getGroups();
+  const group = groups.find(g => g.id === groupId);
+  if (!group) return;
+
+  if (!confirm(`Deseja realmente excluir o grupo "${group.name}"? Os serviços vinculados não serão deletados, apenas ficarão sem grupo.`)) {
+    return;
+  }
+
+  window.SSB.deleteGroup(groupId);
+  showToast('success', `Grupo "${group.name}" removido com sucesso.`);
+  renderServicesGroupsTable();
+  renderServicesListTable();
+}
+
+// ----------------------------------------------------
+// ADICIONAR CRÉDITO RÁPIDO & FINANCEIRO & CURSOS & ARQUIVOS
+// ----------------------------------------------------
+function renderAddCreditView() {
+  const select = document.getElementById('quick-credit-user-select');
+  if (!select) return;
+
+  const users = window.SSB.getUsers();
+  select.innerHTML = '<option value="">Selecione o Cliente / Revendedor...</option>' +
+    users.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.email)}) - Saldo Atual: R$ ${(u.balanceBRL || 0).toFixed(2)}</option>`).join('');
+}
+
+function handleQuickAddCredit(event) {
+  event.preventDefault();
+  const userId = document.getElementById('quick-credit-user-select')?.value;
+  const amount = parseFloat(document.getElementById('quick-credit-amount')?.value);
+  const obs = document.getElementById('quick-credit-obs')?.value.trim();
+
+  if (!userId) {
+    showToast('warning', 'Selecione um cliente para injetar saldo.');
+    return;
+  }
+  if (isNaN(amount) || amount <= 0) {
+    showToast('warning', 'Digite um valor válido maior que zero.');
+    return;
+  }
+
+  const users = window.SSB.getUsers();
+  const target = users.find(u => u.id === userId);
+  if (!target) return;
+
+  target.balanceBRL = (target.balanceBRL || 0) + amount;
+  window.SSB.updateUser({ id: target.id, email: target.email, name: target.name, balanceBRL: target.balanceBRL });
+  window.SSB.addLog('order', `Crédito de R$ ${amount.toFixed(2)} adicionado para ${target.name}. Obs: ${obs || 'Sem obs'}`);
+
+  showToast('success', `R$ ${amount.toFixed(2)} injetados na conta de ${target.name}! Novo saldo: R$ ${target.balanceBRL.toFixed(2)}`);
+  document.getElementById('quick-add-credit-form').reset();
+  renderAddCreditView();
+  renderUsersTable();
+  renderDashboard();
+}
+
+function renderFinancialView() {
+  const orders = window.SSB.getOrders();
+  const completed = orders.filter(o => o.status === 'completed');
+
+  const totalRevenue = completed.reduce((acc, o) => acc + (o.priceBRL || 0), 0);
+  const totalCost = completed.reduce((acc, o) => acc + (o.costBRL || (o.priceBRL ? o.priceBRL * 0.7 : 0)), 0);
+  const netProfit = totalRevenue - totalCost;
+
+  const revEl = document.getElementById('fin-total-revenue');
+  const costEl = document.getElementById('fin-total-cost');
+  const profEl = document.getElementById('fin-net-profit');
+
+  if (revEl) revEl.textContent = `R$ ${totalRevenue.toFixed(2).replace('.', ',')}`;
+  if (costEl) costEl.textContent = `R$ ${totalCost.toFixed(2).replace('.', ',')}`;
+  if (profEl) profEl.textContent = `R$ ${netProfit.toFixed(2).replace('.', ',')}`;
+}
+
+function renderCoursesTable() {
+  const tbody = document.getElementById('courses-tbody');
+  if (!tbody) return;
+
+  const courses = window.SSB.getCourses();
+  tbody.innerHTML = courses.map(c => `
+    <tr>
+      <td style="font-weight: 700; color: #fff;">${escapeHtml(c.title)}</td>
+      <td><span style="color: #94a3b8;">${escapeHtml(c.instructor || 'Suporte Server Smart')}</span></td>
+      <td><span class="mono" style="color: var(--accent-cyan);">${c.modules || 1} módulos</span></td>
+      <td><span class="badge mono" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">${c.students || 0} alunos</span></td>
+      <td><span style="color: var(--accent-green); font-weight: 700;">${escapeHtml(c.status || 'Ativo')}</span></td>
+      <td style="text-align: center;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteCourseItem('${c.id}')" style="color: var(--accent-red);" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openNewCourseModal() {
+  const title = prompt('Digite o título do novo curso / treinamento GSM:');
+  if (!title) return;
+  const instructor = prompt('Nome do instrutor / ministrante:', 'Equipe Suporte Server Smart') || 'Equipe Suporte Server Smart';
+  const modules = parseInt(prompt('Quantidade de módulos:', '10'), 10) || 10;
+
+  window.SSB.saveCourse({ title, instructor, modules, students: 0, status: 'Ativo' });
+  showToast('success', `Curso "${title}" criado com sucesso!`);
+  renderCoursesTable();
+}
+
+function deleteCourseItem(courseId) {
+  if (!confirm('Deseja realmente remover este curso?')) return;
+  window.SSB.deleteCourse(courseId);
+  showToast('success', 'Curso removido com sucesso.');
+  renderCoursesTable();
+}
+
+function renderFilesTable() {
+  const tbody = document.getElementById('files-tbody');
+  if (!tbody) return;
+
+  const files = window.SSB.getFiles();
+  tbody.innerHTML = files.map(f => `
+    <tr>
+      <td style="font-weight: 700; color: #fff;">
+        <i class="fa-solid fa-file-arrow-down" style="color: var(--accent-cyan); margin-right: 0.4rem;"></i>
+        ${escapeHtml(f.name)}
+      </td>
+      <td><span style="background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 4px; font-size: 0.8rem;">${escapeHtml(f.category || 'Drivers')}</span></td>
+      <td class="mono" style="color: #94a3b8;">${escapeHtml(f.size || '10 MB')}</td>
+      <td class="mono" style="color: var(--accent-green);">${f.downloads || 0} downloads</td>
+      <td style="text-align: center;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFileItem('${f.id}')" style="color: var(--accent-red);" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openNewFileModal() {
+  const name = prompt('Nome do arquivo / driver / loader:');
+  if (!name) return;
+  const category = prompt('Categoria (ex: Drivers, Firmwares, Ferramentas):', 'Drivers') || 'Drivers';
+  const size = prompt('Tamanho do arquivo (ex: 25 MB):', '25 MB') || '25 MB';
+  const url = prompt('Link de download (URL direta ou nuvem):', 'https://') || '#';
+
+  window.SSB.saveFile({ name, category, size, url, downloads: 0 });
+  showToast('success', `Arquivo "${name}" adicionado ao repositório!`);
+  renderFilesTable();
+}
+
+function deleteFileItem(fileId) {
+  if (!confirm('Deseja remover este arquivo da lista de downloads?')) return;
+  window.SSB.deleteFile(fileId);
+  showToast('success', 'Arquivo removido com sucesso.');
+  renderFilesTable();
+}
+
