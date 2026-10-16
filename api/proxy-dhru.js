@@ -127,6 +127,8 @@ module.exports = async function handler(req, res) {
     let actionsToExecute = [];
     if (action === 'get_all_services' || action === 'all') {
       actionsToExecute = serviceActions;
+    } else if (action === 'accountinfo') {
+      actionsToExecute = ['accountinfo', 'serverservicelist', 'imeiservicelist'];
     } else {
       actionsToExecute = [action];
     }
@@ -388,63 +390,77 @@ async function executeRequestWithRedirects(startUrl, postPayload, maxRedirects =
   throw new Error(`Limite de redirecionamentos excedido (${maxRedirects}): ${history.join(' -> ')}`);
 }
 
-// Parser inteligente para estruturas JSON retornadas por servidores DHRU Fusion
+// Parser inteligente para estruturas JSON retornadas por servidores DHRU Fusion e GSM Theme
 function parseDhruJsonServices(data) {
   const result = [];
+  const seenIds = new Set();
 
-  // Caso A: { SUCCESS: [ { LIST: { GROUP_NAME: "...", SERVICES: [ ... ] } } ] }
-  // Ou: { SUCCESS: [ { GROUPNAME: "...", SERVICES: [ ... ] } ] }
-  const successBlock = data.SUCCESS || data.success || data;
+  function isService(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+    const hasName = Boolean(obj.SERVICENAME || obj.servicename || obj.ServiceName || obj.service_name);
+    const hasId = Boolean(obj.SERVICEID || obj.serviceid || obj.ServiceID || obj.service_id);
+    const hasCredit = obj.CREDIT !== undefined || obj.credit !== undefined || obj.price !== undefined || obj.cost !== undefined || obj.Cost !== undefined;
+    
+    return hasName || (hasId && hasCredit);
+  }
 
-  function processServiceItem(item, groupName = '') {
-    if (!item) return;
-    const name = String(item.SERVICENAME || item.servicename || item.name || item.ServiceName || '').trim();
+  function extractService(obj, groupName = '') {
+    const name = String(obj.SERVICENAME || obj.servicename || obj.ServiceName || obj.service_name || obj.name || '').trim();
     if (!name) return;
 
-    const id = String(item.SERVICEID || item.serviceid || item.id || `dhru-${Date.now()}-${result.length}`).trim();
-    const credit = parseFloat(item.CREDIT || item.credit || item.price || item.Cost || item.cost || 0);
-    const time = String(item.TIME || item.time || item.DeliveryTime || item.delivery_time || '1-24 Horas').trim();
-    const info = String(item.INFO || item.info || item.description || groupName || '').trim();
+    const id = String(obj.SERVICEID || obj.serviceid || obj.ServiceID || obj.service_id || obj.id || `dhru-${Date.now()}-${result.length}`).trim();
+    const key = `${id}-${name.toLowerCase()}`;
+    if (seenIds.has(key)) return;
+    seenIds.add(key);
+
+    const credit = parseFloat(obj.CREDIT || obj.credit || obj.price || obj.cost || obj.Cost || 0) || 0;
+    const time = String(obj.TIME || obj.time || obj.DeliveryTime || obj.delivery_time || obj.timeframe || '1-24 Horas').trim();
+    const group = String(obj.GROUPNAME || obj.groupname || obj.GroupName || obj.GROUP_NAME || groupName || '').trim();
+    const info = String(obj.INFO || obj.info || obj.description || obj.Description || '').trim();
 
     result.push({
       id: id,
       name: name,
-      category: detectCategory(name, groupName),
-      categoryLabel: detectCategoryLabel(name, groupName),
+      category: detectCategory(name, group),
+      categoryLabel: detectCategoryLabel(name, group),
       costUSD: credit,
       time: time,
-      description: info || `${name} - Via API DHRU Fusion`
+      description: info || (group ? `${name} (${group})` : `${name} - Via API DHRU Fusion`)
     });
   }
 
-  if (Array.isArray(successBlock)) {
-    for (const group of successBlock) {
-      const groupName = group.GROUPNAME || group.groupname || group.GROUP_NAME || (group.LIST && group.LIST.GROUP_NAME) || '';
-      const list = group.SERVICES || group.services || (group.LIST && group.LIST.SERVICES) || [];
+  function traverse(node, currentGroup = '') {
+    if (!node || typeof node !== 'object') return;
 
-      if (Array.isArray(list)) {
-        for (const s of list) {
-          processServiceItem(s, groupName);
-        }
-      } else if (typeof list === 'object' && list !== null) {
-        Object.values(list).forEach(s => processServiceItem(s, groupName));
-      } else if (group.SERVICEID || group.SERVICENAME || group.name) {
-        processServiceItem(group, groupName);
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        traverse(item, currentGroup);
+      }
+      return;
+    }
+
+    // Se o próprio objeto é um item de serviço
+    if (isService(node)) {
+      extractService(node, currentGroup);
+      return;
+    }
+
+    // Obter nome de grupo se especificado no nó
+    const nodeGroup = node.GROUPNAME || node.groupname || node.GroupName || node.GROUP_NAME || '';
+    const activeGroup = nodeGroup || currentGroup;
+
+    // Percorrer chaves e sub-objetos
+    for (const [key, val] of Object.entries(node)) {
+      if (typeof val === 'object' && val !== null) {
+        const isNumeric = /^\d+$/.test(key);
+        const childGroup = (val.GROUPNAME || val.groupname || val.GroupName || val.GROUP_NAME || (!isNumeric && key !== 'LIST' && key !== 'SERVICES' && key !== 'SUCCESS' && key !== 'success' ? key : '')) || activeGroup;
+        traverse(val, childGroup);
       }
     }
-  } else if (typeof successBlock === 'object' && successBlock !== null) {
-    // Pode ser um dicionário { "1": { ... }, "2": { ... } }
-    Object.keys(successBlock).forEach(k => {
-      const val = successBlock[k];
-      if (typeof val === 'object' && val !== null) {
-        if (val.SERVICES && Array.isArray(val.SERVICES)) {
-          val.SERVICES.forEach(s => processServiceItem(s, val.GROUP_NAME || k));
-        } else if (val.SERVICENAME || val.name || val.SERVICEID) {
-          processServiceItem(val, k);
-        }
-      }
-    });
   }
+
+  const successBlock = data.SUCCESS || data.success || data;
+  traverse(successBlock);
 
   return result;
 }
