@@ -11,6 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initAdmin() {
   window.switchTab = switchTab;
+  window.renderUsersTable = renderUsersTable;
+  window.toggleSingleUserCheckbox = toggleSingleUserCheckbox;
+  window.toggleSelectAllUsers = toggleSelectAllUsers;
+  window.deleteSingleUserPermanent = deleteSingleUserPermanent;
+  window.deleteSelectedUsersPermanent = deleteSelectedUsersPermanent;
+  window.deleteAllUsersPermanent = deleteAllUsersPermanent;
+  window.openEditUserModal = openEditUserModal;
+  window.addCreditToUser = addCreditToUser;
+  window.openAddUserModal = openAddUserModal;
+
   try { setupNavigation(); } catch (e) { console.error('Navigation error:', e); }
   try { setupAuthForm(); } catch (e) { console.error('Auth form error:', e); }
   try { setupFiltersAndForms(); } catch (e) { console.error('Filters error:', e); }
@@ -518,32 +528,200 @@ function deleteService(serviceId) {
   renderServicesTable();
 }
 
+let selectedUserIds = new Set();
+
 // 9. Users / Resellers
 function renderUsersTable() {
   const tbody = document.getElementById('admin-users-tbody');
+  const totalCountEl = document.getElementById('users-total-count');
   if (!tbody) return;
 
-  const users = window.SSB.getUsers();
+  let users = window.SSB.getUsers();
+  const search = (document.getElementById('users-search-filter')?.value || '').toLowerCase().trim();
+  const roleFilter = document.getElementById('users-role-filter')?.value || 'all';
+
+  // Filtragem de busca e cargo
+  users = users.filter(u => {
+    const matchesSearch = !search ||
+      (u.name && u.name.toLowerCase().includes(search)) ||
+      (u.email && u.email.toLowerCase().includes(search));
+
+    let matchesRole = true;
+    const r = (u.role || '').toLowerCase();
+    if (roleFilter === 'admin') matchesRole = r.includes('admin');
+    else if (roleFilter === 'master') matchesRole = r.includes('master');
+    else if (roleFilter === 'vip') matchesRole = r.includes('vip');
+    else if (roleFilter === 'cliente') matchesRole = !r.includes('admin') && !r.includes('master') && !r.includes('vip');
+
+    return matchesSearch && matchesRole;
+  });
+
+  if (totalCountEl) totalCountEl.textContent = users.length;
+
+  if (users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Nenhum cliente ou revendedor encontrado.</td></tr>`;
+    updateUsersSelectedCount();
+    return;
+  }
 
   tbody.innerHTML = users.map(u => {
+    const isSelected = selectedUserIds.has(u.id);
     const balanceBRL = typeof u.balanceBRL === 'number' ? u.balanceBRL : parseFloat(u.balanceBRL) || 0;
     const roleStr = u.role || 'Cliente Técnico';
+    const isAdm = roleStr.includes('Admin');
+
+    let badgeClass = 'badge-pending';
+    if (isAdm) badgeClass = 'badge-processing';
+    else if (roleStr.includes('Master')) badgeClass = 'badge-completed';
+    else if (roleStr.includes('VIP')) badgeClass = 'badge-processing';
+
     return `
-      <tr>
-        <td><strong>${escapeHtml(u.name || '')}</strong></td>
-        <td style="color: var(--text-secondary);">${escapeHtml(u.email || '')}</td>
-        <td><span class="service-badge ${roleStr.includes('Master') ? 'pro' : ''}">${escapeHtml(roleStr)}</span></td>
-        <td class="mono" style="font-weight: 700; color: var(--accent-green); font-size: 1rem;">R$ ${balanceBRL.toFixed(2)}</td>
-        <td class="mono">${u.ordersCount || 0} pedidos</td>
-        <td class="mono" style="color: var(--accent-cyan); font-weight: 600;">${u.discountPercent || 0}% OFF</td>
+      <tr style="${isSelected ? 'background: rgba(255, 0, 85, 0.08);' : ''}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="user-select-checkbox" data-user-id="${u.id}" ${isSelected ? 'checked' : ''} onchange="toggleSingleUserCheckbox('${u.id}', this.checked)" style="width: 17px; height: 17px; accent-color: var(--accent-red); cursor: pointer;">
+        </td>
         <td>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="addCreditToUser('${u.id}')">
-            <i class="fa-solid fa-circle-plus"></i> Injetar Créditos
-          </button>
+          <div style="font-weight: 700; color: #fff;">${escapeHtml(u.name || 'Sem Nome')}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${escapeHtml(u.id)}</div>
+        </td>
+        <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.85rem;">
+          ${escapeHtml(u.email || '-')}
+        </td>
+        <td>
+          <span class="order-badge-status ${badgeClass}" style="font-size: 0.75rem;">
+            ${escapeHtml(roleStr)}
+          </span>
+        </td>
+        <td class="mono" style="font-weight: 800; color: var(--accent-green); font-size: 0.95rem;">
+          R$ ${balanceBRL.toFixed(2)}
+        </td>
+        <td class="mono">${u.ordersCount || 0} ordens</td>
+        <td class="mono" style="color: var(--accent-cyan); font-weight: 700;">
+          ${u.discountPercent || 0}% OFF
+        </td>
+        <td>
+          <div class="action-btn-group">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditUserModal('${u.id}')" title="Gerenciar Conta / Redefinir Senha / Nível">
+              <i class="fa-solid fa-user-pen"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addCreditToUser('${u.id}')" title="Injetar / Alterar Créditos">
+              <i class="fa-solid fa-coins" style="color: #ffd700;"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="deleteSingleUserPermanent('${u.id}')" style="color: var(--accent-red);" title="Excluir Permanentemente">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
   }).join('');
+
+  updateUsersSelectedCount();
+}
+
+function toggleSingleUserCheckbox(userId, isChecked) {
+  if (isChecked) selectedUserIds.add(userId);
+  else selectedUserIds.delete(userId);
+  updateUsersSelectedCount();
+}
+
+function toggleSelectAllUsers(selectAll) {
+  const users = window.SSB.getUsers();
+  users.forEach(u => {
+    if (selectAll) selectedUserIds.add(u.id);
+    else selectedUserIds.delete(u.id);
+  });
+
+  const checkAllTh = document.getElementById('users-check-all-th');
+  if (checkAllTh) checkAllTh.checked = selectAll;
+
+  document.querySelectorAll('.user-select-checkbox').forEach(cb => {
+    const id = cb.getAttribute('data-user-id');
+    cb.checked = selectedUserIds.has(id);
+  });
+
+  updateUsersSelectedCount();
+}
+
+function updateUsersSelectedCount() {
+  const countEl = document.getElementById('users-selected-count');
+  if (countEl) countEl.textContent = selectedUserIds.size;
+}
+
+function deleteSingleUserPermanent(userId) {
+  const users = window.SSB.getUsers();
+  const u = users.find(x => x.id === userId);
+  const userName = u ? u.name : userId;
+
+  if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE a conta de [${userName}]?\nO cliente não poderá mais fazer login nem acessar o saldo!`)) {
+    return;
+  }
+
+  window.SSB.deleteUser(userId);
+  selectedUserIds.delete(userId);
+  showToast('success', `Usuário ${userName} excluído permanentemente!`);
+  renderUsersTable();
+  renderDashboard();
+}
+
+function deleteSelectedUsersPermanent() {
+  if (selectedUserIds.size === 0) {
+    showToast('warning', 'Selecione ao menos 1 usuário para excluir.');
+    return;
+  }
+
+  const count = selectedUserIds.size;
+  if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE os ${count} clientes/revendedores selecionados?\nEsta ação apagará as contas de forma definitiva!`)) {
+    return;
+  }
+
+  const removed = window.SSB.deleteUsers(Array.from(selectedUserIds));
+  selectedUserIds.clear();
+  showToast('success', `${removed} contas de clientes/revendedores excluídas permanentemente!`);
+  renderUsersTable();
+  renderDashboard();
+}
+
+function deleteAllUsersPermanent() {
+  const users = window.SSB.getUsers();
+  if (users.length === 0) {
+    showToast('info', 'Não há usuários cadastrados para excluir.');
+    return;
+  }
+
+  if (!confirm(`⚠️ ALERTA MÁXIMO:\nDeseja realmente EXCLUIR TODAS AS CONTAS DE CLIENTES E REVENDEDORES (${users.length} usuários)?\n\nTodos os acessos e saldos serão apagados definitivamente!\n(Seu login com PIN mestre admin123 continuará funcionando normalmente).`)) {
+    return;
+  }
+
+  window.SSB.deleteAllUsers();
+  selectedUserIds.clear();
+  showToast('success', 'Todas as contas de clientes e revendedores foram excluídas permanentemente!');
+  renderUsersTable();
+  renderDashboard();
+}
+
+function openEditUserModal(userId) {
+  const users = window.SSB.getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return;
+
+  document.getElementById('user-edit-id').value = user.id;
+  document.getElementById('user-edit-name').value = user.name || '';
+  document.getElementById('user-edit-email').value = user.email || '';
+  document.getElementById('user-edit-password').value = '';
+  document.getElementById('user-edit-role').value = user.role || 'Cliente Técnico';
+  document.getElementById('user-edit-balance').value = (user.balanceBRL || 0).toFixed(2);
+  document.getElementById('user-edit-discount').value = user.discountPercent || 0;
+
+  const delBtn = document.getElementById('user-edit-delete-btn');
+  if (delBtn) {
+    delBtn.onclick = () => {
+      closeModal('modal-user-edit');
+      deleteSingleUserPermanent(user.id);
+    };
+  }
+
+  openModal('modal-user-edit');
 }
 
 function addCreditToUser(userId) {
@@ -551,19 +729,40 @@ function addCreditToUser(userId) {
   const user = users.find(u => u.id === userId);
   if (!user) return;
 
-  const amountStr = prompt(`Informe o valor de recarga em R$ para [${user.name}]:`, "100.00");
-  if (!amountStr) return;
+  const currentBal = (user.balanceBRL || 0).toFixed(2);
+  const actionChoice = prompt(
+    `Gerenciador de Saldo para [${user.name}]:\n` +
+    `Saldo atual: R$ ${currentBal}\n\n` +
+    `Digite o valor para ADICIONAR (ex: 50)\n` +
+    `Ou digite um valor negativo para SUBTRAIR (ex: -20)\n` +
+    `Ou digite '=VALOR' para DEFINIR direto (ex: =100):`,
+    "50.00"
+  );
+  if (!actionChoice) return;
 
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0) {
-    showToast('error', 'Valor inválido inserido.');
-    return;
+  const trimmed = actionChoice.trim();
+  let newBalance = user.balanceBRL || 0;
+
+  if (trimmed.startsWith('=')) {
+    const directVal = parseFloat(trimmed.slice(1));
+    if (isNaN(directVal) || directVal < 0) {
+      showToast('error', 'Valor de saldo inválido.');
+      return;
+    }
+    newBalance = directVal;
+  } else {
+    const delta = parseFloat(trimmed);
+    if (isNaN(delta)) {
+      showToast('error', 'Valor inválido.');
+      return;
+    }
+    newBalance += delta;
+    if (newBalance < 0) newBalance = 0;
   }
 
-  user.balanceBRL += amount;
-  window.SSB.saveUsers(users);
-  window.SSB.addLog('system', `Crédito de R$ ${amount.toFixed(2)} adicionado para ${user.name}`);
-  showToast('success', `R$ ${amount.toFixed(2)} creditados para ${user.name}!`);
+  user.balanceBRL = newBalance;
+  window.SSB.updateUser({ id: user.id, email: user.email, name: user.name, balanceBRL: newBalance });
+  showToast('success', `Saldo de ${user.name} atualizado para R$ ${newBalance.toFixed(2)}!`);
   renderUsersTable();
   renderDashboard();
 }
@@ -760,6 +959,30 @@ function setupFiltersAndForms() {
       window.SSB.addLog('system', `Novo revendedor cadastrado: ${name}`);
       closeModal('modal-user-add');
       showToast('success', 'Revendedor adicionado com sucesso!');
+      renderUsersTable();
+      renderDashboard();
+    });
+  }
+
+  // User Edit form (Controle Total de Clientes e Revendedores)
+  const userEditForm = document.getElementById('user-edit-form');
+  if (userEditForm) {
+    userEditForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('user-edit-id').value;
+      const name = document.getElementById('user-edit-name').value.trim();
+      const email = document.getElementById('user-edit-email').value.trim();
+      const password = document.getElementById('user-edit-password').value.trim();
+      const role = document.getElementById('user-edit-role').value;
+      const balanceBRL = parseFloat(document.getElementById('user-edit-balance').value) || 0;
+      const discountPercent = parseInt(document.getElementById('user-edit-discount').value) || 0;
+
+      const updated = { id, name, email, role, balanceBRL, discountPercent };
+      if (password) updated.password = password;
+
+      window.SSB.updateUser(updated);
+      closeModal('modal-user-edit');
+      showToast('success', `Conta de ${name} atualizada com sucesso!`);
       renderUsersTable();
       renderDashboard();
     });

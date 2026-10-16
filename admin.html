@@ -381,24 +381,61 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <h2 style="font-size: 1.8rem; font-weight: 800;">Clientes & Revendedores</h2>
-              <p style="color: var(--text-secondary); font-size: 0.9rem;">Controle de contas, limites e recargas de saldo pré-pago</p>
+              <p style="color: var(--text-secondary); font-size: 0.9rem;">Controle total de contas, senhas, recargas de saldo e exclusão permanente</p>
             </div>
-            <button type="button" class="btn btn-primary" onclick="openAddUserModal()">
-              <i class="fa-solid fa-user-plus"></i> Novo Revendedor
-            </button>
+            <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAllUsers(true)">
+                <i class="fa-regular fa-square-check"></i> Marcar Todos
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAllUsers(false)">
+                <i class="fa-regular fa-square"></i> Desmarcar
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="deleteSelectedUsersPermanent()" style="background: rgba(255, 0, 85, 0.15); border: 1px solid var(--accent-red); color: #fff;">
+                <i class="fa-solid fa-trash-can" style="color: var(--accent-red);"></i> Excluir Selecionados (<span id="users-selected-count">0</span>)
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="deleteAllUsersPermanent()" style="background: rgba(255, 0, 85, 0.25); border: 1px solid var(--accent-red); color: var(--accent-red);">
+                <i class="fa-solid fa-dumpster-fire"></i> Excluir Tudo
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAddUserModal()">
+                <i class="fa-solid fa-user-plus"></i> Novo Revendedor
+              </button>
+            </div>
+          </div>
+
+          <!-- Users Search & Filter Bar -->
+          <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div style="flex: 1; min-width: 240px; position: relative;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+              <input type="text" id="users-search-filter" class="form-control" style="padding-left: 2.3rem; font-size: 0.85rem;" placeholder="Buscar por nome, loja ou e-mail..." oninput="renderUsersTable()">
+            </div>
+            <div style="width: 220px;">
+              <select id="users-role-filter" class="form-control" style="font-size: 0.85rem;" onchange="renderUsersTable()">
+                <option value="all">Todos os Cargos</option>
+                <option value="admin">Administrador Geral</option>
+                <option value="master">Revendedor Master</option>
+                <option value="vip">Revendedor VIP</option>
+                <option value="cliente">Cliente Técnico</option>
+              </select>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-secondary); margin-left: auto;">
+              Total de Contas: <strong id="users-total-count" style="color: var(--accent-cyan);">0</strong>
+            </div>
           </div>
 
           <div class="data-table-container">
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width: 45px; text-align: center;">
+                    <input type="checkbox" id="users-check-all-th" onchange="toggleSelectAllUsers(this.checked)" style="width: 17px; height: 17px; accent-color: var(--accent-red); cursor: pointer;">
+                  </th>
                   <th>Nome / Loja</th>
                   <th>E-mail</th>
-                  <th>Nível</th>
+                  <th>Nível de Acesso</th>
                   <th>Saldo Disponível</th>
                   <th>Pedidos Feitos</th>
                   <th>Desconto VIP</th>
-                  <th>Ações</th>
+                  <th>Ações de Controle</th>
                 </tr>
               </thead>
               <tbody id="admin-users-tbody">
@@ -884,6 +921,72 @@
           <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
             <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user-add')">Cancelar</button>
             <button type="submit" class="btn btn-primary">Cadastrar Revendedor</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit User Modal (Controle Total) -->
+  <div id="modal-user-edit" class="modal-overlay">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fa-solid fa-user-pen" style="color: var(--accent-cyan);"></i>
+          <span>Gerenciar Conta do Cliente / Revendedor</span>
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModal('modal-user-edit')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="user-edit-form">
+          <input type="hidden" id="user-edit-id">
+
+          <div class="form-group">
+            <label class="form-label">Nome Completo ou Razão da Loja:</label>
+            <input type="text" id="user-edit-name" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">E-mail Cadastrado (Login):</label>
+            <input type="email" id="user-edit-email" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Redefinir Senha do Usuário (opcional):</label>
+            <input type="text" id="user-edit-password" class="form-control" placeholder="Deixe em branco para manter a senha atual">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Se o cliente esqueceu a senha, digite uma nova senha aqui para alterar.</small>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Nível de Parceria / Cargo:</label>
+              <select id="user-edit-role" class="form-control">
+                <option value="Cliente Técnico">Cliente Técnico (0%)</option>
+                <option value="Revendedor VIP">Revendedor VIP (8%)</option>
+                <option value="Revendedor Master">Revendedor Master (12%)</option>
+                <option value="👑 Administrador Geral">👑 Administrador Geral</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Saldo em Créditos (R$):</label>
+              <input type="number" step="0.01" id="user-edit-balance" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Desconto Especial (%) sobre os serviços:</label>
+            <input type="number" id="user-edit-discount" class="form-control" min="0" max="100" value="0">
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <button type="button" class="btn btn-secondary btn-sm" id="user-edit-delete-btn" style="color: var(--accent-red);">
+              <i class="fa-solid fa-trash"></i> Excluir Esta Conta
+            </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user-edit')">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+            </div>
           </div>
         </form>
       </div>

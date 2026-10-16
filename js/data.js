@@ -426,6 +426,123 @@ window.SSB = {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   },
 
+  updateUser(userData) {
+    let users = this.getUsers();
+    const idx = users.findIndex(u => u.id === userData.id || (u.email && userData.email && u.email.toLowerCase() === userData.email.toLowerCase()));
+    if (idx !== -1) {
+      users[idx] = {
+        ...users[idx],
+        ...userData
+      };
+      this.saveUsers(users);
+    }
+
+    // Sincronizar em sss_customer_accounts_v1 se existir
+    try {
+      let accounts = JSON.parse(localStorage.getItem('sss_customer_accounts_v1') || '[]');
+      const accIdx = accounts.findIndex(a => a.email.toLowerCase() === (userData.originalEmail || userData.email || '').toLowerCase());
+      if (accIdx !== -1) {
+        accounts[accIdx].name = userData.name || accounts[accIdx].name;
+        accounts[accIdx].email = userData.email || accounts[accIdx].email;
+        if (userData.password) accounts[accIdx].password = userData.password;
+        if (userData.role) {
+          const isAdmin = userData.role.includes('Admin');
+          accounts[accIdx].role = isAdmin ? 'admin' : userData.role;
+          accounts[accIdx].isAdmin = isAdmin;
+        }
+        if (userData.balanceBRL !== undefined) accounts[accIdx].balance = userData.balanceBRL;
+        localStorage.setItem('sss_customer_accounts_v1', JSON.stringify(accounts));
+      }
+    } catch (e) {}
+
+    this.addLog('system', `Dados do usuário ${userData.name} atualizados com sucesso.`);
+
+    // Sincronizar no Supabase se ativo
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('resellers').upsert({
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        balance_brl: userData.balanceBRL || 0,
+        discount_percent: userData.discountPercent || 0
+      }).catch(e => console.warn(e));
+    }
+
+    return idx !== -1 ? users[idx] : null;
+  },
+
+  deleteUser(userIdOrEmail) {
+    let users = this.getUsers();
+    const user = users.find(u => u.id === userIdOrEmail || (u.email && u.email.toLowerCase() === String(userIdOrEmail).toLowerCase()));
+    const emailToDelete = user ? user.email.toLowerCase() : String(userIdOrEmail).toLowerCase();
+
+    // 1. Remover de sss_users_v1
+    users = users.filter(u => u.id !== userIdOrEmail && (!u.email || u.email.toLowerCase() !== emailToDelete));
+    this.saveUsers(users);
+
+    // 2. Remover de sss_customer_accounts_v1
+    try {
+      let accounts = JSON.parse(localStorage.getItem('sss_customer_accounts_v1') || '[]');
+      accounts = accounts.filter(a => a.email.toLowerCase() !== emailToDelete);
+      localStorage.setItem('sss_customer_accounts_v1', JSON.stringify(accounts));
+    } catch (e) {}
+
+    // 3. Se for a sessão atual de cliente, limpar
+    try {
+      const sess = JSON.parse(localStorage.getItem('sss_customer_session_v1') || 'null');
+      if (sess && sess.email && sess.email.toLowerCase() === emailToDelete) {
+        localStorage.removeItem('sss_customer_session_v1');
+      }
+    } catch (e) {}
+
+    this.addLog('system', `Usuário ${emailToDelete} excluído permanentemente.`);
+
+    // 4. Supabase
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('resellers').delete().eq('email', emailToDelete).catch(e => console.warn(e));
+    }
+  },
+
+  deleteUsers(idOrEmailList) {
+    if (!Array.isArray(idOrEmailList) || idOrEmailList.length === 0) return 0;
+    const deleteEmails = new Set(idOrEmailList.map(x => String(x).toLowerCase()));
+    let users = this.getUsers();
+
+    users.forEach(u => {
+      if (idOrEmailList.includes(u.id) && u.email) {
+        deleteEmails.add(u.email.toLowerCase());
+      }
+    });
+
+    users = users.filter(u => !idOrEmailList.includes(u.id) && (!u.email || !deleteEmails.has(u.email.toLowerCase())));
+    this.saveUsers(users);
+
+    try {
+      let accounts = JSON.parse(localStorage.getItem('sss_customer_accounts_v1') || '[]');
+      accounts = accounts.filter(a => !deleteEmails.has(a.email.toLowerCase()));
+      localStorage.setItem('sss_customer_accounts_v1', JSON.stringify(accounts));
+    } catch (e) {}
+
+    this.addLog('system', `${deleteEmails.size} contas de usuários excluídas permanentemente.`);
+
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('resellers').delete().in('email', Array.from(deleteEmails)).catch(e => console.warn(e));
+    }
+    return deleteEmails.size;
+  },
+
+  deleteAllUsers() {
+    this.saveUsers([]);
+    localStorage.removeItem('sss_customer_accounts_v1');
+    localStorage.removeItem('sss_customer_session_v1');
+    this.addLog('system', `Todos os clientes e revendedores foram excluídos permanentemente.`);
+
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('resellers').delete().neq('id', '_none_').catch(e => console.warn(e));
+    }
+  },
+
   getLogs() {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.LOGS);
