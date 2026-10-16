@@ -60,7 +60,7 @@ ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resellers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso publico para leitura de servicos" ON services FOR SELECT USING (true);
+CREATE POLICY "Acesso total de servicos" ON services FOR ALL USING (true);
 CREATE POLICY "Acesso publico para leitura e criacao de ordens" ON orders FOR ALL USING (true);
 CREATE POLICY "Acesso publico para revendedores" ON resellers FOR ALL USING (true);
 `;
@@ -206,6 +206,84 @@ window.SSB_Supabase = {
     } catch (e) {
       console.warn("Erro ao atualizar ordem no Supabase:", e);
       return null;
+    }
+  },
+
+  // Buscar serviços na nuvem
+  async fetchServices() {
+    if (!this.client || !this.isConfigured) return null;
+    try {
+      const { data, error } = await this.client
+        .from('services')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error || !data || data.length === 0) return null;
+
+      return data.map(s => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        categoryLabel: s.category_label,
+        priceBRL: parseFloat(s.price_brl),
+        priceUSD: parseFloat(s.price_usd || 0),
+        costBRL: parseFloat(s.cost_brl || 0),
+        deliveryTime: s.delivery_time,
+        status: s.status,
+        type: s.type,
+        inputLabel: s.input_label,
+        inputPlaceholder: s.input_placeholder,
+        description: s.description,
+        serverApi: s.server_api,
+        badge: s.badge,
+        featured: s.featured
+      }));
+    } catch (e) {
+      console.warn("Erro ao buscar servicos no Supabase:", e);
+      return null;
+    }
+  },
+
+  // Gravar ou atualizar serviço na nuvem
+  async upsertService(s) {
+    if (!this.client || !this.isConfigured) return null;
+    try {
+      const payload = {
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        category_label: s.categoryLabel || s.category,
+        price_brl: s.priceBRL,
+        price_usd: s.priceUSD || 0,
+        cost_brl: s.costBRL || 0,
+        delivery_time: s.deliveryTime,
+        status: s.status || 'active',
+        type: s.type || 'username',
+        input_label: s.inputLabel,
+        input_placeholder: s.inputPlaceholder || '',
+        description: s.description,
+        server_api: s.serverApi,
+        badge: s.badge || '',
+        featured: !!s.featured
+      };
+      const { data, error } = await this.client
+        .from('services')
+        .upsert([payload])
+        .select();
+      return error ? null : data;
+    } catch (e) {
+      console.warn("Erro ao gravar servico no Supabase:", e);
+      return null;
+    }
+  },
+
+  // Deletar serviço na nuvem
+  async deleteService(serviceId) {
+    if (!this.client || !this.isConfigured) return null;
+    try {
+      await this.client.from('services').delete().eq('id', serviceId);
+    } catch (e) {
+      console.warn("Erro ao deletar servico no Supabase:", e);
     }
   },
 

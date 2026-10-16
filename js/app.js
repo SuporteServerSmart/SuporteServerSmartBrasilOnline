@@ -8,10 +8,22 @@ let currentCategory = 'all';
 let searchQuery = '';
 let activeServiceForCheckout = null;
 
-function initApp() {
+async function initApp() {
   renderSettings();
   renderServices();
   setupEventListeners();
+
+  // Sincronizar serviços em tempo real da nuvem (Supabase)
+  if (window.SSB.syncServicesFromCloud) {
+    try {
+      const cloudServices = await window.SSB.syncServicesFromCloud();
+      if (cloudServices && cloudServices.length > 0) {
+        renderServices();
+      }
+    } catch (e) {
+      console.warn("Usando serviços locais em cache:", e);
+    }
+  }
 }
 
 // 1. Render system settings on page

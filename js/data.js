@@ -476,6 +476,17 @@ window.SSB = {
     return this.getOrders();
   },
 
+  async syncServicesFromCloud() {
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+      const cloudServices = await window.SSB_Supabase.fetchServices();
+      if (cloudServices && cloudServices.length > 0) {
+        this.saveServices(cloudServices);
+        return cloudServices;
+      }
+    }
+    return this.getServices();
+  },
+
   findOrder(query) {
     const orders = this.getOrders();
     const cleanQuery = query.trim().toUpperCase();

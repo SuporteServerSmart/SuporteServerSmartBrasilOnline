@@ -295,6 +295,11 @@ function deleteService(serviceId) {
   const services = window.SSB.getServices().filter(s => s.id !== serviceId);
   window.SSB.saveServices(services);
   window.SSB.addLog('system', `Serviço ${serviceId} removido.`);
+
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    window.SSB_Supabase.deleteService(serviceId);
+  }
+
   showToast('success', 'Serviço excluído!');
   renderServicesTable();
 }
@@ -499,6 +504,15 @@ function setupFiltersAndForms() {
       }
 
       window.SSB.saveServices(services);
+
+      // Sincronizar com o Supabase Cloud
+      const targetService = id ? services.find(s => s.id === id) : services[services.length - 1];
+      if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && targetService) {
+        window.SSB_Supabase.upsertService(targetService).then(res => {
+          if (res) console.log("☁️ Serviço sincronizado com Supabase:", targetService.name);
+        }).catch(e => console.warn(e));
+      }
+
       closeModal('modal-service-crud');
       renderServicesTable();
     });
