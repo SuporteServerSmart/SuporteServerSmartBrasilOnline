@@ -34,8 +34,8 @@
         <a href="#order-checker" class="status-link">
           <i class="fa-solid fa-magnifying-glass"></i> Rastrear Pedido
         </a>
-        <a href="admin.html" class="status-link" style="color: var(--accent-magenta);">
-          <i class="fa-solid fa-lock"></i> Painel Admin / Revenda
+        <a id="top-auth-action" href="javascript:void(0)" onclick="openCustomerAuthModal('login')" class="status-link" style="color: var(--accent-cyan);">
+          <i class="fa-solid fa-user"></i> Área do Cliente / Revenda
         </a>
       </div>
     </div>
@@ -57,21 +57,20 @@
       <nav>
         <ul class="nav-links">
           <li><a href="#inicio" class="active">Início</a></li>
-          <li><a href="#servicos">Catálogo de Serviços</a></li>
-          <li><a href="#order-checker">Consultar Pedido</a></li>
-          <li><a href="#cluster-status">Status Servidores</a></li>
-          <li><a href="#como-funciona">Como Funciona</a></li>
+          <li><a href="#servicos">Serviços GSM</a></li>
+          <li><a href="#order-checker">Rastrear Pedido</a></li>
+          <li><a href="#cluster-status">Status APIs</a></li>
           <li><a href="#faq">FAQ</a></li>
         </ul>
       </nav>
 
       <div class="header-cta-group">
         <a id="btn-top-whatsapp" href="https://wa.me/5511999999999" target="_blank" class="btn btn-whatsapp btn-sm">
-          <i class="fa-brands fa-whatsapp"></i> WhatsApp Suporte
+          <i class="fa-brands fa-whatsapp"></i> WhatsApp
         </a>
-        <a href="admin.html" class="btn btn-admin btn-sm">
-          <i class="fa-solid fa-shield-halved"></i> Painel Admin
-        </a>
+        <div id="nav-auth-container" style="display: flex; align-items: center; gap: 0.5rem;">
+          <!-- Injetado dinamicamente: Botões Entrar/Cadastrar ou Usuário Logado -->
+        </div>
       </div>
     </div>
   </header>
@@ -171,6 +170,9 @@
   <!-- Catalog Section -->
   <section id="servicos" class="section">
     <div class="container">
+      <!-- Banner Dinâmico para Visitantes Não Logados -->
+      <div id="catalog-auth-banner"></div>
+
       <div class="section-header">
         <div class="section-title-box">
           <h2>Catálogo de <span class="text-gradient">Serviços Oficiais</span></h2>
@@ -455,10 +457,10 @@
       </div>
 
       <div class="footer-bottom">
-        <p>&copy; 2026 Suporte Server Smart Brasil Online. Todos os direitos reservados. Plataforma otimizada para deploy na Vercel.</p>
+        <p>&copy; 2026 Suporte Server Smart Brasil Online. Todos os direitos reservados. Plataforma de Servidores GSM.</p>
         <p style="color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
           <span>Tecnologia GSM Server Engine v3.8</span> &bull; 
-          <a href="admin.html" style="color: var(--accent-magenta); font-weight: 600;"><i class="fa-solid fa-lock"></i> Login Admin</a>
+          <span style="color: var(--accent-green);"><i class="fa-solid fa-shield-check"></i> Conexão SSL Segura</span>
         </p>
       </div>
     </div>
@@ -568,6 +570,102 @@
             <i class="fa-brands fa-whatsapp"></i> Notificar Suporte no WhatsApp
           </a>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Auth Modal (Login & Cadastro) -->
+  <div id="customer-auth-modal" class="modal-overlay">
+    <div class="modal-window" style="max-width: 480px;">
+      <div class="modal-header">
+        <div style="display: flex; gap: 0.5rem;" id="auth-modal-tabs">
+          <button type="button" class="tab-btn active" id="tab-btn-login" onclick="switchAuthTab('login')">
+            <i class="fa-solid fa-right-to-bracket"></i> Entrar
+          </button>
+          <button type="button" class="tab-btn" id="tab-btn-register" onclick="switchAuthTab('register')">
+            <i class="fa-solid fa-user-plus"></i> Criar Conta
+          </button>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('customer-auth-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- FORMULÁRIO DE LOGIN -->
+        <form id="customer-login-form">
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Entre na sua conta para desbloquear a visualização de preços oficiais e efetuar pedidos no servidor.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">E-mail Cadastrado:</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-envelope" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+              <input type="email" id="login-email" class="form-control" style="padding-left: 2.6rem;" placeholder="seu@email.com" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Sua Senha:</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-lock" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+              <input type="password" id="login-password" class="form-control" style="padding-left: 2.6rem;" placeholder="••••••••" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem;">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar no Servidor
+          </button>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+            Ainda não tem conta? <a href="javascript:void(0)" onclick="switchAuthTab('register')" style="color: var(--accent-cyan); font-weight: 600;">Cadastre-se grátis</a>
+          </div>
+        </form>
+
+        <!-- FORMULÁRIO DE CADASTRO -->
+        <form id="customer-register-form" style="display: none;">
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Cadastre sua bancada ou assistência técnica para liberar preços de revenda imediatos.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Nome Completo ou Nome da Assistência Técnica:</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-store" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+              <input type="text" id="reg-name" class="form-control" style="padding-left: 2.6rem;" placeholder="Ex: Smart Cell Assistência" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">E-mail para Acesso:</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-envelope" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+              <input type="email" id="reg-email" class="form-control" style="padding-left: 2.6rem;" placeholder="contato@suabancada.com" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">WhatsApp (para receber alertas de desbloqueio):</label>
+            <div style="position: relative;">
+              <i class="fa-brands fa-whatsapp" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--accent-green);"></i>
+              <input type="tel" id="reg-whatsapp" class="form-control" style="padding-left: 2.6rem;" placeholder="(11) 98765-4321" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Crie uma Senha:</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-lock" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+              <input type="password" id="reg-password" class="form-control" style="padding-left: 2.6rem;" placeholder="Mínimo 6 dígitos" minlength="6" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem;">
+            <i class="fa-solid fa-user-check"></i> Concluir Cadastro Gratuito
+          </button>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+            Já possui conta? <a href="javascript:void(0)" onclick="switchAuthTab('login')" style="color: var(--accent-cyan); font-weight: 600;">Faça login aqui</a>
+          </div>
+        </form>
       </div>
     </div>
   </div>

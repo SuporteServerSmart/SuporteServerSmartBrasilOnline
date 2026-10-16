@@ -1,4 +1,18 @@
 // Suporte Server Smart Brasil Online - Client Application Logic
+// Com Autenticação de Clientes / Técnicos e Bloqueio de Preços para Visitantes Não Logados
+
+const CUSTOMER_SESSION_KEY = 'sss_customer_session_v1';
+const CUSTOMER_ACCOUNTS_KEY = 'sss_customer_accounts_v1';
+
+const DEFAULT_ACCOUNTS = [
+  {
+    name: "Técnico Assistência Express",
+    email: "cliente@smart.com",
+    password: "123",
+    whatsapp: "11999999999",
+    balance: 0.00
+  }
+];
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -10,11 +24,12 @@ let activeServiceForCheckout = null;
 
 async function initApp() {
   renderSettings();
+  renderAuthUI();
   renderServices();
   setupEventListeners();
 
   // Sincronizar serviços em tempo real da nuvem (Supabase)
-  if (window.SSB.syncServicesFromCloud) {
+  if (window.SSB && window.SSB.syncServicesFromCloud) {
     try {
       const cloudServices = await window.SSB.syncServicesFromCloud();
       if (cloudServices && cloudServices.length > 0) {
@@ -26,7 +41,194 @@ async function initApp() {
   }
 }
 
-// 1. Render system settings on page
+// 1. Gerenciamento de Sessão de Cliente
+function getCurrentCustomer() {
+  try {
+    const session = localStorage.getItem(CUSTOMER_SESSION_KEY);
+    return session ? JSON.parse(session) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getCustomerAccounts() {
+  try {
+    const stored = localStorage.getItem(CUSTOMER_ACCOUNTS_KEY);
+    return stored ? JSON.parse(stored) : DEFAULT_ACCOUNTS;
+  } catch (e) {
+    return DEFAULT_ACCOUNTS;
+  }
+}
+
+function saveCustomerAccounts(accounts) {
+  localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function renderAuthUI() {
+  const customer = getCurrentCustomer();
+  const navContainer = document.getElementById('nav-auth-container');
+  const catalogBanner = document.getElementById('catalog-auth-banner');
+  const topAuthAction = document.getElementById('top-auth-action');
+
+  if (customer) {
+    // Logado
+    if (navContainer) {
+      navContainer.innerHTML = `
+        <div class="user-pill" title="Conta de Técnico Conectada">
+          <i class="fa-solid fa-user-check" style="color: var(--accent-cyan);"></i>
+          <span>${escapeHtml(customer.name.split(' ')[0])}</span>
+          <span class="user-pill-balance">R$ ${(customer.balance || 0).toFixed(2)}</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      `;
+    }
+
+    if (topAuthAction) {
+      topAuthAction.innerHTML = `<i class="fa-solid fa-user-check"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])}`;
+      topAuthAction.onclick = () => {
+        showToast('info', `Você está logado como: ${customer.name}`);
+      };
+    }
+
+    if (catalogBanner) {
+      catalogBanner.innerHTML = '';
+      catalogBanner.style.display = 'none';
+    }
+  } else {
+    // Não Logado
+    if (navContainer) {
+      navContainer.innerHTML = `
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
+          <i class="fa-solid fa-user-plus"></i> Criar Conta
+        </button>
+      `;
+    }
+
+    if (topAuthAction) {
+      topAuthAction.innerHTML = `<i class="fa-solid fa-user"></i> Área do Cliente / Revenda`;
+      topAuthAction.onclick = () => openCustomerAuthModal('login');
+    }
+
+    if (catalogBanner) {
+      catalogBanner.style.display = 'block';
+      catalogBanner.innerHTML = `
+        <div class="auth-banner-locked">
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(255, 183, 3, 0.15); border: 1px solid rgba(255, 183, 3, 0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-yellow); font-size: 1.3rem;">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem;">
+                Valores de Serviços e Pedidos Exclusivos para Técnicos Cadastrados
+              </h4>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">
+                Crie sua conta gratuitamente ou faça login para desbloquear a tabela de preços de atacado e enviar ordens de serviço.
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
+            <i class="fa-solid fa-user-plus"></i> Criar Minha Conta Grátis
+          </button>
+        </div>
+      `;
+    }
+  }
+}
+
+// 2. Modais e Controle de Auth
+function openCustomerAuthModal(tab = 'login') {
+  switchAuthTab(tab);
+  openModal('customer-auth-modal');
+}
+
+function switchAuthTab(tab) {
+  const loginForm = document.getElementById('customer-login-form');
+  const registerForm = document.getElementById('customer-register-form');
+  const tabLogin = document.getElementById('tab-btn-login');
+  const tabRegister = document.getElementById('tab-btn-register');
+
+  if (tab === 'register') {
+    if (loginForm) loginForm.style.display = 'none';
+    if (registerForm) registerForm.style.display = 'block';
+    if (tabLogin) tabLogin.classList.remove('active');
+    if (tabRegister) tabRegister.classList.add('active');
+  } else {
+    if (loginForm) loginForm.style.display = 'block';
+    if (registerForm) registerForm.style.display = 'none';
+    if (tabLogin) tabLogin.classList.add('active');
+    if (tabRegister) tabRegister.classList.remove('active');
+  }
+}
+
+function handleCustomerLogin(email, password) {
+  const accounts = getCustomerAccounts();
+  const customer = accounts.find(c => c.email.toLowerCase() === email.toLowerCase() && c.password === password);
+
+  if (customer) {
+    localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(customer));
+    closeModal('customer-auth-modal');
+    renderAuthUI();
+    renderServices();
+    showToast('success', `Bem-vindo de volta, ${customer.name}!`);
+  } else {
+    showToast('error', 'E-mail ou senha incorretos! Se ainda não tem cadastro, crie uma conta.');
+  }
+}
+
+function handleCustomerRegister(name, email, whatsapp, password) {
+  const accounts = getCustomerAccounts();
+  const exists = accounts.find(c => c.email.toLowerCase() === email.toLowerCase());
+
+  if (exists) {
+    showToast('error', 'Este e-mail já está cadastrado! Faça login.');
+    switchAuthTab('login');
+    return;
+  }
+
+  const newCustomer = {
+    name,
+    email,
+    whatsapp,
+    password,
+    balance: 0.00
+  };
+
+  accounts.push(newCustomer);
+  saveCustomerAccounts(accounts);
+  localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(newCustomer));
+
+  // Sincronizar novo revendedor no Supabase
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+    window.SSB_Supabase.client.from('resellers').insert([{
+      id: `usr-${Date.now().toString().slice(-4)}`,
+      name: newCustomer.name,
+      email: newCustomer.email,
+      role: 'Cliente Técnico',
+      balance_brl: 0.00
+    }]).then(res => {
+      console.log("☁️ Revendedor sincronizado com Supabase:", newCustomer.name);
+    }).catch(e => console.warn(e));
+  }
+
+  closeModal('customer-auth-modal');
+  renderAuthUI();
+  renderServices();
+  showToast('success', `Conta criada com sucesso! Bem-vindo, ${newCustomer.name}!`);
+}
+
+function handleCustomerLogout() {
+  localStorage.removeItem(CUSTOMER_SESSION_KEY);
+  renderAuthUI();
+  renderServices();
+  showToast('warning', 'Você saiu da sua conta.');
+}
+
+// 3. Render system settings on page
 function renderSettings() {
   const settings = window.SSB.getSettings();
 
@@ -52,13 +254,13 @@ function renderSettings() {
   }
 }
 
-// 2. Render dynamic services grid
+// 4. Render dynamic services grid com Bloqueio de Preços para Não Logados
 function renderServices() {
   const grid = document.getElementById('services-grid');
   if (!grid) return;
 
   const services = window.SSB.getServices();
-  const settings = window.SSB.getSettings();
+  const customer = getCurrentCustomer();
 
   const filtered = services.filter(srv => {
     if (srv.status !== 'active') return false;
@@ -112,20 +314,29 @@ function renderServices() {
         </div>
 
         <div class="service-footer">
-          <div class="price-box">
-            <span class="price-brl">R$ ${srv.priceBRL.toFixed(2).replace('.', ',')}</span>
-            <span class="price-usd">~ US$ ${srv.priceUSD.toFixed(2)}</span>
-          </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openCheckoutModal('${srv.id}')">
-            <i class="fa-solid fa-bolt"></i> Ativar Agora
-          </button>
+          ${customer ? `
+            <div class="price-box">
+              <span class="price-brl">R$ ${srv.priceBRL.toFixed(2).replace('.', ',')}</span>
+              <span class="price-usd">~ US$ ${(srv.priceUSD || 0).toFixed(2)}</span>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openCheckoutModal('${srv.id}')">
+              <i class="fa-solid fa-bolt"></i> Ativar Agora
+            </button>
+          ` : `
+            <div class="price-locked-box" title="Faça login para ver o valor">
+              <i class="fa-solid fa-lock"></i> <span>Preço sob login</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i> Ver Preço / Pedir
+            </button>
+          `}
         </div>
       </div>
     `;
   }).join('');
 }
 
-// 3. Event listeners
+// 5. Event listeners
 function setupEventListeners() {
   // Category tabs
   const tabBtns = document.querySelectorAll('.tab-btn');
@@ -165,9 +376,33 @@ function setupEventListeners() {
       handleCreateOrder();
     });
   }
+
+  // Customer Login Form
+  const loginForm = document.getElementById('customer-login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+      handleCustomerLogin(email, password);
+    });
+  }
+
+  // Customer Register Form
+  const registerForm = document.getElementById('customer-register-form');
+  if (registerForm) {
+    registerForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const whatsapp = document.getElementById('reg-whatsapp').value.trim();
+      const password = document.getElementById('reg-password').value.trim();
+      handleCustomerRegister(name, email, whatsapp, password);
+    });
+  }
 }
 
-// 4. Order tracking logic
+// 6. Order tracking logic
 function handleTrackOrder(query) {
   const resultContainer = document.getElementById('tracker-result-container');
   if (!resultContainer) return;
@@ -264,8 +499,15 @@ function handleTrackOrder(query) {
   `;
 }
 
-// 5. Checkout Modal
+// 7. Checkout Modal (Bloqueado se não estiver logado)
 function openCheckoutModal(serviceId) {
+  const customer = getCurrentCustomer();
+  if (!customer) {
+    showToast('warning', 'Faça login ou crie sua conta para solicitar ativações no servidor!');
+    openCustomerAuthModal('login');
+    return;
+  }
+
   const services = window.SSB.getServices();
   const service = services.find(s => s.id === serviceId);
   if (!service) return;
@@ -281,13 +523,19 @@ function openCheckoutModal(serviceId) {
   const labelEl = document.getElementById('modal-input-label');
   const inputEl = document.getElementById('modal-data-input');
   labelEl.textContent = `${service.inputLabel}:`;
-  inputEl.placeholder = service.inputPlaceholder;
+  inputEl.placeholder = service.inputPlaceholder || 'Digite os dados requeridos';
+
+  // Pré-preencher com dados do cliente logado
+  const customerNameInput = document.getElementById('modal-customer-name');
+  if (customerNameInput) customerNameInput.value = customer.name;
+
+  const customerContactInput = document.getElementById('modal-customer-contact');
+  if (customerContactInput) customerContactInput.value = customer.whatsapp || '';
 
   // PIX QR Code & key
   const pixKeyText = document.getElementById('modal-pix-key-text');
   pixKeyText.textContent = settings.pixKey;
 
-  // Generate dynamic QR Code for PIX using QR server API
   const qrImg = document.getElementById('modal-pix-qr-img');
   const qrData = encodeURIComponent(`PIX:${settings.pixKey}:VALOR:${service.priceBRL.toFixed(2)}:${service.name}`);
   qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}`;
@@ -295,13 +543,14 @@ function openCheckoutModal(serviceId) {
   openModal('checkout-modal');
 }
 
-// 6. Create Order Handler
+// 8. Create Order Handler
 function handleCreateOrder() {
   if (!activeServiceForCheckout) return;
 
+  const customer = getCurrentCustomer();
   const dataInput = document.getElementById('modal-data-input').value.trim();
-  const customerName = document.getElementById('modal-customer-name').value.trim();
-  const customerContact = document.getElementById('modal-customer-contact').value.trim();
+  const customerName = document.getElementById('modal-customer-name').value.trim() || (customer ? customer.name : 'Cliente');
+  const customerContact = document.getElementById('modal-customer-contact').value.trim() || (customer ? customer.whatsapp : '');
 
   const newOrder = window.SSB.addOrder({
     serviceId: activeServiceForCheckout.id,
@@ -337,7 +586,7 @@ function handleCreateOrder() {
   showToast('success', `Pedido ${newOrder.orderId} criado com sucesso!`);
 }
 
-// 7. Modals helper
+// 9. Modals helper
 function openModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.add('active');
@@ -348,7 +597,7 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove('active');
 }
 
-// 8. Copy PIX Key helper
+// 10. Copy PIX Key helper
 function copyPixKey() {
   const settings = window.SSB.getSettings();
   navigator.clipboard.writeText(settings.pixKey).then(() => {
@@ -358,7 +607,7 @@ function copyPixKey() {
   });
 }
 
-// 9. Toast notification helper
+// 11. Toast notification helper
 function showToast(type, message) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -382,7 +631,8 @@ function showToast(type, message) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/[&<>'"]/g, 
+  if (!str) return '';
+  return String(str).replace(/[&<>'"]/g, 
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
 }
