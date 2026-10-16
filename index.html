@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suporte Server Smart Brasil Online | Servidor GSM, Ativações & Ferramentas Digitais</title>
+  <meta name="description" content="Servidor oficial GSM Brasil Online. Ativação instantânea de UnlockTool, Chimera, Pandora, Créditos Xiaomi Auth, FRP Samsung, iCloud Check e suporte remoto 24/7.">
+  <meta name="keywords" content="unlocktool, chimera tool, servidor gsm brasil, ativação gsm, xiaomi auth edl, frp samsung, gsm themer brasil">
+  
+  <!-- Favicon & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top Live Status Bar -->
+  <div class="top-status-bar">
+    <div class="container status-bar-content">
+      <div class="status-items">
+        <span class="status-pill">
+          <span class="pulse-dot"></span>
+          <span>Servidor Principal: <strong id="top-server-status" class="mono text-gradient">ONLINE (18ms)</strong></span>
+        </span>
+        <span class="status-pill">
+          <i class="fa-solid fa-server" style="color: var(--accent-cyan);"></i>
+          <span>APIs Ativas: <strong class="mono" style="color: #fff;">12/12</strong></span>
+        </span>
+        <span class="status-pill">
+          <i class="fa-solid fa-dollar-sign" style="color: var(--accent-green);"></i>
+          <span>Câmbio USD: <strong id="top-usd-rate" class="mono">R$ 5,65</strong></span>
+        </span>
+      </div>
+      <div class="status-actions">
+        <a href="#order-checker" class="status-link">
+          <i class="fa-solid fa-magnifying-glass"></i> Rastrear Pedido
+        </a>
+        <a href="admin.html" class="status-link" style="color: var(--accent-magenta);">
+          <i class="fa-solid fa-lock"></i> Painel Admin / Revenda
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Header -->
+  <header class="main-header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo-brand">
+        <div class="logo-icon-box">
+          <i class="fa-solid fa-microchip"></i>
+        </div>
+        <div class="logo-text-box">
+          <h1>SERVER SMART <span class="logo-badge">GSM BRASIL</span></h1>
+          <span class="logo-tagline">SuporteServerSmartBrasilOnline.com</span>
+        </div>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#inicio" class="active">Início</a></li>
+          <li><a href="#servicos">Catálogo de Serviços</a></li>
+          <li><a href="#order-checker">Consultar Pedido</a></li>
+          <li><a href="#cluster-status">Status Servidores</a></li>
+          <li><a href="#como-funciona">Como Funciona</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-cta-group">
+        <a id="btn-top-whatsapp" href="https://wa.me/5511999999999" target="_blank" class="btn btn-whatsapp btn-sm">
+          <i class="fa-brands fa-whatsapp"></i> WhatsApp Suporte
+        </a>
+        <a href="admin.html" class="btn btn-admin btn-sm">
+          <i class="fa-solid fa-shield-halved"></i> Painel Admin
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section id="inicio" class="hero-section">
+    <div class="hero-glow-blob"></div>
+    <div class="container hero-content">
+      <div class="hero-pill">
+        <i class="fa-solid fa-bolt"></i>
+        <span>TECNOLOGIA GSMTHEMER & DHRU FUSION HIGH-SPEED CLUSTER</span>
+      </div>
+
+      <h1 class="hero-title">
+        Servidor Oficial de <span class="text-gradient">Ferramentas GSM</span>, Créditos & Desbloqueios no Brasil
+      </h1>
+
+      <p class="hero-subtitle">
+        Ativações instantâneas de licenças digitais para <strong>UnlockTool, Chimera, Pandora</strong>, créditos de servidor Xiaomi Auth, reset FRP Samsung e suporte remoto especializado via AnyDesk.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#servicos" class="btn btn-primary btn-lg">
+          <i class="fa-solid fa-cart-shopping"></i> Ver Todos os Serviços
+        </a>
+        <a href="#order-checker" class="btn btn-secondary btn-lg">
+          <i class="fa-solid fa-magnifying-glass"></i> Consultar Status de Pedido
+        </a>
+      </div>
+
+      <!-- Quick Order Tracker Box -->
+      <div id="order-checker" class="order-check-wrapper">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+          <i class="fa-solid fa-satellite-dish" style="color: var(--accent-cyan);"></i>
+          <span>Rastreamento em Tempo Real de IMEI & Pedidos</span>
+        </h3>
+        <form id="tracker-form" class="order-check-form">
+          <div class="order-input-group">
+            <i class="fa-solid fa-fingerprint"></i>
+            <input type="text" id="tracker-input" class="order-input" placeholder="Digite o ID do Pedido (Ex: SSB-98421) ou IMEI / Usuário..." required>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-magnifying-glass"></i> Consultar Agora
+          </button>
+        </form>
+
+        <!-- Order Search Result Placeholder -->
+        <div id="tracker-result-container" style="display: none;"></div>
+      </div>
+
+      <!-- Stats Ribbon -->
+      <div class="stats-ribbon">
+        <div class="stat-card">
+          <div class="stat-icon cyan">
+            <i class="fa-solid fa-rocket"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="stat-orders-count">48.290+</h3>
+            <p>Pedidos Processados</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon purple">
+            <i class="fa-solid fa-clock"></i>
+          </div>
+          <div class="stat-info">
+            <h3>1-5 Min</h3>
+            <p>Tempo Médio de Ativação</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <i class="fa-solid fa-shield-check"></i>
+          </div>
+          <div class="stat-info">
+            <h3>99.98%</h3>
+            <p>Uptime & Disponibilidade</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon yellow">
+            <i class="fa-solid fa-users-gear"></i>
+          </div>
+          <div class="stat-info">
+            <h3>3.150+</h3>
+            <p>Técnicos & Revendedores</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Catalog Section -->
+  <section id="servicos" class="section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-title-box">
+          <h2>Catálogo de <span class="text-gradient">Serviços Oficiais</span></h2>
+          <p>Escolha sua licença ou crédito de servidor com entrega automática via PIX ou USDT</p>
+        </div>
+        <div class="catalog-controls">
+          <div class="category-tabs" id="category-tabs">
+            <button class="tab-btn active" data-category="all">
+              <i class="fa-solid fa-layer-group"></i> Todos
+            </button>
+            <button class="tab-btn" data-category="tools">
+              <i class="fa-solid fa-screwdriver-wrench"></i> Ferramentas Digitais
+            </button>
+            <button class="tab-btn" data-category="imei">
+              <i class="fa-solid fa-mobile-screen"></i> IMEI & FRP
+            </button>
+            <button class="tab-btn" data-category="credits">
+              <i class="fa-solid fa-coins"></i> Créditos Servidor
+            </button>
+            <button class="tab-btn" data-category="remote">
+              <i class="fa-solid fa-headset"></i> Atendimento Remoto
+            </button>
+          </div>
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="service-search-input" class="search-input" placeholder="Buscar por UnlockTool, Chimera, Xiaomi, FRP...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Services Dynamic Grid -->
+      <div id="services-grid" class="services-grid">
+        <!-- Rendered by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works Section -->
+  <section id="como-funciona" class="section" style="background: rgba(13, 17, 26, 0.5);">
+    <div class="container">
+      <div class="section-header" style="text-align: center; justify-content: center; margin-bottom: 3.5rem;">
+        <div class="section-title-box" style="text-align: center;">
+          <h2>Como Funciona a <span class="text-gradient">Automação do Servidor</span></h2>
+          <p>Processo simples, transparente e 100% digital em 4 passos rápidos</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+        <div class="service-card" style="text-align: center; align-items: center;">
+          <div class="stat-icon cyan" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">1. Escolha o Serviço</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">
+            Selecione a ferramenta ou crédito desejado (UnlockTool, Chimera, Xiaomi Auth, etc.).
+          </p>
+        </div>
+
+        <div class="service-card" style="text-align: center; align-items: center;">
+          <div class="stat-icon purple" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
+            <i class="fa-solid fa-keyboard"></i>
+          </div>
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">2. Informe seus Dados</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">
+            Insira o nome de usuário registrado no software ou o IMEI do aparelho a ser processado.
+          </p>
+        </div>
+
+        <div class="service-card" style="text-align: center; align-items: center;">
+          <div class="stat-icon green" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
+            <i class="fa-brands fa-pix"></i>
+          </div>
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">3. Pagamento PIX Instantâneo</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">
+            Efetue o pagamento através do QR Code PIX gerado ou chave Copia e Cola.
+          </p>
+        </div>
+
+        <div class="service-card" style="text-align: center; align-items: center;">
+          <div class="stat-icon yellow" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">4. Entrega & Ativação</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">
+            O servidor dispara a API direta e ativa a licença ou executa o reparo imediatamente.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Server Cluster & Status Grid -->
+  <section id="cluster-status" class="section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-title-box">
+          <h2>Monitoramento de <span class="text-gradient">Servidores & APIs</span></h2>
+          <p>Status ao vivo das conexões de backend com servidores mundiais</p>
+        </div>
+        <span class="status-pill">
+          <span class="pulse-dot"></span>
+          <span>Latência Média: <strong class="mono" style="color: var(--accent-cyan);">24ms</strong></span>
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">UnlockTool Direct API</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">Cluster Singapura / US</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">100% OPERACIONAL</span>
+        </div>
+
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">Chimera Tool Gateway</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">Budapeste Node</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">100% OPERACIONAL</span>
+        </div>
+
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">Xiaomi Global Auth Server</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">EDL 9008 Token Cluster</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">DISPONÍVEL 24/7</span>
+        </div>
+
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">Samsung Knox Server</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">FRP Fast Ingestion</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">NORMAL (1-5m)</span>
+        </div>
+
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">Apple GSX / Check Gateway</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">iCloud Status & Clean Checker</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">INSTANTÂNEO</span>
+        </div>
+
+        <div class="stat-card" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="pulse-dot"></span>
+            <div>
+              <h4 style="font-size: 0.95rem;">Pandora / Octoplus Digital</h4>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">License Verification Server</p>
+            </div>
+          </div>
+          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">OPERACIONAL</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section id="faq" class="section" style="background: rgba(13, 17, 26, 0.4);">
+    <div class="container" style="max-width: 900px;">
+      <div class="section-header" style="justify-content: center; text-align: center; margin-bottom: 2.5rem;">
+        <div class="section-title-box">
+          <h2>Dúvidas <span class="text-gradient">Frequentes</span></h2>
+          <p>Respostas diretas sobre ativações, prazos e garantia</p>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="service-card" style="padding: 1.25rem;">
+          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-circle-question"></i> Quanto tempo leva para ativar o UnlockTool?
+          </h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            A ativação do UnlockTool é efetuada em média de 1 a 10 minutos após o pagamento via PIX. Basta nos informar seu nome de usuário exato cadastrado no site oficial da ferramenta.
+          </p>
+        </div>
+
+        <div class="service-card" style="padding: 1.25rem;">
+          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-circle-question"></i> Como funciona a remoção de Conta Google (FRP) Samsung?
+          </h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            Trabalhamos com o método de injeção de token via servidor direto por IMEI ou via suporte remoto com cabo USB e AnyDesk para os modelos mais novos com o último patch de segurança.
+          </p>
+        </div>
+
+        <div class="service-card" style="padding: 1.25rem;">
+          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-circle-question"></i> Posso me tornar um Revendedor de Créditos?
+          </h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            Sim! Temos preços diferenciados para assistências técnicas e lojistas com alto volume mensal. Acesse a área de revenda ou contate nosso atendimento comercial no WhatsApp.
+          </p>
+        </div>
+
+        <div class="service-card" style="padding: 1.25rem;">
+          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-circle-question"></i> O que acontece se o serviço não for concluído?
+          </h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            Garantia total de 100%. Se o servidor rejeitar a ordem (por exemplo IMEI incorreto ou aparelho não suportado), o valor é estornado imediatamente para sua chave PIX ou saldo do painel.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="logo-brand" style="margin-bottom: 1rem;">
+            <div class="logo-icon-box">
+              <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div class="logo-text-box">
+              <h2 style="font-size: 1.2rem;">SERVER SMART <span class="logo-badge">GSM BRASIL</span></h2>
+            </div>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem;">
+            Plataforma especializada em infraestrutura de servidores GSM, ativação de boxes e dongles digitais, créditos de autenticação Xiaomi, Samsung, Motorola e suporte remoto para bancadas em todo o território nacional.
+          </p>
+          <div style="display: flex; gap: 0.75rem;">
+            <a href="https://wa.me/5511999999999" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+            <a href="https://t.me/SuporteServerSmartOficial" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-brands fa-telegram"></i> Telegram</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4>Ferramentas Populares</h4>
+          <ul>
+            <li><a href="#servicos">UnlockTool 3 / 6 / 12 Meses</a></li>
+            <li><a href="#servicos">Chimera Tool All Modules</a></li>
+            <li><a href="#servicos">Pandora Box Digital</a></li>
+            <li><a href="#servicos">Octoplus FRP Tool</a></li>
+            <li><a href="#servicos">Cheetah Tool Pro</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Serviços & Suporte</h4>
+          <ul>
+            <li><a href="#order-checker">Rastreamento de IMEI</a></li>
+            <li><a href="#cluster-status">Monitoramento de Servidores</a></li>
+            <li><a href="#servicos">Xiaomi Auth EDL Server</a></li>
+            <li><a href="#servicos">Desbloqueio FRP Samsung</a></li>
+            <li><a href="admin.html">Acesso Administrativo</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Central de Atendimento</h4>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Atendimento técnico especializado de Segunda a Sábado das 08:00 às 22:00.
+          </p>
+          <p style="font-size: 0.88rem; color: var(--accent-cyan); font-weight: 600; margin-bottom: 0.5rem;">
+            <i class="fa-brands fa-whatsapp"></i> <span id="footer-whatsapp">+55 (11) 99999-9999</span>
+          </p>
+          <p style="font-size: 0.88rem; color: var(--text-muted);">
+            <i class="fa-solid fa-envelope"></i> suporte@serversmartbrasil.com
+          </p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 Suporte Server Smart Brasil Online. Todos os direitos reservados. Plataforma otimizada para deploy na Vercel.</p>
+        <p style="color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+          <span>Tecnologia GSM Server Engine v3.8</span> &bull; 
+          <a href="admin.html" style="color: var(--accent-magenta); font-weight: 600;"><i class="fa-solid fa-lock"></i> Login Admin</a>
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Checkout / Order Modal -->
+  <div id="checkout-modal" class="modal-overlay">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fa-solid fa-cart-shopping" style="color: var(--accent-cyan);"></i>
+          <span>Solicitar Ativação no Servidor</span>
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModal('checkout-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="checkout-form">
+          <input type="hidden" id="modal-service-id">
+
+          <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+            <h4 id="modal-service-name" style="font-size: 1.1rem; color: #fff; margin-bottom: 0.35rem;">Nome do Serviço</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);" id="modal-service-time"><i class="fa-regular fa-clock"></i> 1-10 min</span>
+              <span id="modal-service-price" class="mono" style="font-size: 1.35rem; font-weight: 800; color: var(--accent-cyan);">R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" id="modal-input-label">Usuário / IMEI / Lock Code:</label>
+            <input type="text" id="modal-data-input" class="form-control" required placeholder="Digite o dado necessário">
+            <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; display: block;" id="modal-input-hint">
+              Certifique-se de preencher com atenção para ativação automática sem erros.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Seu Nome / Nome da Assistência Técnica:</label>
+            <input type="text" id="modal-customer-name" class="form-control" required placeholder="Ex: Lucas Tech">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">WhatsApp para Notificação de Conclusão:</label>
+            <input type="tel" id="modal-customer-contact" class="form-control" required placeholder="(XX) 9XXXX-XXXX">
+          </div>
+
+          <!-- PIX Box -->
+          <div class="pix-box">
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-green); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              <i class="fa-brands fa-pix"></i> PAGAMENTO INSTANTÂNEO VIA PIX
+            </div>
+            
+            <div class="pix-qr">
+              <img id="modal-pix-qr-img" src="" alt="QR Code PIX" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+              Chave PIX Oficial do Servidor:
+            </p>
+            <div class="pix-key-display">
+              <span id="modal-pix-key-text" class="mono" style="font-size: 0.82rem; word-break: break-all;">financeiro@serversmartbrasil.com</span>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyPixKey()">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.9rem; font-size: 1rem;">
+            <i class="fa-solid fa-paper-plane"></i> Confirmar Pedido no Servidor
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Created Success Modal -->
+  <div id="success-modal" class="modal-overlay">
+    <div class="modal-window" style="text-align: center;">
+      <div class="modal-body" style="padding: 2.5rem 2rem;">
+        <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(0, 255, 136, 0.15); border: 2px solid var(--accent-green); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: var(--accent-green); font-size: 2rem; box-shadow: var(--shadow-green);">
+          <i class="fa-solid fa-check"></i>
+        </div>
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Pedido Enviado ao Servidor!</h3>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Sua solicitação foi registrada no cluster com sucesso.
+        </p>
+
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem; text-align: left;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Protocolo / Order ID:</span>
+            <strong id="success-order-id" class="mono" style="color: var(--accent-cyan); font-size: 1.05rem;">SSB-00000</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Serviço:</span>
+            <span id="success-service-name" style="font-size: 0.85rem; font-weight: 600;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Status:</span>
+            <span class="order-badge-status badge-pending">PENDENTE / PROCESSANDO</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: center;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('success-modal')">
+            Fechar
+          </button>
+          <a id="btn-success-whatsapp" href="#" target="_blank" class="btn btn-whatsapp">
+            <i class="fa-brands fa-whatsapp"></i> Notificar Suporte no WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
