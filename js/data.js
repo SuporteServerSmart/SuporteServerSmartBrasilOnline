@@ -789,6 +789,65 @@ window.SSB = {
     return { importedCount, updatedCount, total: existingServices.length };
   },
 
+  // Gerenciador de Múltiplas APIs GSM & DHRU
+  getApis() {
+    try {
+      const stored = localStorage.getItem('sss_apis_v1');
+      if (stored) return JSON.parse(stored);
+
+      const settings = this.getSettings();
+      const initialApis = [
+        {
+          id: 'api-conectproo',
+          name: 'Conectproo',
+          type: 'DHRU',
+          status: 'Habilitado',
+          url: settings.dhruApiUrl || 'https://conectproo.com/public/api/index.php',
+          username: settings.dhruApiUsername || '',
+          apiKey: settings.dhruApiKey || '',
+          color: '#3b82f6'
+        }
+      ];
+      this.saveApis(initialApis);
+      return initialApis;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveApis(apis) {
+    localStorage.setItem('sss_apis_v1', JSON.stringify(apis));
+  },
+
+  saveApi(apiData) {
+    const apis = this.getApis();
+    if (apiData.id) {
+      const idx = apis.findIndex(a => a.id === apiData.id);
+      if (idx !== -1) {
+        apis[idx] = { ...apis[idx], ...apiData };
+      } else {
+        apis.push(apiData);
+      }
+    } else {
+      apiData.id = 'api-' + Date.now();
+      apis.push(apiData);
+    }
+    this.saveApis(apis);
+    this.addLog('api', `Configuração da API [${apiData.name}] salva com sucesso.`);
+    return apiData;
+  },
+
+  deleteApi(apiId) {
+    let apis = this.getApis();
+    const removed = apis.find(a => a.id === apiId);
+    apis = apis.filter(a => a.id !== apiId);
+    this.saveApis(apis);
+    if (removed) {
+      this.addLog('api', `API [${removed.name}] removida do gerenciador.`);
+    }
+    return apis;
+  },
+
   resetToDefault() {
     localStorage.removeItem(STORAGE_KEYS.SERVICES);
     localStorage.removeItem(STORAGE_KEYS.ORDERS);

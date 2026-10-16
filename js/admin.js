@@ -21,6 +21,15 @@ function initAdmin() {
   window.addCreditToUser = addCreditToUser;
   window.openAddUserModal = openAddUserModal;
 
+  // Gerenciador de APIs GSM & DHRU
+  window.handleSaveApi = handleSaveApi;
+  window.editApiItem = editApiItem;
+  window.deleteApiItem = deleteApiItem;
+  window.resetApiForm = resetApiForm;
+  window.syncServicesFromApi = syncServicesFromApi;
+  window.updateApiColorPreview = updateApiColorPreview;
+  window.renderApisTable = renderApisTable;
+
   try { setupNavigation(); } catch (e) { console.error('Navigation error:', e); }
   try { setupAuthForm(); } catch (e) { console.error('Auth form error:', e); }
   try { setupFiltersAndForms(); } catch (e) { console.error('Filters error:', e); }
@@ -1066,32 +1075,281 @@ function logApiTerminal(message, type = 'info') {
   }
 }
 
-function renderApiSyncView() {
-  const settings = window.SSB.getSettings();
-  
-  // Preencher formulário de credenciais
-  const providerEl = document.getElementById('dhru-api-provider');
-  const urlEl = document.getElementById('dhru-api-url');
-  const userEl = document.getElementById('dhru-api-username');
-  const keyEl = document.getElementById('dhru-api-key');
-  const marginEl = document.getElementById('dhru-profit-margin');
-  const currentUsdEl = document.getElementById('dhru-current-usd');
-  const badgeEl = document.getElementById('api-connection-badge');
+function updateApiColorPreview(color) {
+  const bar = document.getElementById('api-mgr-color-bar');
+  if (bar) bar.style.background = color || '#8b5cf6';
+}
 
-  if (providerEl) providerEl.value = settings.dhruApiProvider || 'dhru';
-  if (urlEl) urlEl.value = settings.dhruApiUrl || '';
-  if (userEl) userEl.value = settings.dhruApiUsername || '';
-  if (keyEl) keyEl.value = settings.dhruApiKey || '';
-  if (marginEl) marginEl.value = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
-  if (currentUsdEl) currentUsdEl.textContent = (settings.usdRate || 5.65).toFixed(2);
+function resetApiForm() {
+  document.getElementById('api-mgr-id').value = '';
+  document.getElementById('api-mgr-name').value = '';
+  document.getElementById('api-mgr-type').value = 'DHRU';
+  document.getElementById('api-mgr-status').value = 'Habilitado';
+  document.getElementById('api-mgr-url').value = '';
+  document.getElementById('api-mgr-username').value = '';
+  document.getElementById('api-mgr-key').value = '';
+  document.getElementById('api-mgr-color').value = '#8b5cf6';
+  updateApiColorPreview('#8b5cf6');
 
-  if (settings.dhruApiUrl && settings.dhruApiKey) {
-    if (badgeEl) {
-      badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Configurada';
-      badgeEl.style.borderColor = 'rgba(0, 255, 136, 0.4)';
-      badgeEl.style.color = 'var(--accent-green)';
+  const titleEl = document.getElementById('api-form-title');
+  if (titleEl) titleEl.textContent = 'Adicionar Nova API';
+
+  const btnText = document.getElementById('api-btn-save-text');
+  if (btnText) btnText.textContent = 'Salvar API';
+
+  const cancelBtn = document.getElementById('api-form-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function handleSaveApi(e) {
+  if (e) e.preventDefault();
+
+  const id = document.getElementById('api-mgr-id')?.value.trim();
+  const name = document.getElementById('api-mgr-name')?.value.trim();
+  const type = document.getElementById('api-mgr-type')?.value;
+  const status = document.getElementById('api-mgr-status')?.value;
+  let url = (document.getElementById('api-mgr-url')?.value || '').trim();
+  const username = document.getElementById('api-mgr-username')?.value.trim();
+  const apiKey = document.getElementById('api-mgr-key')?.value.trim();
+  const color = document.getElementById('api-mgr-color')?.value || '#8b5cf6';
+
+  if (!name || !url || !username || !apiKey) {
+    showToast('warning', 'Preencha todos os campos da API.');
+    return;
+  }
+
+  // Normalização de URL inteligente
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  if (/\/public\/?$/i.test(url)) {
+    url = url.replace(/\/public\/?$/i, '/public/api/index.php');
+  } else if (!url.includes('.php') && !url.includes('/api/')) {
+    if (url.includes('conectproo.com')) {
+      url = url.replace(/\/+$/, '') + '/public/api/index.php';
     }
   }
+
+  const apiObj = {
+    id: id || undefined,
+    name,
+    type,
+    status,
+    url,
+    username,
+    apiKey,
+    color
+  };
+
+  const saved = window.SSB.saveApi(apiObj);
+  showToast('success', `API [${name}] salva com sucesso!`);
+  logApiTerminal(`API [${name}] salva com sucesso no gerenciador de provedores.`, 'success');
+
+  resetApiForm();
+  renderApisTable();
+}
+
+function editApiItem(apiId) {
+  const apis = window.SSB.getApis();
+  const api = apis.find(a => a.id === apiId);
+  if (!api) return;
+
+  document.getElementById('api-mgr-id').value = api.id;
+  document.getElementById('api-mgr-name').value = api.name || '';
+  document.getElementById('api-mgr-type').value = api.type || 'DHRU';
+  document.getElementById('api-mgr-status').value = api.status || 'Habilitado';
+  document.getElementById('api-mgr-url').value = api.url || '';
+  document.getElementById('api-mgr-username').value = api.username || '';
+  document.getElementById('api-mgr-key').value = api.apiKey || '';
+  document.getElementById('api-mgr-color').value = api.color || '#8b5cf6';
+  updateApiColorPreview(api.color || '#8b5cf6');
+
+  const titleEl = document.getElementById('api-form-title');
+  if (titleEl) titleEl.textContent = `Editar API: ${api.name}`;
+
+  const btnText = document.getElementById('api-btn-save-text');
+  if (btnText) btnText.textContent = 'Atualizar API';
+
+  const cancelBtn = document.getElementById('api-form-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+
+  // Rolar suavemente até o formulário
+  document.getElementById('api-mgr-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showToast('info', `Editando API [${api.name}]. Altere os campos e clique em Atualizar.`);
+}
+
+function deleteApiItem(apiId) {
+  const apis = window.SSB.getApis();
+  const api = apis.find(a => a.id === apiId);
+  const name = api ? api.name : 'esta API';
+
+  if (!confirm(`Deseja realmente remover a API [${name}] do gerenciador?`)) {
+    return;
+  }
+
+  window.SSB.deleteApi(apiId);
+  showToast('success', `API [${name}] removida com sucesso!`);
+  logApiTerminal(`API [${name}] removida do painel.`, 'info');
+  renderApisTable();
+}
+
+async function syncServicesFromApi(apiId) {
+  const apis = window.SSB.getApis();
+  const api = apis.find(a => a.id === apiId);
+
+  if (!api) {
+    showToast('error', 'API não encontrada.');
+    return;
+  }
+
+  if (api.status === 'Desabilitado') {
+    showToast('warning', `A API [${api.name}] está marcada como Desabilitada. Ative-a para sincronizar.`);
+    logApiTerminal(`API [${api.name}] desabilitada. Habilite nas configurações para sincronizar.`, 'warn');
+    return;
+  }
+
+  logApiTerminal(`Conectando à API [${api.name}] (${api.url})...`, 'info');
+  showToast('info', `Sincronizando serviços da API [${api.name}]...`);
+
+  let url = api.url;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  if (/\/public\/?$/i.test(url)) url = url.replace(/\/public\/?$/i, '/public/api/index.php');
+
+  const actionsToTry = ['imeiservicelist', 'servicelist', 'file_services'];
+  let pulledServices = [];
+  let lastError = '';
+
+  for (const act of actionsToTry) {
+    try {
+      logApiTerminal(`Buscando catálogo na API [${api.name}] via ação '${act}'...`, 'info');
+      const response = await fetch('/api/proxy-dhru', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: url,
+          username: api.username,
+          apiKey: api.apiKey,
+          action: act,
+          provider: api.type.toLowerCase().includes('gsm') ? 'gsmserver' : 'dhru'
+        })
+      });
+
+      const resData = await response.json().catch(() => null);
+
+      if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
+        pulledServices = pulledServices.concat(resData.services);
+        logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados em [${api.name}].`, 'success');
+      } else if (resData && !resData.success && resData.error) {
+        lastError = resData.error;
+      }
+    } catch (e) {
+      console.warn(`Erro na ação ${act}:`, e);
+      lastError = e.message;
+    }
+  }
+
+  if (pulledServices.length > 0) {
+    const seen = new Set();
+    const unique = [];
+    for (const s of pulledServices) {
+      const key = `${s.id}-${s.name.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(s);
+      }
+    }
+
+    apiCachedServices = unique;
+    selectedApiServiceIds.clear();
+    apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
+
+    renderApiServicesTable(apiCachedServices);
+
+    const badge = document.getElementById('api-connection-badge');
+    if (badge) {
+      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços da API ${api.name}`;
+      badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+      badge.style.color = 'var(--accent-green)';
+    }
+
+    logApiTerminal(`Sincronização concluída com sucesso! ${unique.length} serviços carregados da API [${api.name}] para a tabela de migração abaixo.`, 'success');
+    showToast('success', `${unique.length} serviços da API [${api.name}] carregados com sucesso!`);
+
+    // Rolar até a tabela de migração
+    document.querySelector('.admin-main')?.scrollTo({ top: 750, behavior: 'smooth' });
+  } else {
+    logApiTerminal(`Falha ao obter lista de serviços da API [${api.name}]: ${lastError || 'Nenhum serviço retornado pelo servidor.'}`, 'error');
+    showToast('error', `Erro na API: ${lastError || 'Não foi possível puxar os serviços.'}`);
+  }
+}
+
+function renderApisTable() {
+  const tbody = document.getElementById('admin-apis-tbody');
+  const countEl = document.getElementById('apis-total-count');
+  if (!tbody) return;
+
+  const apis = window.SSB.getApis();
+  if (countEl) countEl.textContent = apis.length;
+
+  if (apis.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nenhuma API cadastrada. Use o formulário acima para adicionar uma nova API.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = apis.map(api => {
+    const isEnabled = api.status === 'Habilitado';
+    const statusBadge = isEnabled
+      ? `<span class="order-badge-status badge-completed" style="font-size: 0.75rem;">Habilitado</span>`
+      : `<span class="order-badge-status badge-pending" style="font-size: 0.75rem;">Desabilitado</span>`;
+
+    const apiColor = api.color || '#8b5cf6';
+
+    return `
+      <tr>
+        <td style="text-align: center;">
+          <div style="width: 22px; height: 22px; border-radius: 50%; background: ${apiColor}; border: 2px solid rgba(255,255,255,0.25); display: inline-block; box-shadow: 0 0 8px ${apiColor}88;"></div>
+        </td>
+        <td>
+          <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">${escapeHtml(api.name)}</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted);">ID: ${escapeHtml(api.id)}</div>
+        </td>
+        <td>
+          <span class="order-badge-status badge-processing" style="font-size: 0.75rem;">
+            ${escapeHtml(api.type || 'DHRU')}
+          </span>
+        </td>
+        <td>${statusBadge}</td>
+        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(api.url)}">
+          ${escapeHtml(api.url)}
+        </td>
+        <td style="font-family: var(--font-mono); font-size: 0.82rem; color: #cbd5e1;">
+          ${escapeHtml(api.username)}
+        </td>
+        <td style="text-align: center;">
+          <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <!-- Botão Azul: Sincronizar Serviços (Idêntico ao solicitado) -->
+            <button type="button" onclick="syncServicesFromApi('${api.id}')" title="Sincronizar e Puxar Serviços de ${escapeHtml(api.name)}" style="background: #0284c7; color: #fff; border: none; border-radius: 9px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s, background 0.15s; box-shadow: 0 3px 10px rgba(2, 132, 199, 0.4);">
+              <i class="fa-solid fa-arrows-rotate" style="font-size: 1.05rem;"></i>
+            </button>
+
+            <!-- Botão Roxo: Editar API (Idêntico ao solicitado) -->
+            <button type="button" onclick="editApiItem('${api.id}')" title="Editar Configurações da API ${escapeHtml(api.name)}" style="background: #8b5cf6; color: #fff; border: none; border-radius: 9px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s, background 0.15s; box-shadow: 0 3px 10px rgba(139, 92, 246, 0.4);">
+              <i class="fa-solid fa-pencil" style="font-size: 1.05rem;"></i>
+            </button>
+
+            <!-- Botão Excluir -->
+            <button type="button" onclick="deleteApiItem('${api.id}')" title="Excluir API" style="background: rgba(255, 0, 85, 0.15); color: var(--accent-red); border: 1px solid rgba(255, 0, 85, 0.3); border-radius: 9px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s;">
+              <i class="fa-solid fa-trash" style="font-size: 0.95rem;"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderApiSyncView() {
+  renderApisTable();
 
   // Se ainda não tiver serviços carregados na memória, carregar catálogo de atacado homologado
   if (!apiCachedServices || apiCachedServices.length === 0) {
@@ -1099,33 +1357,6 @@ function renderApiSyncView() {
   } else {
     renderApiServicesTable(apiCachedServices);
   }
-}
-
-function setupDhruApiForm() {
-  const form = document.getElementById('dhru-api-config-form');
-  if (!form) return;
-
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const settings = window.SSB.getSettings();
-    const updated = {
-      ...settings,
-      dhruApiProvider: document.getElementById('dhru-api-provider').value,
-      dhruApiUrl: document.getElementById('dhru-api-url').value.trim(),
-      dhruApiUsername: document.getElementById('dhru-api-username').value.trim(),
-      dhruApiKey: document.getElementById('dhru-api-key').value.trim(),
-      dhruProfitMargin: parseFloat(document.getElementById('dhru-profit-margin').value) || 30
-    };
-
-    window.SSB.saveSettings(updated);
-    showToast('success', 'Credenciais e margem da API salvas!');
-    logApiTerminal(`Credenciais salvas. Provedor: ${updated.dhruApiProvider}. Margem: ${updated.dhruProfitMargin}%.`, 'success');
-    
-    // Atualiza tabela com a nova margem de lucro calculada
-    if (apiCachedServices && apiCachedServices.length > 0) {
-      renderApiServicesTable(apiCachedServices);
-    }
-  });
 }
 
 async function testDhruApiConnection() {
