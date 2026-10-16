@@ -604,6 +604,9 @@
                   <button type="button" class="btn btn-primary" onclick="pullServicesFromLiveApi()" style="justify-content: center; padding: 0.85rem;">
                     <i class="fa-solid fa-network-wired"></i> Puxar Serviços via API Conectada
                   </button>
+                  <button type="button" class="btn btn-secondary" onclick="openModal('modal-paste-json')" style="justify-content: center; padding: 0.85rem; border-color: rgba(0, 240, 255, 0.4); color: var(--accent-cyan);">
+                    <i class="fa-solid fa-code"></i> Colar Resposta da API (JSON / Manual)
+                  </button>
                   <button type="button" class="btn btn-secondary" onclick="loadWholesalePresetServices()" style="justify-content: center; padding: 0.85rem; border-color: rgba(0, 255, 136, 0.4); color: var(--accent-green);">
                     <i class="fa-solid fa-layer-group"></i> Carregar Catálogo de Atacado GSM (28+ Ferramentas)
                   </button>
@@ -869,6 +872,34 @@
             <button type="submit" class="btn btn-primary">Cadastrar Revendedor</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Colar Resposta JSON / Exportação da API -->
+  <div id="modal-paste-json" class="modal-overlay">
+    <div class="modal-window" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fa-solid fa-code" style="color: var(--accent-cyan);"></i>
+          <span>Importar Resposta da API Diretamente (JSON)</span>
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModal('modal-paste-json')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.86rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Se o seu servidor atacadista tiver restrição de IP ou se você consultou a lista no Postman/navegador, cole o JSON abaixo para migrar os serviços diretamente:
+        </p>
+        <div class="form-group">
+          <label class="form-label">Cole a Resposta JSON da sua API DHRU / GSM Server:</label>
+          <textarea id="paste-json-input" class="form-control mono" rows="9" placeholder='{"SUCCESS":[{"GROUPNAME":"UNLOCK TOOL","SERVICES":[{"SERVICEID":"10","SERVICENAME":"UnlockTool 3 Meses","CREDIT":"20.00"}]}]}' style="font-size: 0.8rem;"></textarea>
+        </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-paste-json')">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="processPastedJsonServices(document.getElementById('paste-json-input').value)">
+            <i class="fa-solid fa-bolt"></i> Processar &amp; Carregar na Tabela
+          </button>
+        </div>
       </div>
     </div>
   </div>

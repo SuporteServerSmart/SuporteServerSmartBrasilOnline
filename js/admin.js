@@ -834,40 +834,43 @@ async function testDhruApiConnection() {
     return;
   }
 
-  logApiTerminal(`Testando conexão com ${url}...`, 'info');
+  const provider = document.getElementById('dhru-api-provider')?.value || 'dhru';
+  logApiTerminal(`Testando credenciais e conexão com a API: ${url}...`, 'info');
+  showToast('info', 'Verificando credenciais na API do servidor...');
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const bodyData = new URLSearchParams({
-      username: username,
-      apiaccesskey: apiKey,
-      action: 'accountinfo'
-    });
-
-    const response = await fetch(url, {
+    const response = await fetch('/api/proxy-dhru', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: bodyData.toString(),
-      signal: controller.signal
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: url,
+        username: username,
+        apiKey: apiKey,
+        action: 'accountinfo',
+        provider: provider
+      })
     });
 
-    clearTimeout(timeoutId);
+    const data = await response.json().catch(() => null);
 
-    if (response.ok) {
-      logApiTerminal(`Resposta recebida com sucesso da API DHRU (${response.status} OK)!`, 'success');
+    if (data && data.success) {
+      logApiTerminal(`Conexão com a API estabelecida com sucesso! Acesso validado no servidor.`, 'success');
       showToast('success', 'Conexão com a API estabelecida com sucesso!');
+      const badge = document.getElementById('api-connection-badge');
+      if (badge) {
+        badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Autenticada';
+        badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+        badge.style.color = 'var(--accent-green)';
+      }
     } else {
-      logApiTerminal(`Servidor respondeu com código HTTP ${response.status}. Verifique suas credenciais.`, 'warn');
-      showToast('warning', `Servidor respondeu com status ${response.status}`);
+      const errMsg = data ? data.error : 'Falha na resposta do servidor proxy';
+      logApiTerminal(`Resposta do servidor: ${errMsg}`, 'error');
+      showToast('error', `Erro na API: ${errMsg}`);
     }
   } catch (err) {
     console.warn("DHRU Connection test:", err);
-    logApiTerminal(`Aviso de Comunicação: Chamada direta ao endpoint bloqueada por restrição CORS do navegador ou timeout de rede. Utilize o catálogo homologado integrado ou configure um proxy de backend.`, 'warn');
-    showToast('info', 'Parâmetros validados! Você pode puxar os serviços do atacado homologado agora.');
+    logApiTerminal(`Falha ao conectar com o gateway da API: ${err.message}`, 'error');
+    showToast('error', 'Falha ao testar conexão.');
   }
 }
 
@@ -875,48 +878,146 @@ async function pullServicesFromLiveApi() {
   const url = document.getElementById('dhru-api-url')?.value.trim();
   const username = document.getElementById('dhru-api-username')?.value.trim();
   const apiKey = document.getElementById('dhru-api-key')?.value.trim();
+  const provider = document.getElementById('dhru-api-provider')?.value || 'dhru';
 
   if (!url || !apiKey) {
     showToast('warning', 'Configure e salve a URL e a Chave da API primeiro.');
-    logApiTerminal('URL ou API Key não informadas. Para importar ferramentas de teste agora, use "Carregar Catálogo de Atacado".', 'warn');
+    logApiTerminal('URL ou API Key não informadas. Preencha os campos da API.', 'warn');
     return;
   }
 
-  logApiTerminal(`Consultando lista de serviços em ${url}...`, 'info');
+  logApiTerminal(`Consultando lista de serviços via proxy seguro em ${url}...`, 'info');
+  showToast('info', 'Consultando serviços no servidor atacadista...');
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
+  const actionsToTry = ['imeiservicelist', 'servicelist', 'file_services'];
+  let pulledServices = [];
+  let lastError = '';
 
-    const bodyData = new URLSearchParams({
-      username: username,
-      apiaccesskey: apiKey,
-      action: 'imeiservicelist'
-    });
+  for (const act of actionsToTry) {
+    try {
+      logApiTerminal(`Buscando catálogo da ação '${act}'...`, 'info');
+      const response = await fetch('/api/proxy-dhru', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: url,
+          username: username,
+          apiKey: apiKey,
+          action: act,
+          provider: provider
+        })
+      });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: bodyData.toString(),
-      signal: controller.signal
-    });
+      const resData = await response.json().catch(() => null);
 
-    clearTimeout(timeoutId);
+      if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
+        pulledServices = pulledServices.concat(resData.services);
+        logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados.`, 'success');
+      } else if (resData && !resData.success && resData.error) {
+        lastError = resData.error;
+      }
+    } catch (e) {
+      console.warn(`Erro na ação ${act}:`, e);
+      lastError = e.message;
+    }
+  }
 
-    if (response.ok) {
-      const data = await response.json().catch(() => null);
-      if (data && (data.SUCCESS || data.services || Array.isArray(data))) {
-        logApiTerminal('Serviços recebidos com sucesso via DHRU API!', 'success');
-        showToast('success', 'Serviços carregados diretamente da sua API!');
-        return;
+  // Deduplicar serviços por ID ou Nome se alguma ação repetiu
+  if (pulledServices.length > 0) {
+    const seen = new Set();
+    const unique = [];
+    for (const s of pulledServices) {
+      const key = `${s.id}-${s.name.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(s);
       }
     }
-    
-    throw new Error('CORS / Formato não JSON');
+
+    apiCachedServices = unique;
+    selectedApiServiceIds.clear();
+    apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
+
+    renderApiServicesTable(apiCachedServices);
+
+    const badge = document.getElementById('api-connection-badge');
+    if (badge) {
+      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços da API Conectada`;
+      badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+      badge.style.color = 'var(--accent-green)';
+    }
+
+    logApiTerminal(`Busca concluída! ${unique.length} serviços reais carregados da sua API para a tabela de migração.`, 'success');
+    showToast('success', `${unique.length} serviços reais puxados da sua API com sucesso!`);
+    return;
+  }
+
+  // Se não retornou nenhum serviço das ações
+  logApiTerminal(`Não foi possível puxar serviços automaticamente da sua API: ${lastError || 'Nenhum serviço retornado pelo servidor'}.`, 'error');
+  showToast('error', `Falha ao puxar da API: ${lastError || 'Verifique usuário, API Key e se seu IP está liberado no provedor'}`);
+}
+
+function processPastedJsonServices(jsonText) {
+  if (!jsonText || !jsonText.trim()) {
+    showToast('warning', 'Cole o JSON ou texto da resposta da API.');
+    return;
+  }
+
+  try {
+    let parsed = JSON.parse(jsonText.trim());
+    let list = [];
+
+    // Se for array de serviços direto
+    if (Array.isArray(parsed)) {
+      list = parsed.map((s, idx) => ({
+        id: String(s.SERVICEID || s.id || `custom-${idx + 1}`),
+        name: String(s.SERVICENAME || s.name || 'Serviço GSM').trim(),
+        category: s.category || (String(s.name || '').toLowerCase().includes('credit') ? 'credits' : 'tools'),
+        categoryLabel: s.categoryLabel || 'Ferramentas & Dongles',
+        costUSD: parseFloat(s.CREDIT || s.costUSD || s.price || s.cost || 0),
+        time: s.TIME || s.deliveryTime || '1-24 Horas',
+        description: s.description || s.INFO || 'Importado via JSON da API'
+      }));
+    } else if (typeof parsed === 'object') {
+      // Formato DHRU SUCCESS
+      const block = parsed.SUCCESS || parsed.services || parsed;
+      if (Array.isArray(block)) {
+        for (const grp of block) {
+          const svcs = grp.SERVICES || grp.services || [grp];
+          if (Array.isArray(svcs)) {
+            for (const s of svcs) {
+              if (s.SERVICENAME || s.name) {
+                list.push({
+                  id: String(s.SERVICEID || s.id || `dhru-${list.length + 1}`),
+                  name: String(s.SERVICENAME || s.name).trim(),
+                  category: String(s.SERVICENAME || '').toLowerCase().includes('credit') ? 'credits' : 'tools',
+                  categoryLabel: 'Ferramentas & Dongles',
+                  costUSD: parseFloat(s.CREDIT || s.costUSD || s.price || 0),
+                  time: s.TIME || '1-24 Horas',
+                  description: s.INFO || 'Importado via JSON DHRU'
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (list.length === 0) {
+      showToast('warning', 'Nenhum serviço identificado no formato colado.');
+      return;
+    }
+
+    apiCachedServices = list;
+    selectedApiServiceIds.clear();
+    apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
+
+    renderApiServicesTable(apiCachedServices);
+    closeModal('modal-paste-json');
+    logApiTerminal(`JSON processado com sucesso! ${list.length} serviços carregados na tabela de migração.`, 'success');
+    showToast('success', `${list.length} serviços carregados do JSON! Escolha e clique em Migrar.`);
   } catch (err) {
-    logApiTerminal(`API atacadista externa requer chamada via proxy backend (CORS do navegador). Carregando catálogo oficial de atacado GSM com 28+ ferramentas prontas para migrar...`, 'warn');
-    showToast('info', 'Carregando catálogo de atacado homologado para importação...');
-    loadWholesalePresetServices(true);
+    showToast('error', 'O texto colado não é um JSON válido. Verifique a formatação.');
   }
 }
 

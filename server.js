@@ -16,6 +16,16 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   let urlPath = req.url.split('?')[0];
+  if (urlPath === '/api/proxy-dhru' || urlPath === '/api/proxy-dhru.js') {
+    try {
+      const handler = require('./api/proxy-dhru.js');
+      return handler(req, res);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+  }
+
   if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
   
   const safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
