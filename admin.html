@@ -289,9 +289,9 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <h2 style="font-size: 1.8rem; font-weight: 800;">Gerenciamento de Pedidos</h2>
-              <p style="color: var(--text-secondary); font-size: 0.9rem;">Aprove, envie respostas de tokens ou cancele ordens</p>
+              <p style="color: var(--text-secondary); font-size: 0.9rem;">Aprove, gerencie tokens ou exclua ordens permanentemente</p>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
+            <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
               <select id="orders-filter-status" class="form-control" style="width: auto;">
                 <option value="all">Todos os Status</option>
                 <option value="pending">Pendentes</option>
@@ -299,6 +299,17 @@
                 <option value="completed">Concluídos</option>
                 <option value="rejected">Rejeitados</option>
               </select>
+
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAllOrders(true)">
+                <i class="fa-regular fa-square-check"></i> Marcar Todos
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAllOrders(false)">
+                <i class="fa-regular fa-square"></i> Desmarcar
+              </button>
+
+              <button type="button" class="btn btn-secondary btn-sm" onclick="deleteSelectedOrdersPermanent()" style="background: rgba(255, 0, 85, 0.15); border: 1px solid var(--accent-red); color: #fff;">
+                <i class="fa-solid fa-trash-can" style="color: var(--accent-red);"></i> Excluir Selecionados (<span id="orders-selected-count">0</span>)
+              </button>
             </div>
           </div>
 
@@ -306,6 +317,9 @@
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width: 45px; text-align: center;">
+                    <input type="checkbox" id="orders-check-all-th" onchange="toggleSelectAllOrders(this.checked)" style="width: 17px; height: 17px; accent-color: var(--accent-red); cursor: pointer;">
+                  </th>
                   <th>ID Pedido</th>
                   <th>Data</th>
                   <th>Serviço Solicitado</th>

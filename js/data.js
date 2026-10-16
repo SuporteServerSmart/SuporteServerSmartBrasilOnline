@@ -489,6 +489,41 @@ window.SSB = {
     return null;
   },
 
+  deleteOrder(orderId) {
+    let orders = this.getOrders();
+    const initialLen = orders.length;
+    orders = orders.filter(o => o.orderId !== orderId);
+    this.saveOrders(orders);
+    this.addLog("order", `Pedido ${orderId} excluído permanentemente.`);
+
+    // Deletar também no Supabase se ativo
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('orders').delete().eq('order_id', orderId).then(() => {
+        console.log("☁️ Pedido excluído do Supabase:", orderId);
+      }).catch(e => console.warn(e));
+    }
+    return initialLen !== orders.length;
+  },
+
+  deleteOrders(orderIds) {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) return 0;
+    const toDeleteSet = new Set(orderIds);
+    let orders = this.getOrders();
+    const initialLen = orders.length;
+    orders = orders.filter(o => !toDeleteSet.has(o.orderId));
+    this.saveOrders(orders);
+    const removedCount = initialLen - orders.length;
+    this.addLog("order", `${removedCount} pedidos excluídos permanentemente.`);
+
+    // Deletar também no Supabase se ativo
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
+      window.SSB_Supabase.client.from('orders').delete().in('order_id', Array.from(toDeleteSet)).then(() => {
+        console.log("☁️ Pedidos excluídos do Supabase em lote");
+      }).catch(e => console.warn(e));
+    }
+    return removedCount;
+  },
+
   async syncFromCloud() {
     if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
       const cloudOrders = await window.SSB_Supabase.fetchOrders();

@@ -274,6 +274,8 @@ function getLogColor(type) {
   return '#94a3b8';
 }
 
+let selectedOrderIds = new Set();
+
 // 5. Render Orders
 function renderOrdersTable() {
   const tbody = document.getElementById('admin-orders-tbody');
@@ -285,29 +287,109 @@ function renderOrdersTable() {
   const filtered = orders.filter(o => filter === 'all' || o.status === filter);
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nenhum pedido encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Nenhum pedido encontrado.</td></tr>`;
+    updateOrdersSelectedCount();
     return;
   }
 
-  tbody.innerHTML = filtered.map(o => `
-    <tr>
-      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">${o.orderId}</td>
-      <td style="font-size: 0.8rem; color: var(--text-secondary);">${o.date}</td>
-      <td><strong>${escapeHtml(o.serviceName)}</strong></td>
-      <td class="mono" style="color: #fff; background: rgba(0,0,0,0.3); padding: 0.3rem 0.6rem; border-radius: 4px;">${escapeHtml(o.dataInput || '-')}</td>
-      <td>
-        <div>${escapeHtml(o.customerName)}</div>
-        <small style="color: var(--text-muted);">${escapeHtml(o.customerContact || '')}</small>
-      </td>
-      <td class="mono" style="font-weight: 700; color: var(--accent-green);">R$ ${o.priceBRL.toFixed(2)}</td>
-      <td>${renderStatusBadge(o.status)}</td>
-      <td>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openOrderActionModal('${o.orderId}')">
-          <i class="fa-solid fa-pen-to-square"></i> Gerenciar
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = filtered.map(o => {
+    const isSelected = selectedOrderIds.has(o.orderId);
+    const priceBRL = typeof o.priceBRL === 'number' ? o.priceBRL : parseFloat(o.priceBRL) || 0;
+
+    return `
+      <tr style="${isSelected ? 'background: rgba(255, 0, 85, 0.08);' : ''}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="order-select-checkbox" data-order-id="${o.orderId}" ${isSelected ? 'checked' : ''} onchange="toggleSingleOrderCheckbox('${o.orderId}', this.checked)" style="width: 17px; height: 17px; accent-color: var(--accent-red); cursor: pointer;">
+        </td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">${escapeHtml(o.orderId)}</td>
+        <td style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHtml(o.date || '')}</td>
+        <td><strong>${escapeHtml(o.serviceName || '')}</strong></td>
+        <td class="mono" style="color: #fff; background: rgba(0,0,0,0.3); padding: 0.3rem 0.6rem; border-radius: 4px;">${escapeHtml(o.dataInput || '-')}</td>
+        <td>
+          <div>${escapeHtml(o.customerName || '')}</div>
+          <small style="color: var(--text-muted);">${escapeHtml(o.customerContact || '')}</small>
+        </td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-green);">R$ ${priceBRL.toFixed(2)}</td>
+        <td>${renderStatusBadge(o.status)}</td>
+        <td>
+          <div class="action-btn-group">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openOrderActionModal('${o.orderId}')" title="Gerenciar Status / Responder">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="deleteSingleOrderPermanent('${o.orderId}')" style="color: var(--accent-red);" title="Excluir Permanentemente">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updateOrdersSelectedCount();
+}
+
+function toggleSingleOrderCheckbox(orderId, isChecked) {
+  if (isChecked) {
+    selectedOrderIds.add(orderId);
+  } else {
+    selectedOrderIds.delete(orderId);
+  }
+  updateOrdersSelectedCount();
+}
+
+function toggleSelectAllOrders(selectAll) {
+  const filter = document.getElementById('orders-filter-status')?.value || 'all';
+  const orders = window.SSB.getOrders().filter(o => filter === 'all' || o.status === filter);
+
+  orders.forEach(o => {
+    if (selectAll) selectedOrderIds.add(o.orderId);
+    else selectedOrderIds.delete(o.orderId);
+  });
+
+  const checkAllTh = document.getElementById('orders-check-all-th');
+  if (checkAllTh) checkAllTh.checked = selectAll;
+
+  document.querySelectorAll('.order-select-checkbox').forEach(cb => {
+    const id = cb.getAttribute('data-order-id');
+    cb.checked = selectedOrderIds.has(id);
+  });
+
+  updateOrdersSelectedCount();
+}
+
+function updateOrdersSelectedCount() {
+  const countEl = document.getElementById('orders-selected-count');
+  if (countEl) countEl.textContent = selectedOrderIds.size;
+}
+
+function deleteSingleOrderPermanent(orderId) {
+  if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE o pedido [${orderId}]?\nEsta ação apagará o pedido da base de dados e não pode ser desfeita!`)) {
+    return;
+  }
+
+  window.SSB.deleteOrder(orderId);
+  selectedOrderIds.delete(orderId);
+  showToast('success', `Pedido ${orderId} excluído permanentemente!`);
+  renderOrdersTable();
+  renderDashboard();
+}
+
+function deleteSelectedOrdersPermanent() {
+  if (selectedOrderIds.size === 0) {
+    showToast('warning', 'Selecione ao menos 1 pedido para excluir.');
+    return;
+  }
+
+  const count = selectedOrderIds.size;
+  if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE os ${count} pedidos selecionados?\nEles serão apagados de forma irreversível!`)) {
+    return;
+  }
+
+  const removed = window.SSB.deleteOrders(Array.from(selectedOrderIds));
+  selectedOrderIds.clear();
+  showToast('success', `${removed} pedidos excluídos permanentemente com sucesso!`);
+  renderOrdersTable();
+  renderDashboard();
 }
 
 function renderStatusBadge(status) {
