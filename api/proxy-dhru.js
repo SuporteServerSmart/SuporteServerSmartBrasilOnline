@@ -127,7 +127,7 @@ module.exports = async function handler(req, res) {
     let actionsToExecute = [];
     if (action === 'get_all_services' || action === 'all') {
       actionsToExecute = serviceActions;
-    } else if (action === 'accountinfo') {
+    } else if (action === 'accountinfo' || action === 'get_balance') {
       actionsToExecute = ['accountinfo', 'serverservicelist', 'imeiservicelist'];
     } else {
       actionsToExecute = [action];
@@ -212,11 +212,15 @@ module.exports = async function handler(req, res) {
           continue;
         }
 
-        // Se for requisição de accountinfo
+        // Se for requisição de accountinfo / saldo
         if (currentAct === 'accountinfo') {
+          const accountInfo = extractDhruAccountInfo(parsedData, rawBody);
           return res.end(JSON.stringify({
             success: true,
             action: 'accountinfo',
+            credit: accountInfo.credit,
+            currency: accountInfo.currency || 'USD',
+            email: accountInfo.email,
             data: parsedData.SUCCESS || parsedData,
             source: effectiveUrl
           }));
@@ -227,6 +231,18 @@ module.exports = async function handler(req, res) {
           allCollectedServices.push(...currentServices);
         }
       } else if (isXml) {
+        if (currentAct === 'accountinfo') {
+          const accountInfo = extractDhruAccountInfo(null, rawBody);
+          return res.end(JSON.stringify({
+            success: true,
+            action: 'accountinfo',
+            credit: accountInfo.credit,
+            currency: accountInfo.currency || 'USD',
+            email: accountInfo.email,
+            source: effectiveUrl
+          }));
+        }
+
         const currentServices = parseDhruXmlServices(rawBody);
         if (currentServices && currentServices.length > 0) {
           allCollectedServices.push(...currentServices);
@@ -514,3 +530,52 @@ function detectCategoryLabel(name, group = '') {
   if (cat === 'imei') return 'FRP & EDL Remoto';
   return 'Ferramentas & Dongles';
 }
+
+// Extrai saldo e moeda da resposta do accountinfo
+function extractDhruAccountInfo(data, rawBody) {
+  let credit = null;
+  let currency = 'USD';
+  let email = '';
+
+  function scan(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) {
+      for (const item of obj) scan(item);
+      return;
+    }
+    for (const [k, v] of Object.entries(obj)) {
+      const lower = k.toLowerCase();
+      if ((lower === 'credit' || lower === 'credits' || lower === 'balance' || lower === 'saldo' || lower === 'acc_credit') && (typeof v === 'string' || typeof v === 'number')) {
+        const parsed = parseFloat(String(v).replace(',', '.'));
+        if (!isNaN(parsed)) credit = parsed;
+      }
+      if ((lower === 'currency' || lower === 'curr' || lower === 'currency_code') && typeof v === 'string') {
+        currency = v.trim().toUpperCase();
+      }
+      if ((lower === 'username' || lower === 'mail' || lower === 'email' || lower === 'acc_username') && typeof v === 'string') {
+        email = v.trim();
+      }
+      if (typeof v === 'object' && v !== null) {
+        scan(v);
+      }
+    }
+  }
+
+  if (data) {
+    scan(data);
+  }
+  if (credit === null && rawBody) {
+    const credMatch = rawBody.match(/<credit>([\s\S]*?)<\/credit>|<balance>([\s\S]*?)<\/balance>/i);
+    if (credMatch) {
+      const parsed = parseFloat((credMatch[1] || credMatch[2] || '').trim().replace(',', '.'));
+      if (!isNaN(parsed)) credit = parsed;
+    }
+    const currMatch = rawBody.match(/<currency>([\s\S]*?)<\/currency>/i);
+    if (currMatch) currency = (currMatch[1] || 'USD').trim().toUpperCase();
+    const mailMatch = rawBody.match(/<mail>([\s\S]*?)<\/mail>|<username>([\s\S]*?)<\/username>|<email>([\s\S]*?)<\/email>/i);
+    if (mailMatch) email = (mailMatch[1] || mailMatch[2] || mailMatch[3] || '').trim();
+  }
+
+  return { credit, currency, email };
+}
+

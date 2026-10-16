@@ -30,6 +30,8 @@ function initAdmin() {
   window.syncServicesFromApi = syncServicesFromApi;
   window.updateApiColorPreview = updateApiColorPreview;
   window.renderApisTable = renderApisTable;
+  window.fetchApiBalanceLive = fetchApiBalanceLive;
+  window.refreshMainApiBalance = refreshMainApiBalance;
 
   // Gerenciador de Serviços e Grupos (Novas telas fotos 2, 3 e 4)
   window.renderServicesListTable = renderServicesListTable;
@@ -310,6 +312,7 @@ function loadAllAdminData() {
   try { renderServicesGroupsTable(); } catch (e) { console.error('Groups load error:', e); }
   try { renderUsersTable(); } catch (e) { console.error('Users load error:', e); }
   try { renderSettingsForm(); } catch (e) { console.error('Settings load error:', e); }
+  try { refreshMainApiBalance(false); } catch (e) { console.error('API balance load error:', e); }
 }
 
 // 4. Render Dashboard
@@ -331,6 +334,12 @@ function renderDashboard() {
   document.getElementById('dash-orders-pending').textContent = pendingOrders.length;
   document.getElementById('sidebar-pending-count').textContent = pendingOrders.length;
   document.getElementById('dash-users-balance').textContent = `R$ ${totalUserBalance.toFixed(2).replace('.', ',')}`;
+
+  const apis = window.SSB.getApis();
+  const activeApi = apis.find(a => a.status === 'Habilitado') || apis[0];
+  if (activeApi) {
+    updateBalanceDisplays(activeApi);
+  }
 
   // Recent Orders table in dashboard
   const recentOrdersTbody = document.getElementById('dash-recent-orders-tbody');
@@ -1222,6 +1231,7 @@ function handleSaveApi(e) {
 
   resetApiForm();
   renderApisTable();
+  fetchApiBalanceLive(saved.id, false);
 }
 
 function editApiItem(apiId) {
@@ -1346,6 +1356,7 @@ async function syncServicesFromApi(apiId) {
 
     logApiTerminal(`Sincronização concluída com sucesso! ${unique.length} serviços carregados da API [${api.name}] para a tabela de migração abaixo.`, 'success');
     showToast('success', `${unique.length} serviços da API [${api.name}] carregados com sucesso!`);
+    fetchApiBalanceLive(api.id, false);
 
     // Rolar até a tabela de migração
     document.querySelector('.admin-main')?.scrollTo({ top: 750, behavior: 'smooth' });
@@ -1364,7 +1375,7 @@ function renderApisTable() {
   if (countEl) countEl.textContent = apis.length;
 
   if (apis.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nenhuma API cadastrada. Use o formulário acima para adicionar uma nova API.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nenhuma API cadastrada. Use o formulário acima para adicionar uma nova API.</td></tr>`;
     return;
   }
 
@@ -1375,6 +1386,9 @@ function renderApisTable() {
       : `<span class="order-badge-status badge-pending" style="font-size: 0.75rem;">Desabilitado</span>`;
 
     const apiColor = api.color || '#8b5cf6';
+    const hasBalance = api.balance !== undefined && api.balance !== null && !isNaN(api.balance);
+    const balanceText = hasBalance ? `${api.currency || 'USD'} ${Number(api.balance).toFixed(2)}` : (api.balanceError ? 'Verificar' : '--');
+    const balanceColor = hasBalance ? '#00ff88' : (api.balanceError ? 'var(--accent-red)' : 'var(--text-muted)');
 
     return `
       <tr>
@@ -1391,11 +1405,23 @@ function renderApisTable() {
           </span>
         </td>
         <td>${statusBadge}</td>
-        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(api.url)}">
+        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(api.url)}">
           ${escapeHtml(api.url)}
         </td>
         <td style="font-family: var(--font-mono); font-size: 0.82rem; color: #cbd5e1;">
           ${escapeHtml(api.username)}
+        </td>
+        <!-- Saldo em Tempo Real -->
+        <td style="text-align: center;">
+          <div style="display: inline-flex; align-items: center; gap: 0.45rem; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.25); padding: 0.3rem 0.75rem; border-radius: 20px;">
+            <i class="fa-solid fa-wallet" style="color: #00ff88; font-size: 0.75rem;"></i>
+            <span id="api-bal-text-${api.id}" class="mono" style="font-weight: 700; color: ${balanceColor}; font-size: 0.85rem;">
+              ${balanceText}
+            </span>
+            <button type="button" onclick="fetchApiBalanceLive('${api.id}', true)" title="Sincronizar saldo de ${escapeHtml(api.name)} em tempo real" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; padding: 2px; display: inline-flex; align-items: center;">
+              <i class="fa-solid fa-arrows-rotate" id="api-bal-spin-${api.id}" style="font-size: 0.75rem;"></i>
+            </button>
+          </div>
         </td>
         <td style="text-align: center;">
           <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
@@ -1419,6 +1445,133 @@ function renderApisTable() {
     `;
   }).join('');
 }
+
+// Consulta saldo em tempo real na API do fornecedor
+async function fetchApiBalanceLive(apiId, showFeedback = false) {
+  const apis = window.SSB.getApis();
+  const api = (apiId ? apis.find(a => a.id === apiId) : null) || apis.find(a => a.status === 'Habilitado') || apis[0];
+  if (!api || !api.url || !api.apiKey) {
+    if (showFeedback) showToast('warning', 'Configure a URL e a API Key da API primeiro.');
+    return null;
+  }
+
+  const spinEl = document.getElementById(`api-bal-spin-${api.id}`);
+  const headerSpin = document.getElementById('header-api-balance-spin');
+  const dashSpin = document.getElementById('dash-api-balance-spin');
+
+  if (spinEl) spinEl.classList.add('fa-spin');
+  if (headerSpin) headerSpin.classList.add('fa-spin');
+  if (dashSpin) dashSpin.classList.add('fa-spin');
+
+  try {
+    let url = api.url.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    if (/\/public\/?$/i.test(url)) url = url.replace(/\/public\/?$/i, '/public/api/index.php');
+
+    const response = await fetch('/api/proxy-dhru', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: url,
+        username: api.username,
+        apiKey: api.apiKey,
+        action: 'accountinfo',
+        provider: (api.type || '').toLowerCase().includes('gsm') ? 'gsmserver' : 'dhru'
+      })
+    });
+
+    const resData = await response.json().catch(() => null);
+
+    if (resData && resData.success && resData.credit !== undefined && resData.credit !== null && !isNaN(parseFloat(resData.credit))) {
+      api.balance = parseFloat(resData.credit);
+      api.currency = resData.currency || 'USD';
+      api.balanceUpdatedAt = new Date().toISOString();
+      delete api.balanceError;
+      window.SSB.saveApi(api);
+
+      updateBalanceDisplays(api);
+      if (showFeedback) {
+        showToast('success', `Saldo em tempo real: ${api.currency} ${api.balance.toFixed(2)} em [${api.name}]`);
+        logApiTerminal(`Saldo atualizado com sucesso em [${api.name}]: ${api.currency} ${api.balance.toFixed(2)}`, 'success');
+      }
+      return api;
+    } else {
+      const err = (resData && resData.error) || 'Não foi possível ler o saldo na resposta da API';
+      api.balanceError = err;
+      window.SSB.saveApi(api);
+      if (showFeedback) {
+        showToast('error', `Aviso de saldo: ${err}`);
+        logApiTerminal(`Consulta de saldo na API [${api.name}]: ${err}`, 'warn');
+      }
+      updateBalanceDisplays(api, err);
+      return null;
+    }
+  } catch (e) {
+    console.warn('Erro ao consultar saldo da API:', e);
+    if (showFeedback) showToast('error', `Falha de rede ao consultar saldo: ${e.message}`);
+    updateBalanceDisplays(api, e.message);
+    return null;
+  } finally {
+    if (spinEl) spinEl.classList.remove('fa-spin');
+    if (headerSpin) headerSpin.classList.remove('fa-spin');
+    if (dashSpin) dashSpin.classList.remove('fa-spin');
+  }
+}
+
+function refreshMainApiBalance(showFeedback = false) {
+  const apis = window.SSB.getApis();
+  const activeApi = apis.find(a => a.status === 'Habilitado') || apis[0];
+  if (!activeApi) return;
+  return fetchApiBalanceLive(activeApi.id, showFeedback);
+}
+
+function updateBalanceDisplays(api, errorMsg) {
+  const headerVal = document.getElementById('header-api-balance-val');
+  const dashVal = document.getElementById('dash-api-balance');
+  const dashName = document.getElementById('dash-api-balance-name');
+  const rowBal = document.getElementById(`api-bal-text-${api ? api.id : ''}`);
+
+  if (api && api.balance !== undefined && api.balance !== null && !isNaN(api.balance)) {
+    const formatted = `${api.currency || 'USD'} ${Number(api.balance).toFixed(2)}`;
+    if (headerVal) {
+      headerVal.textContent = formatted;
+      headerVal.style.color = '#00ff88';
+      headerVal.title = `Última consulta: ${api.balanceUpdatedAt ? new Date(api.balanceUpdatedAt).toLocaleTimeString() : 'Agora'} (${api.name})`;
+    }
+    if (dashVal) {
+      dashVal.textContent = formatted;
+      dashVal.style.color = '#00ff88';
+    }
+    if (dashName) {
+      dashName.textContent = `Saldo na API [${api.name}]`;
+    }
+    if (rowBal) {
+      rowBal.textContent = formatted;
+      rowBal.style.color = '#00ff88';
+    }
+  } else if (errorMsg) {
+    if (headerVal && (!api || api.balance === undefined)) {
+      headerVal.textContent = 'Verificar';
+      headerVal.style.color = 'var(--accent-red)';
+      headerVal.title = errorMsg;
+    }
+    if (dashVal && (!api || api.balance === undefined)) {
+      dashVal.textContent = 'Verificar';
+      dashVal.style.color = 'var(--accent-red)';
+    }
+    if (rowBal) {
+      rowBal.textContent = 'Verificar';
+      rowBal.style.color = 'var(--accent-red)';
+    }
+  }
+}
+
+// Monitoramento automático de saldo em tempo real a cada 60 segundos
+setInterval(() => {
+  if (sessionStorage.getItem(AUTH_SESSION_KEY) === 'true') {
+    refreshMainApiBalance(false);
+  }
+}, 60000);
 
 function renderApiSyncView() {
   renderApisTable();
