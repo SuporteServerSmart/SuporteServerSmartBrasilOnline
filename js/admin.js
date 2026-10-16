@@ -33,6 +33,7 @@ function initAdmin() {
   window.fetchApiBalanceLive = fetchApiBalanceLive;
   window.refreshMainApiBalance = refreshMainApiBalance;
   window.sendAllPulledServicesToPublicSite = sendAllPulledServicesToPublicSite;
+  window.pullServicesFromLiveApi = pullServicesFromLiveApi;
   window.changeServicesListPage = changeServicesListPage;
   window.changeApiServicesPage = changeApiServicesPage;
   window.onServicesSearchInput = onServicesSearchInput;
@@ -1346,6 +1347,12 @@ async function syncServicesFromApi(apiId) {
       }
     }
 
+    // Associar nome da API a cada serviço importado
+    unique.forEach(s => {
+      s.serverApi = api.name || 'DHRU Fusion API';
+      s.apiName = api.name || 'DHRU Fusion API';
+    });
+
     apiCachedServices = unique;
     selectedApiServiceIds.clear();
     apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
@@ -1354,7 +1361,6 @@ async function syncServicesFromApi(apiId) {
     const settings = window.SSB.getSettings();
     const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
     const importResult = window.SSB.importServicesToCatalog(unique, margin);
-
 
     try { renderServicesListTable(); } catch (e) {}
     try { renderServicesTable(); } catch (e) {}
@@ -1791,21 +1797,36 @@ async function pullServicesFromLiveApi() {
       }
     }
 
+    unique.forEach(s => {
+      s.serverApi = 'API GSM Direta';
+      s.apiName = 'API GSM Direta';
+    });
+
     apiCachedServices = unique;
     selectedApiServiceIds.clear();
     apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
 
+    // Publicar automaticamente todos os serviços puxados diretamente no catálogo do site público
+    const settings = window.SSB.getSettings();
+    const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+    const importResult = window.SSB.importServicesToCatalog(unique, margin);
+
+    try { renderServicesListTable(); } catch (e) {}
+    try { renderServicesTable(); } catch (e) {}
     renderApiServicesTable(apiCachedServices);
+
+    const impCount = importResult.importedCount !== undefined ? importResult.importedCount : (importResult.imported || 0);
+    const updCount = importResult.updatedCount !== undefined ? importResult.updatedCount : (importResult.updated || 0);
 
     const badge = document.getElementById('api-connection-badge');
     if (badge) {
-      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços da API Conectada`;
+      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços Publicados no Site`;
       badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
       badge.style.color = 'var(--accent-green)';
     }
 
-    logApiTerminal(`Busca concluída! ${unique.length} serviços reais carregados da sua API para a tabela de migração.`, 'success');
-    showToast('success', `${unique.length} serviços reais puxados da sua API com sucesso!`);
+    logApiTerminal(`Busca concluída! ${unique.length} serviços carregados e PUBLICADOS no catálogo público (${impCount} novos, ${updCount} atualizados).`, 'success');
+    showToast('success', `${unique.length} serviços reais puxados da API e enviados para o site público!`);
     return;
   }
 

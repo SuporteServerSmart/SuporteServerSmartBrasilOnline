@@ -661,10 +661,21 @@ window.SSB = {
 
   async syncServicesFromCloud() {
     if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
-      const cloudServices = await window.SSB_Supabase.fetchServices();
-      if (cloudServices && cloudServices.length > 0) {
-        this.saveServices(cloudServices);
-        return cloudServices;
+      try {
+        const cloudServices = await window.SSB_Supabase.fetchServices();
+        if (cloudServices && Array.isArray(cloudServices) && cloudServices.length > 0) {
+          const localServices = this.getServices();
+          const merged = [...cloudServices];
+          localServices.forEach(loc => {
+            if (!merged.some(m => m.id === loc.id || (m.name && loc.name && m.name.toLowerCase() === loc.name.toLowerCase()))) {
+              merged.push(loc);
+            }
+          });
+          this.saveServices(merged);
+          return merged;
+        }
+      } catch (e) {
+        console.warn("Aviso ao sincronizar serviços com Supabase Cloud:", e);
       }
     }
     return this.getServices();
@@ -722,9 +733,10 @@ window.SSB = {
     let updatedCount = 0;
 
     servicesToImport.forEach(item => {
-      const costBRL = item.costBRL || (item.costUSD * usdRate);
+      const costUSD = typeof item.costUSD === 'number' ? item.costUSD : (parseFloat(item.costUSD) || 0);
+      const costBRL = typeof item.costBRL === 'number' ? item.costBRL : (parseFloat(item.costBRL) || (costUSD * usdRate));
       const calculatedPriceBRL = item.priceBRL || (costBRL * (1 + (profitMargin / 100)));
-      const calculatedPriceUSD = item.priceUSD || (item.costUSD ? item.costUSD * (1 + (profitMargin / 100)) : (calculatedPriceBRL / usdRate));
+      const calculatedPriceUSD = item.priceUSD || (costUSD ? costUSD * (1 + (profitMargin / 100)) : (calculatedPriceBRL / usdRate));
 
       const serviceObj = {
         id: item.id || `srv-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}`,
@@ -734,18 +746,18 @@ window.SSB = {
         priceBRL: Math.round(calculatedPriceBRL * 100) / 100,
         priceUSD: Math.round(calculatedPriceUSD * 100) / 100,
         costBRL: Math.round(costBRL * 100) / 100,
-        deliveryTime: item.deliveryTime || 'Instantâneo (1-15 min)',
+        deliveryTime: item.deliveryTime || item.time || 'Instantâneo (1-15 min)',
         status: 'active',
         type: item.type || 'username',
         inputLabel: item.inputLabel || 'Dado para Ativação',
         inputPlaceholder: item.inputPlaceholder || 'Ex: Usuário ou IMEI',
-        description: item.description || `Serviço oficial integrado via ${item.serverApi || 'DHRU GSM Server'}.`,
-        serverApi: item.serverApi || 'DHRU Fusion API',
+        description: item.description || `Serviço oficial integrado via ${item.serverApi || item.apiName || 'DHRU GSM Server'}.`,
+        serverApi: item.serverApi || item.apiName || 'DHRU Fusion API',
         featured: item.featured || false,
         badge: item.badge || ''
       };
 
-      const existingIndex = existingServices.findIndex(s => s.id === serviceObj.id || s.name.toLowerCase() === serviceObj.name.toLowerCase());
+      const existingIndex = existingServices.findIndex(s => s.id === serviceObj.id || (s.name && serviceObj.name && s.name.toLowerCase() === serviceObj.name.toLowerCase()));
       if (existingIndex >= 0) {
         existingServices[existingIndex] = { ...existingServices[existingIndex], ...serviceObj };
         updatedCount++;
@@ -762,7 +774,7 @@ window.SSB = {
     if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
       window.SSB_Supabase.client.from('services').upsert(
         existingServices.map(s => ({
-          service_id: s.id,
+          id: s.id,
           name: s.name,
           category: s.category,
           category_label: s.categoryLabel,

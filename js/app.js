@@ -334,6 +334,15 @@ function renderSettings() {
   }
 }
 
+// Helper para normalizar categorias da API para as abas do site público
+function normalizeCategory(cat) {
+  if (!cat) return 'tools';
+  const c = String(cat).toLowerCase();
+  if (c.includes('credit') || c.includes('crédito') || c.includes('server') || c.includes('servidor')) return 'credits';
+  if (c.includes('imei') || c.includes('frp') || c.includes('icloud') || c.includes('edl') || c.includes('remote') || c.includes('remoto')) return 'imei';
+  return 'tools';
+}
+
 // 4. Render dynamic services grid com Bloqueio de Preços para Não Logados
 function renderServices() {
   const grid = document.getElementById('services-grid');
@@ -343,14 +352,31 @@ function renderServices() {
   const customer = getCurrentCustomer();
 
   const filtered = services.filter(srv => {
-    if (srv.status !== 'active') return false;
-    const matchCategory = currentCategory === 'all' || srv.category === currentCategory;
-    const matchSearch = !searchQuery || 
-      srv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      srv.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      srv.serverApi.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!srv) return false;
+    // Oculta apenas serviços explicitamente inativos
+    if (srv.status === 'inactive' || srv.status === 'Desabilitado') return false;
+
+    // Normalização flexível de categoria
+    const srvNormCat = normalizeCategory(srv.category);
+    const matchCategory = currentCategory === 'all' || srv.category === currentCategory || srvNormCat === currentCategory;
+
+    // Busca textual sem falhas com tratamento seguro de nulos
+    const q = (searchQuery || '').toLowerCase().trim();
+    const matchSearch = !q || 
+      (srv.name && srv.name.toLowerCase().includes(q)) ||
+      (srv.description && srv.description.toLowerCase().includes(q)) ||
+      (srv.serverApi && srv.serverApi.toLowerCase().includes(q)) ||
+      (srv.apiName && srv.apiName.toLowerCase().includes(q)) ||
+      (srv.categoryLabel && srv.categoryLabel.toLowerCase().includes(q)) ||
+      (srv.id && srv.id.toLowerCase().includes(q));
+
     return matchCategory && matchSearch;
   });
+
+  const countTextEl = document.getElementById('catalog-count-text');
+  if (countTextEl) {
+    countTextEl.textContent = `${filtered.length} serviços oficiais disponíveis para ativação`;
+  }
 
   if (filtered.length === 0) {
     grid.innerHTML = `
@@ -368,27 +394,34 @@ function renderServices() {
     if (srv.badge === 'PRO') badgeClass = 'pro';
     else if (srv.badge === 'ONLINE 24/7' || srv.badge === 'DEFINITIVO') badgeClass = 'green';
 
+    const priceBRL = typeof srv.priceBRL === 'number' ? srv.priceBRL : (parseFloat(srv.priceBRL) || 0);
+    const priceUSD = typeof srv.priceUSD === 'number' ? srv.priceUSD : (parseFloat(srv.priceUSD) || 0);
+    const badgeText = escapeHtml(srv.badge || srv.categoryLabel || 'Oficial');
+    const apiName = escapeHtml(srv.serverApi || srv.apiName || 'API Direta');
+    const delivery = escapeHtml(srv.deliveryTime || srv.time || 'Instantâneo (1-15 min)');
+    const inputType = escapeHtml((srv.inputLabel || 'Dado').split(' ')[0]);
+
     return `
       <div class="service-card">
         <div>
           <div class="service-header">
-            <span class="service-badge ${badgeClass}">${srv.badge || srv.categoryLabel}</span>
+            <span class="service-badge ${badgeClass}">${badgeText}</span>
             <span style="font-size: 0.75rem; color: var(--accent-cyan);" class="mono">
-              <i class="fa-solid fa-bolt"></i> ${srv.serverApi}
+              <i class="fa-solid fa-bolt"></i> ${apiName}
             </span>
           </div>
 
-          <h3 class="service-title">${srv.name}</h3>
-          <p class="service-desc">${srv.description}</p>
+          <h3 class="service-title">${escapeHtml(srv.name || 'Serviço GSM')}</h3>
+          <p class="service-desc">${escapeHtml(srv.description || (srv.name + ' - Ativação oficial via servidor.'))}</p>
 
           <div class="service-meta">
             <div class="meta-row">
               <span><i class="fa-regular fa-clock"></i> Tempo de Envio:</span>
-              <span class="meta-val">${srv.deliveryTime}</span>
+              <span class="meta-val">${delivery}</span>
             </div>
             <div class="meta-row">
               <span><i class="fa-solid fa-cube"></i> Tipo de Entrada:</span>
-              <span class="meta-val">${srv.inputLabel.split(' ')[0]}</span>
+              <span class="meta-val">${inputType}</span>
             </div>
           </div>
         </div>
@@ -396,8 +429,8 @@ function renderServices() {
         <div class="service-footer">
           ${customer ? `
             <div class="price-box">
-              <span class="price-brl">R$ ${srv.priceBRL.toFixed(2).replace('.', ',')}</span>
-              <span class="price-usd">~ US$ ${(srv.priceUSD || 0).toFixed(2)}</span>
+              <span class="price-brl">R$ ${priceBRL.toFixed(2).replace('.', ',')}</span>
+              <span class="price-usd">~ US$ ${priceUSD.toFixed(2)}</span>
             </div>
             <button type="button" class="btn btn-primary btn-sm" onclick="openCheckoutModal('${srv.id}')">
               <i class="fa-solid fa-bolt"></i> Ativar Agora
@@ -427,6 +460,20 @@ function setupEventListeners() {
       currentCategory = btn.getAttribute('data-category');
       renderServices();
     });
+  });
+
+  // Escutar eventos de atualização entre abas do navegador
+  window.addEventListener('storage', (e) => {
+    if (!e.key || e.key === 'sss_services_v1' || e.key === 'sss_settings_v1') {
+      renderServices();
+    }
+  });
+
+  // Atualizar quando a aba voltar a ficar visível
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      renderServices();
+    }
   });
 
   // Search input
@@ -597,13 +644,14 @@ function openCheckoutModal(serviceId) {
 
   document.getElementById('modal-service-id').value = service.id;
   document.getElementById('modal-service-name').textContent = service.name;
-  document.getElementById('modal-service-time').innerHTML = `<i class="fa-regular fa-clock"></i> ${service.deliveryTime}`;
-  document.getElementById('modal-service-price').textContent = `R$ ${service.priceBRL.toFixed(2).replace('.', ',')}`;
+  document.getElementById('modal-service-time').innerHTML = `<i class="fa-regular fa-clock"></i> ${service.deliveryTime || service.time || 'Instantâneo (1-15 min)'}`;
+  const priceVal = typeof service.priceBRL === 'number' ? service.priceBRL : (parseFloat(service.priceBRL) || 0);
+  document.getElementById('modal-service-price').textContent = `R$ ${priceVal.toFixed(2).replace('.', ',')}`;
 
   const labelEl = document.getElementById('modal-input-label');
   const inputEl = document.getElementById('modal-data-input');
-  labelEl.textContent = `${service.inputLabel}:`;
-  inputEl.placeholder = service.inputPlaceholder || 'Digite os dados requeridos';
+  labelEl.textContent = `${service.inputLabel || 'Dado para Ativação'}:`;
+  inputEl.placeholder = service.inputPlaceholder || 'Digite os dados requeridos (ex: IMEI ou Usuário)';
 
   // Pré-preencher com dados do cliente logado
   const customerNameInput = document.getElementById('modal-customer-name');
