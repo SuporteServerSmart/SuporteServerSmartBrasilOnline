@@ -74,14 +74,14 @@ window.SSB_Supabase = {
       const stored = localStorage.getItem(SUPABASE_STORAGE_CONFIG);
       const defaults = { 
         url: 'https://vyiixpbgeuvenmpdbxyx.supabase.co', 
-        key: '', 
+        key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5aWl4cGJnZXV2ZW5tcGRieHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMDY5MjAsImV4cCI6MjEwNzY4MjkyMH0.DRiFMA_Pwm8kYUc2WMZaXjszRyfep7K44YOBVFs9_pE', 
         enabled: true 
       };
       return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
     } catch (e) {
       return { 
         url: 'https://vyiixpbgeuvenmpdbxyx.supabase.co', 
-        key: '', 
+        key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5aWl4cGJnZXV2ZW5tcGRieHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMDY5MjAsImV4cCI6MjEwNzY4MjkyMH0.DRiFMA_Pwm8kYUc2WMZaXjszRyfep7K44YOBVFs9_pE', 
         enabled: true 
       };
     }
