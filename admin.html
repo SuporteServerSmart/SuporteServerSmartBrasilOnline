@@ -1069,7 +1069,11 @@
                   <i class="fa-regular fa-square"></i> Desmarcar
                 </button>
                 <button type="button" class="btn btn-primary" onclick="migrateSelectedServices()" style="background: var(--gradient-primary); box-shadow: var(--shadow-neon);">
-                  <i class="fa-solid fa-file-import"></i> Migrar Selecionados para o Catálogo do Site (<span id="api-selected-count">0</span>)
+                  <i class="fa-solid fa-file-import"></i> Migrar Selecionados (<span id="api-selected-count">0</span>)
+                </button>
+                <!-- Botão 1-Clique: Publicar Todos no Site Público -->
+                <button type="button" class="btn" onclick="sendAllPulledServicesToPublicSite()" style="background: linear-gradient(135deg, #00ff88, #00d2ff); color: #05070a; font-weight: 800; border: none; box-shadow: 0 0 15px rgba(0, 255, 136, 0.4); padding: 0.55rem 1.15rem; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: transform 0.15s;">
+                  <i class="fa-solid fa-cloud-arrow-up"></i> Publicar TODOS no Site Público
                 </button>
               </div>
             </div>

@@ -32,6 +32,7 @@ function initAdmin() {
   window.renderApisTable = renderApisTable;
   window.fetchApiBalanceLive = fetchApiBalanceLive;
   window.refreshMainApiBalance = refreshMainApiBalance;
+  window.sendAllPulledServicesToPublicSite = sendAllPulledServicesToPublicSite;
 
   // Gerenciador de Serviços e Grupos (Novas telas fotos 2, 3 e 4)
   window.renderServicesListTable = renderServicesListTable;
@@ -1345,17 +1346,38 @@ async function syncServicesFromApi(apiId) {
     selectedApiServiceIds.clear();
     apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
 
+    // Publicar automaticamente todos os serviços puxados diretamente no catálogo do site público
+    const settings = window.SSB.getSettings();
+    const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+    const importResult = window.SSB.importServicesToCatalog(unique, margin);
+
+    // Sincronizar com o Supabase se configurado
+    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+      const allServices = window.SSB.getServices();
+      for (const item of unique) {
+        const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
+        if (match) {
+          window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
+        }
+      }
+    }
+
+    try { renderServicesListTable(); } catch (e) {}
+    try { renderServicesTable(); } catch (e) {}
     renderApiServicesTable(apiCachedServices);
+
+    const impCount = importResult.importedCount !== undefined ? importResult.importedCount : (importResult.imported || 0);
+    const updCount = importResult.updatedCount !== undefined ? importResult.updatedCount : (importResult.updated || 0);
 
     const badge = document.getElementById('api-connection-badge');
     if (badge) {
-      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços da API ${api.name}`;
+      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${unique.length} Serviços Publicados no Site`;
       badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
       badge.style.color = 'var(--accent-green)';
     }
 
-    logApiTerminal(`Sincronização concluída com sucesso! ${unique.length} serviços carregados da API [${api.name}] para a tabela de migração abaixo.`, 'success');
-    showToast('success', `${unique.length} serviços da API [${api.name}] carregados com sucesso!`);
+    logApiTerminal(`Sincronização concluída! ${unique.length} serviços importados e PUBLICADOS no site (${impCount} novos, ${updCount} atualizados).`, 'success');
+    showToast('success', `Sucesso! ${unique.length} serviços da API [${api.name}] foram enviados e já estão visíveis no site público!`);
     fetchApiBalanceLive(api.id, false);
 
     // Rolar até a tabela de migração
@@ -2090,6 +2112,48 @@ async function migrateSelectedServices() {
 
   renderApiServicesTable(apiCachedServices);
   renderServicesTable();
+}
+
+// Publica TODOS os serviços da API diretamente para o site público
+async function sendAllPulledServicesToPublicSite() {
+  if (!apiCachedServices || apiCachedServices.length === 0) {
+    const apis = window.SSB.getApis();
+    const activeApi = apis.find(a => a.status === 'Habilitado') || apis[0];
+    if (activeApi) {
+      showToast('info', `Puxando e enviando catálogo completo da API [${activeApi.name}] para o site público...`);
+      return syncServicesFromApi(activeApi.id);
+    }
+    showToast('warning', 'Nenhum serviço carregado na memória. Sincronize a API primeiro.');
+    return;
+  }
+
+  const settings = window.SSB.getSettings();
+  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+
+  logApiTerminal(`Publicando ${apiCachedServices.length} serviços no catálogo do site público...`, 'info');
+
+  const result = window.SSB.importServicesToCatalog(apiCachedServices, margin);
+
+  // Sincronizar com Supabase se configurado
+  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
+    const allServices = window.SSB.getServices();
+    for (const item of apiCachedServices) {
+      const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
+      if (match) {
+        window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
+      }
+    }
+  }
+
+  try { renderServicesListTable(); } catch (e) {}
+  try { renderServicesTable(); } catch (e) {}
+  renderApiServicesTable(apiCachedServices);
+
+  const impCount = result.importedCount !== undefined ? result.importedCount : (result.imported || 0);
+  const updCount = result.updatedCount !== undefined ? result.updatedCount : (result.updated || 0);
+
+  showToast('success', `Sucesso! ${apiCachedServices.length} serviços foram enviados para a loja pública (${impCount} novos, ${updCount} atualizados)!`);
+  logApiTerminal(`Publicação concluída! ${apiCachedServices.length} serviços agora estão disponíveis para venda no site público.`, 'success');
 }
 
 // Modal and Toast helpers
