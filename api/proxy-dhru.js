@@ -63,8 +63,17 @@ module.exports = async function handler(req, res) {
     targetUrl = targetUrl.replace(/\/public\/?$/i, '/public/api/index.php');
   }
 
-  // Ações de serviços conhecidas no padrão DHRU Fusion / GSM Server
-  const serviceActions = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
+  // Ações de serviços conhecidas no padrão DHRU Fusion / GSM Server / GSMTheme
+  const serviceActions = [
+    'serverservicelist',
+    'imeiservicelist',
+    'fileservicelist',
+    'services',
+    'servicelist',
+    'getservices',
+    'getserverservicelist',
+    'getimeiservicelist'
+  ];
 
   // Função auxiliar para enviar uma ação específica para a API DHRU
   async function queryDhruAction(actionName, endpointUrl) {
@@ -72,8 +81,7 @@ module.exports = async function handler(req, res) {
       username: username,
       apiaccesskey: apiKey,
       action: actionName,
-      requestformat: 'JSON',
-      parameters: ''
+      requestformat: 'JSON'
     }).toString();
 
     let targetResponse = await executeRequestWithRedirects(endpointUrl, postPayload);

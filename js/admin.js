@@ -1290,41 +1290,34 @@ async function syncServicesFromApi(apiId) {
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   if (/\/public\/?$/i.test(url)) url = url.replace(/\/public\/?$/i, '/public/api/index.php');
 
-  const actionsToTry = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
   let pulledServices = [];
   let lastError = '';
 
-  for (const act of actionsToTry) {
-    try {
-      logApiTerminal(`Buscando catálogo na API [${api.name}] via ação '${act}'...`, 'info');
-      const response = await fetch('/api/proxy-dhru', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: url,
-          username: api.username,
-          apiKey: api.apiKey,
-          action: act,
-          provider: api.type.toLowerCase().includes('gsm') ? 'gsmserver' : 'dhru'
-        })
-      });
+  try {
+    logApiTerminal(`Buscando catálogo completo na API [${api.name}] (Server & IMEI)...`, 'info');
+    const response = await fetch('/api/proxy-dhru', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: url,
+        username: api.username,
+        apiKey: api.apiKey,
+        action: 'get_all_services',
+        provider: api.type.toLowerCase().includes('gsm') ? 'gsmserver' : 'dhru'
+      })
+    });
 
-      const resData = await response.json().catch(() => null);
+    const resData = await response.json().catch(() => null);
 
-      if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
-        pulledServices = pulledServices.concat(resData.services);
-        logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados em [${api.name}].`, 'success');
-      } else if (resData && !resData.success && resData.error) {
-        // Se for erro de autenticação, prioriza mostrar ao usuário
-        const isAuthErr = resData.error.toLowerCase().includes('authentication') || resData.error.toLowerCase().includes('must be an email');
-        if (isAuthErr || !lastError || !lastError.toLowerCase().includes('authentication')) {
-          lastError = resData.error;
-        }
-      }
-    } catch (e) {
-      console.warn(`Erro na ação ${act}:`, e);
-      if (!lastError) lastError = e.message;
+    if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
+      pulledServices = resData.services;
+      logApiTerminal(`Sucesso! ${resData.services.length} serviços encontrados em [${api.name}].`, 'success');
+    } else if (resData && !resData.success && resData.error) {
+      lastError = resData.error;
     }
+  } catch (e) {
+    console.warn(`Erro na sincronização:`, e);
+    lastError = e.message;
   }
 
   if (pulledServices.length > 0) {
@@ -1582,45 +1575,39 @@ async function pullServicesFromLiveApi() {
   logApiTerminal(`Consultando lista de serviços via proxy seguro em ${url}...`, 'info');
   showToast('info', 'Consultando serviços no servidor atacadista...');
 
-  const actionsToTry = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
   let pulledServices = [];
   let lastError = '';
 
-  for (const act of actionsToTry) {
-    try {
-      logApiTerminal(`Buscando catálogo da ação '${act}'...`, 'info');
-      const response = await fetch('/api/proxy-dhru', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: url,
-          username: username,
-          apiKey: apiKey,
-          action: act,
-          provider: provider
-        })
-      });
+  try {
+    logApiTerminal(`Consultando catálogo completo na API via proxy em ${url}...`, 'info');
+    const response = await fetch('/api/proxy-dhru', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: url,
+        username: username,
+        apiKey: apiKey,
+        action: 'get_all_services',
+        provider: provider
+      })
+    });
 
-      const resData = await response.json().catch(() => null);
+    const resData = await response.json().catch(() => null);
 
-      if (resData && resData.source && urlInput && resData.source !== url) {
-        urlInput.value = resData.source;
-        url = resData.source;
-      }
-
-      if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
-        pulledServices = pulledServices.concat(resData.services);
-        logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados.`, 'success');
-      } else if (resData && !resData.success && resData.error) {
-        const isAuthErr = resData.error.toLowerCase().includes('authentication') || resData.error.toLowerCase().includes('must be an email');
-        if (isAuthErr || !lastError || !lastError.toLowerCase().includes('authentication')) {
-          lastError = resData.error;
-        }
-      }
-    } catch (e) {
-      console.warn(`Erro na ação ${act}:`, e);
-      if (!lastError) lastError = e.message;
+    if (resData && resData.source && urlInput && resData.source !== url) {
+      urlInput.value = resData.source;
+      url = resData.source;
     }
+
+    if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
+      pulledServices = resData.services;
+      logApiTerminal(`Sucesso! ${resData.services.length} serviços encontrados no fornecedor.`, 'success');
+    } else if (resData && !resData.success && resData.error) {
+      lastError = resData.error;
+    }
+  } catch (e) {
+    console.warn(`Erro na ação get_all_services:`, e);
+    lastError = e.message;
   }
 
   // Deduplicar serviços por ID ou Nome se alguma ação repetiu
