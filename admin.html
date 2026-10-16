@@ -447,7 +447,7 @@
             <!-- Linha 2: Filtros de Busca, API e Tipo (Foto 3) -->
             <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
               <div>
-                <input type="text" id="services-search-filter" class="form-control" placeholder="Pesquisar serviço..." oninput="renderServicesListTable()" style="background: rgba(255,255,255,0.03); font-size: 0.85rem;">
+                <input type="text" id="services-search-filter" class="form-control" placeholder="Pesquisar serviço..." oninput="onServicesSearchInput()" style="background: rgba(255,255,255,0.03); font-size: 0.85rem;">
               </div>
               <div>
                 <select id="services-api-filter" class="form-control" onchange="renderServicesListTable()" style="background: #111422; font-size: 0.85rem;">
@@ -494,6 +494,22 @@
                 <!-- Renderizado dinamicamente -->
               </tbody>
             </table>
+          </div>
+
+          <!-- Barra de Paginação de Serviços Cadastrados -->
+          <div id="services-list-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 0.75rem 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-secondary); flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              Mostrando <strong id="services-page-info" style="color: #fff;">0 - 0 de 0</strong> serviços
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-services-prev" onclick="changeServicesListPage(-1)" style="padding: 0.35rem 0.85rem;">
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+              </button>
+              <span id="services-current-page" class="mono" style="font-weight: 700; color: var(--accent-cyan); padding: 0 0.5rem;">Pág 1 de 1</span>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-services-next" onclick="changeServicesListPage(1)" style="padding: 0.35rem 0.85rem;">
+                Próxima <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -1082,7 +1098,7 @@
             <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
               <div style="flex: 1; min-width: 240px; position: relative;">
                 <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                <input type="text" id="api-search-filter" class="form-control" style="padding-left: 2.3rem; font-size: 0.85rem;" placeholder="Buscar ferramenta (ex: UnlockTool, Chimera, Pandora, EDL, FRP)..." oninput="filterApiServicesTable()">
+                <input type="text" id="api-search-filter" class="form-control" style="padding-left: 2.3rem; font-size: 0.85rem;" placeholder="Buscar ferramenta (ex: UnlockTool, Chimera, Pandora, EDL, FRP)..." oninput="onApiSearchFilterInput()">
               </div>
 
               <div style="width: 220px;">
@@ -1130,6 +1146,21 @@
               </table>
             </div>
 
+            <!-- Paginação para Serviços de Migração -->
+            <div id="api-services-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 0.75rem 1rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-secondary); flex-wrap: wrap; gap: 0.75rem;">
+              <div>
+                Mostrando <strong id="api-services-page-info" style="color: #fff;">0 - 0 de 0</strong> serviços
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-api-services-prev" onclick="changeApiServicesPage(-1)" style="padding: 0.35rem 0.85rem;">
+                  <i class="fa-solid fa-chevron-left"></i> Anterior
+                </button>
+                <span id="api-services-current-page" class="mono" style="font-weight: 700; color: var(--accent-cyan); padding: 0 0.5rem;">Pág 1 de 1</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-api-services-next" onclick="changeApiServicesPage(1)" style="padding: 0.35rem 0.85rem;">
+                  Próxima <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 

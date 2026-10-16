@@ -33,6 +33,10 @@ function initAdmin() {
   window.fetchApiBalanceLive = fetchApiBalanceLive;
   window.refreshMainApiBalance = refreshMainApiBalance;
   window.sendAllPulledServicesToPublicSite = sendAllPulledServicesToPublicSite;
+  window.changeServicesListPage = changeServicesListPage;
+  window.changeApiServicesPage = changeApiServicesPage;
+  window.onServicesSearchInput = onServicesSearchInput;
+  window.onApiSearchFilterInput = onApiSearchFilterInput;
 
   // Gerenciador de Serviços e Grupos (Novas telas fotos 2, 3 e 4)
   window.renderServicesListTable = renderServicesListTable;
@@ -523,7 +527,7 @@ function renderServicesTable() {
   const tbody = document.getElementById('admin-services-tbody');
   if (!tbody) return;
 
-  const services = window.SSB.getServices();
+  const services = window.SSB.getServices().slice(0, 50);
 
   tbody.innerHTML = services.map(s => {
     const priceBRL = typeof s.priceBRL === 'number' ? s.priceBRL : parseFloat(s.priceBRL) || 0;
@@ -1351,16 +1355,6 @@ async function syncServicesFromApi(apiId) {
     const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
     const importResult = window.SSB.importServicesToCatalog(unique, margin);
 
-    // Sincronizar com o Supabase se configurado
-    if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
-      const allServices = window.SSB.getServices();
-      for (const item of unique) {
-        const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
-        if (match) {
-          window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
-        }
-      }
-    }
 
     try { renderServicesListTable(); } catch (e) {}
     try { renderServicesTable(); } catch (e) {}
@@ -1904,6 +1898,23 @@ function loadWholesalePresetServices(showToastMsg = true) {
   }
 }
 
+let apiServicesPage = 1;
+const apiServicesPageSize = 40;
+
+function changeApiServicesPage(delta) {
+  apiServicesPage += delta;
+  filterApiServicesTable();
+}
+
+let apiFilterSearchDebounceTimer = null;
+function onApiSearchFilterInput() {
+  clearTimeout(apiFilterSearchDebounceTimer);
+  apiFilterSearchDebounceTimer = setTimeout(() => {
+    apiServicesPage = 1;
+    filterApiServicesTable();
+  }, 150);
+}
+
 function renderApiServicesTable(services) {
   const tbody = document.getElementById('api-services-tbody');
   const totalCountEl = document.getElementById('api-total-count');
@@ -1917,9 +1928,10 @@ function renderApiServicesTable(services) {
   const usdRate = settings.usdRate || 5.65;
   const marginPercent = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
 
-  if (totalCountEl) totalCountEl.textContent = services.length;
+  const totalCount = services.length;
+  if (totalCountEl) totalCountEl.textContent = totalCount;
 
-  if (services.length === 0) {
+  if (totalCount === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="10" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
@@ -1928,11 +1940,30 @@ function renderApiServicesTable(services) {
         </td>
       </tr>
     `;
+    const pageInfoEl = document.getElementById('api-services-page-info');
+    if (pageInfoEl) pageInfoEl.textContent = '0 - 0 de 0';
     updateApiSelectedCount();
     return;
   }
 
-  tbody.innerHTML = services.map(s => {
+  // Paginação ultra-rápida (40 itens por página)
+  const totalPages = Math.ceil(totalCount / apiServicesPageSize) || 1;
+  if (apiServicesPage > totalPages) apiServicesPage = totalPages;
+  if (apiServicesPage < 1) apiServicesPage = 1;
+  const startIdx = (apiServicesPage - 1) * apiServicesPageSize;
+  const pageServices = services.slice(startIdx, startIdx + apiServicesPageSize);
+
+  // Atualizar controles da paginação
+  const pageInfoEl = document.getElementById('api-services-page-info');
+  if (pageInfoEl) pageInfoEl.textContent = `${startIdx + 1} - ${Math.min(startIdx + apiServicesPageSize, totalCount)} de ${totalCount}`;
+  const currPageEl = document.getElementById('api-services-current-page');
+  if (currPageEl) currPageEl.textContent = `Pág ${apiServicesPage} de ${totalPages}`;
+  const prevBtn = document.getElementById('btn-api-services-prev');
+  if (prevBtn) prevBtn.disabled = apiServicesPage <= 1;
+  const nextBtn = document.getElementById('btn-api-services-next');
+  if (nextBtn) nextBtn.disabled = apiServicesPage >= totalPages;
+
+  tbody.innerHTML = pageServices.map(s => {
     const isSelected = selectedApiServiceIds.has(s.id);
     const isAlreadyImported = existingNames.has(s.name.trim().toLowerCase()) || existingApis.has(s.id.toLowerCase());
 
@@ -2094,17 +2125,6 @@ async function migrateSelectedServices() {
 
   const result = window.SSB.importServicesToCatalog(itemsToMigrate, margin);
 
-  // Sincronizar com o Supabase se estiver configurado
-  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
-    const allServices = window.SSB.getServices();
-    for (const item of itemsToMigrate) {
-      const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
-      if (match) {
-        window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
-      }
-    }
-  }
-
   const importedCount = result.importedCount !== undefined ? result.importedCount : (result.imported || 0);
   const updatedCount = result.updatedCount !== undefined ? result.updatedCount : (result.updated || 0);
   showToast('success', `Sucesso! ${importedCount} novos serviços adicionados e ${updatedCount} atualizados no site!`);
@@ -2133,17 +2153,6 @@ async function sendAllPulledServicesToPublicSite() {
   logApiTerminal(`Publicando ${apiCachedServices.length} serviços no catálogo do site público...`, 'info');
 
   const result = window.SSB.importServicesToCatalog(apiCachedServices, margin);
-
-  // Sincronizar com Supabase se configurado
-  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured) {
-    const allServices = window.SSB.getServices();
-    for (const item of apiCachedServices) {
-      const match = allServices.find(s => s.name.toLowerCase() === item.name.toLowerCase());
-      if (match) {
-        window.SSB_Supabase.upsertService(match).catch(e => console.warn(e));
-      }
-    }
-  }
 
   try { renderServicesListTable(); } catch (e) {}
   try { renderServicesTable(); } catch (e) {}
@@ -2201,6 +2210,22 @@ function escapeHtml(str) {
 // ==========================================
 
 let selectedServicesListIds = new Set();
+let servicesListPage = 1;
+const servicesListPageSize = 40;
+
+function changeServicesListPage(delta) {
+  servicesListPage += delta;
+  renderServicesListTable();
+}
+
+let servicesListSearchDebounceTimer = null;
+function onServicesSearchInput() {
+  clearTimeout(servicesListSearchDebounceTimer);
+  servicesListSearchDebounceTimer = setTimeout(() => {
+    servicesListPage = 1;
+    renderServicesListTable();
+  }, 150);
+}
 
 function renderServicesListTable() {
   const tbody = document.getElementById('services-list-tbody');
@@ -2210,29 +2235,23 @@ function renderServicesListTable() {
   const groups = window.SSB.getGroups();
   const apis = window.SSB.getApis ? window.SSB.getApis() : [];
 
-  // 1. Atualizar dropdowns de grupos e APIs
+  // 1. Atualizar dropdowns de grupos e APIs apenas se estiverem vazios para não recriar DOM
   const bulkGroupSelect = document.getElementById('services-bulk-group-select');
-  if (bulkGroupSelect) {
-    const currentVal = bulkGroupSelect.value;
+  if (bulkGroupSelect && bulkGroupSelect.options.length <= 1) {
     bulkGroupSelect.innerHTML = '<option value="">Selecionar Grupo</option>' +
       groups.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-    if (currentVal) bulkGroupSelect.value = currentVal;
   }
 
   const groupFilterSelect = document.getElementById('services-group-filter');
-  if (groupFilterSelect) {
-    const currentVal = groupFilterSelect.value;
+  if (groupFilterSelect && groupFilterSelect.options.length <= 1) {
     groupFilterSelect.innerHTML = '<option value="all">Todos os Grupos</option>' +
       groups.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-    if (currentVal) groupFilterSelect.value = currentVal;
   }
 
   const apiFilterSelect = document.getElementById('services-api-filter');
-  if (apiFilterSelect) {
-    const currentVal = apiFilterSelect.value;
+  if (apiFilterSelect && apiFilterSelect.options.length <= 1) {
     apiFilterSelect.innerHTML = '<option value="all">Todas APIs</option>' +
       apis.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)} (${escapeHtml(a.type)})</option>`).join('');
-    if (currentVal) apiFilterSelect.value = currentVal;
   }
 
   // 2. Aplicar Filtros
@@ -2271,7 +2290,9 @@ function renderServicesListTable() {
     return true;
   });
 
-  if (filtered.length === 0) {
+  const totalCount = filtered.length;
+
+  if (totalCount === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="8" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
@@ -2280,10 +2301,29 @@ function renderServicesListTable() {
         </td>
       </tr>
     `;
+    const pageInfo = document.getElementById('services-page-info');
+    if (pageInfo) pageInfo.textContent = '0 - 0 de 0';
     return;
   }
 
-  tbody.innerHTML = filtered.map(s => {
+  // Paginação inteligente de 40 itens por página
+  const totalPages = Math.ceil(totalCount / servicesListPageSize) || 1;
+  if (servicesListPage > totalPages) servicesListPage = totalPages;
+  if (servicesListPage < 1) servicesListPage = 1;
+  const startIdx = (servicesListPage - 1) * servicesListPageSize;
+  const pageItems = filtered.slice(startIdx, startIdx + servicesListPageSize);
+
+  // Atualizar controles da paginação
+  const pageInfo = document.getElementById('services-page-info');
+  if (pageInfo) pageInfo.textContent = `${startIdx + 1} - ${Math.min(startIdx + servicesListPageSize, totalCount)} de ${totalCount}`;
+  const currPage = document.getElementById('services-current-page');
+  if (currPage) currPage.textContent = `Pág ${servicesListPage} de ${totalPages}`;
+  const prevBtn = document.getElementById('btn-services-prev');
+  if (prevBtn) prevBtn.disabled = servicesListPage <= 1;
+  const nextBtn = document.getElementById('btn-services-next');
+  if (nextBtn) nextBtn.disabled = servicesListPage >= totalPages;
+
+  tbody.innerHTML = pageItems.map(s => {
     const isChecked = selectedServicesListIds.has(s.id);
     const cost = (typeof s.costBRL === 'number' ? s.costBRL : parseFloat(s.costBRL) || s.priceBRL || 0).toFixed(2);
     const groupName = s.group || s.categoryLabel || 'Sem Grupo';
