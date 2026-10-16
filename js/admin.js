@@ -1290,7 +1290,7 @@ async function syncServicesFromApi(apiId) {
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   if (/\/public\/?$/i.test(url)) url = url.replace(/\/public\/?$/i, '/public/api/index.php');
 
-  const actionsToTry = ['imeiservicelist', 'servicelist', 'file_services'];
+  const actionsToTry = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
   let pulledServices = [];
   let lastError = '';
 
@@ -1315,11 +1315,15 @@ async function syncServicesFromApi(apiId) {
         pulledServices = pulledServices.concat(resData.services);
         logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados em [${api.name}].`, 'success');
       } else if (resData && !resData.success && resData.error) {
-        lastError = resData.error;
+        // Se for erro de autenticação, prioriza mostrar ao usuário
+        const isAuthErr = resData.error.toLowerCase().includes('authentication') || resData.error.toLowerCase().includes('must be an email');
+        if (isAuthErr || !lastError || !lastError.toLowerCase().includes('authentication')) {
+          lastError = resData.error;
+        }
       }
     } catch (e) {
       console.warn(`Erro na ação ${act}:`, e);
-      lastError = e.message;
+      if (!lastError) lastError = e.message;
     }
   }
 
@@ -1495,38 +1499,51 @@ async function testDhruApiConnection() {
         badge.style.color = 'var(--accent-green)';
       }
     } else {
-      // Se a ação accountinfo falhou, alguns servidores DHRU só liberam imeiservicelist nas permissões da API Key:
-      logApiTerminal(`Tentativa com 'accountinfo' retornou aviso. Tentando verificar via 'imeiservicelist'...`, 'info');
-      const retryResponse = await fetch('/api/proxy-dhru', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: url,
-          username: username,
-          apiKey: apiKey,
-          action: 'imeiservicelist',
-          provider: provider
-        })
-      });
+      // Se a ação accountinfo falhou, tentar validar através de serverservicelist ou imeiservicelist
+      logApiTerminal(`Tentativa com 'accountinfo' retornou aviso. Verificando via 'serverservicelist' e 'imeiservicelist'...`, 'info');
+      
+      let verifiedOk = false;
+      let finalErrMsg = data ? data.error : 'Falha na resposta';
 
-      const retryData = await retryResponse.json().catch(() => null);
+      for (const testAct of ['serverservicelist', 'imeiservicelist']) {
+        try {
+          const retryResponse = await fetch('/api/proxy-dhru', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: url,
+              username: username,
+              apiKey: apiKey,
+              action: testAct,
+              provider: provider
+            })
+          });
 
-      if (retryData && retryData.success) {
-        if (retryData.source && urlInput && retryData.source !== url) {
-          urlInput.value = retryData.source;
-        }
-        logApiTerminal(`Conexão com a API estabelecida com sucesso via lista de serviços!`, 'success');
-        showToast('success', 'Conexão com a API autenticada com sucesso!');
-        const badge = document.getElementById('api-connection-badge');
-        if (badge) {
-          badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Autenticada';
-          badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
-          badge.style.color = 'var(--accent-green)';
-        }
-      } else {
-        const errMsg = retryData ? retryData.error : (data ? data.error : 'Falha na resposta do servidor proxy');
-        logApiTerminal(`Resposta do servidor: ${errMsg}`, 'error');
-        showToast('error', `Erro na API: ${errMsg}`);
+          const retryData = await retryResponse.json().catch(() => null);
+
+          if (retryData && retryData.success) {
+            if (retryData.source && urlInput && retryData.source !== url) {
+              urlInput.value = retryData.source;
+            }
+            logApiTerminal(`Conexão com a API estabelecida com sucesso via [${testAct}]!`, 'success');
+            showToast('success', 'Conexão com a API autenticada com sucesso!');
+            const badge = document.getElementById('api-connection-badge');
+            if (badge) {
+              badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Autenticada';
+              badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+              badge.style.color = 'var(--accent-green)';
+            }
+            verifiedOk = true;
+            break;
+          } else if (retryData && retryData.error) {
+            finalErrMsg = retryData.error;
+          }
+        } catch (e) {}
+      }
+
+      if (!verifiedOk) {
+        logApiTerminal(`Resposta do servidor: ${finalErrMsg}`, 'error');
+        showToast('error', `Erro na API: ${finalErrMsg}`);
       }
     }
   } catch (err) {
@@ -1565,7 +1582,7 @@ async function pullServicesFromLiveApi() {
   logApiTerminal(`Consultando lista de serviços via proxy seguro em ${url}...`, 'info');
   showToast('info', 'Consultando serviços no servidor atacadista...');
 
-  const actionsToTry = ['imeiservicelist', 'servicelist', 'file_services'];
+  const actionsToTry = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
   let pulledServices = [];
   let lastError = '';
 
@@ -1595,11 +1612,14 @@ async function pullServicesFromLiveApi() {
         pulledServices = pulledServices.concat(resData.services);
         logApiTerminal(`Sucesso na ação '${act}': ${resData.services.length} serviços encontrados.`, 'success');
       } else if (resData && !resData.success && resData.error) {
-        lastError = resData.error;
+        const isAuthErr = resData.error.toLowerCase().includes('authentication') || resData.error.toLowerCase().includes('must be an email');
+        if (isAuthErr || !lastError || !lastError.toLowerCase().includes('authentication')) {
+          lastError = resData.error;
+        }
       }
     } catch (e) {
       console.warn(`Erro na ação ${act}:`, e);
-      lastError = e.message;
+      if (!lastError) lastError = e.message;
     }
   }
 

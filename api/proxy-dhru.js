@@ -63,32 +63,36 @@ module.exports = async function handler(req, res) {
     targetUrl = targetUrl.replace(/\/public\/?$/i, '/public/api/index.php');
   }
 
-  // DHRU Fusion aceita envio em form urlencoded ou parameters JSON
-  const postPayload = new URLSearchParams({
-    username: username,
-    apiaccesskey: apiKey,
-    action: action,
-    requestformat: 'JSON'
-  }).toString();
+  // Ações de serviços conhecidas no padrão DHRU Fusion / GSM Server
+  const serviceActions = ['serverservicelist', 'imeiservicelist', 'fileservicelist'];
 
-  try {
-    let targetResponse = await executeRequestWithRedirects(targetUrl, postPayload);
+  // Função auxiliar para enviar uma ação específica para a API DHRU
+  async function queryDhruAction(actionName, endpointUrl) {
+    const postPayload = new URLSearchParams({
+      username: username,
+      apiaccesskey: apiKey,
+      action: actionName,
+      requestformat: 'JSON',
+      parameters: ''
+    }).toString();
+
+    let targetResponse = await executeRequestWithRedirects(endpointUrl, postPayload);
+    let rawBody = (targetResponse.body || '').trim();
 
     // Se o retorno foi HTML puro ou erro 404 e a URL informada não continha '.php', tentar endpoints clássicos do DHRU
-    let rawBody = targetResponse.body.trim();
     const isHtmlOrError = targetResponse.statusCode === 404 || 
       (targetResponse.statusCode === 200 && (rawBody.toLowerCase().startsWith('<!doctype html') || rawBody.toLowerCase().startsWith('<html')));
 
-    if (isHtmlOrError && !targetUrl.toLowerCase().includes('.php')) {
+    if (isHtmlOrError && !endpointUrl.toLowerCase().includes('.php')) {
       const candidates = [
-        targetUrl.replace(/\/+$/, '') + '/public/api/index.php',
-        targetUrl.replace(/\/+$/, '') + '/api/index.php'
+        endpointUrl.replace(/\/+$/, '') + '/public/api/index.php',
+        endpointUrl.replace(/\/+$/, '') + '/api/index.php'
       ];
 
       for (const cand of candidates) {
         try {
           const retryResponse = await executeRequestWithRedirects(cand, postPayload);
-          const retryBody = retryResponse.body.trim();
+          const retryBody = (retryResponse.body || '').trim();
           const retryIsXml = retryBody.startsWith('<?xml') || retryBody.startsWith('<RESPONSE') || retryBody.startsWith('<response');
           let retryIsJson = false;
           try { JSON.parse(retryBody); retryIsJson = true; } catch (e) {}
@@ -96,103 +100,180 @@ module.exports = async function handler(req, res) {
           if (retryResponse.statusCode === 200 && (retryIsJson || retryIsXml)) {
             targetResponse = retryResponse;
             rawBody = retryBody;
-            targetUrl = cand;
+            endpointUrl = cand;
             break;
           }
         } catch (retryErr) {}
       }
     }
 
-    // 1. Verificar se retornou erro HTTP do fornecedor (após seguir redirecionamentos)
-    if (targetResponse.statusCode !== 200 && targetResponse.statusCode !== 201) {
-      let advice = '';
-      if (targetResponse.statusCode === 301 || targetResponse.statusCode === 302) {
-        advice = ' O servidor atacadista enviou um redirecionamento sem rota válida. Verifique se o endereço da API está correto (ex: https://conectproo.com/public/api/index.php).';
-      } else if (targetResponse.statusCode === 404) {
-        advice = ' O endpoint da API não foi encontrado. Em servidores DHRU Fusion, a URL costuma terminar em /public/api/index.php ou /api/index.php.';
-      } else if (targetResponse.statusCode === 403) {
-        advice = ' Acesso negado pelo servidor atacadista. Verifique se o seu IP está liberado na API do fornecedor.';
+    return {
+      statusCode: targetResponse.statusCode,
+      finalUrl: targetResponse.finalUrl || endpointUrl,
+      rawBody: rawBody
+    };
+  }
+
+  try {
+    // Determinar quais ações consultar
+    let actionsToExecute = [];
+    if (action === 'get_all_services' || action === 'all') {
+      actionsToExecute = serviceActions;
+    } else {
+      actionsToExecute = [action];
+    }
+
+    let allCollectedServices = [];
+    let lastError = null;
+    let authFailed = false;
+    let effectiveUrl = targetUrl;
+
+    for (let i = 0; i < actionsToExecute.length; i++) {
+      const currentAct = actionsToExecute[i];
+      const resp = await queryDhruAction(currentAct, effectiveUrl);
+      if (resp.finalUrl) effectiveUrl = resp.finalUrl;
+
+      const rawBody = resp.rawBody;
+
+      // Se retornou erro HTTP
+      if (resp.statusCode !== 200 && resp.statusCode !== 201) {
+        lastError = `O servidor atacadista respondeu com erro HTTP ${resp.statusCode}.`;
+        continue;
       }
 
+      // Tentar analisar JSON ou XML
+      let parsedData = null;
+      let isXml = rawBody.startsWith('<?xml') || rawBody.startsWith('<RESPONSE') || rawBody.startsWith('<response');
+
+      if (!isXml) {
+        try {
+          parsedData = JSON.parse(rawBody);
+        } catch (jsonErr) {
+          if (rawBody.includes('<RESPONSE>') || rawBody.includes('<response>') || rawBody.includes('<SUCCESS>')) {
+            isXml = true;
+          }
+        }
+      }
+
+      if (parsedData) {
+        // Verificar se houve erro DHRU
+        if (parsedData.ERROR) {
+          let errorMsg = '';
+          const errEntry = Array.isArray(parsedData.ERROR) ? parsedData.ERROR[0] : parsedData.ERROR;
+          if (errEntry && errEntry.MESSAGE) {
+            if (typeof errEntry.MESSAGE === 'string') {
+              errorMsg = errEntry.MESSAGE;
+            } else if (typeof errEntry.MESSAGE === 'object') {
+              const parts = [];
+              for (const [field, val] of Object.entries(errEntry.MESSAGE)) {
+                parts.push(`${field}: ${Array.isArray(val) ? val.join(', ') : val}`);
+              }
+              errorMsg = parts.join(' | ');
+            }
+          }
+          if (!errorMsg) errorMsg = JSON.stringify(parsedData.ERROR);
+
+          // Se for erro de autenticação / credenciais, interromper imediatamente
+          const lowerErr = errorMsg.toLowerCase();
+          if (lowerErr.includes('authentication') || lowerErr.includes('must be an email') || lowerErr.includes('ip not allowed') || lowerErr.includes('access denied')) {
+            authFailed = true;
+            if (lowerErr.includes('must be an email')) {
+              errorMsg = 'O Usuário da API deve ser o seu e-mail de login no painel do fornecedor (ex: seuemail@gmail.com).';
+            }
+            return res.end(JSON.stringify({
+              success: false,
+              error: `Erro retornado pela API DHRU: ${errorMsg}`
+            }));
+          }
+
+          // Se for "Invalid Action" e estávamos tentando listar serviços com uma ação específica:
+          // Tentar automaticamente as outras ações de serviço (ex: serverservicelist)
+          if (lowerErr.includes('invalid action')) {
+            lastError = `Erro retornado pela API DHRU: ${errorMsg}`;
+            // Se o usuário pediu só 1 ação de serviço (ex: imeiservicelist) e deu Invalid Action, adiciona os outros serviços para tentar
+            if (actionsToExecute.length === 1 && serviceActions.includes(currentAct)) {
+              const fallbacks = serviceActions.filter(a => a !== currentAct);
+              actionsToExecute.push(...fallbacks);
+            }
+            continue;
+          }
+
+          lastError = `Erro retornado pela API DHRU: ${errorMsg}`;
+          continue;
+        }
+
+        // Se for requisição de accountinfo
+        if (currentAct === 'accountinfo') {
+          return res.end(JSON.stringify({
+            success: true,
+            action: 'accountinfo',
+            data: parsedData.SUCCESS || parsedData,
+            source: effectiveUrl
+          }));
+        }
+
+        const currentServices = parseDhruJsonServices(parsedData);
+        if (currentServices && currentServices.length > 0) {
+          allCollectedServices.push(...currentServices);
+        }
+      } else if (isXml) {
+        const currentServices = parseDhruXmlServices(rawBody);
+        if (currentServices && currentServices.length > 0) {
+          allCollectedServices.push(...currentServices);
+        }
+      } else {
+        lastError = `Resposta inesperada: ${rawBody.substring(0, 150)}`;
+      }
+    }
+
+    // Se a ação original era accountinfo e falhou com Invalid Action, mas o teste de conexão precisava saber se a chave é válida:
+    if (action === 'accountinfo' && allCollectedServices.length > 0) {
       return res.end(JSON.stringify({
-        success: false,
-        httpStatus: targetResponse.statusCode,
-        finalUrl: targetResponse.finalUrl,
-        error: `O servidor atacadista respondeu com erro HTTP ${targetResponse.statusCode}.${advice} ${rawBody.substring(0, 200)}`
+        success: true,
+        action: 'accountinfo',
+        message: 'Conexão validada com sucesso através do catálogo de serviços.',
+        source: effectiveUrl
       }));
     }
 
-    // 2. Tentar analisar como JSON
-    let parsedData = null;
-    let isXml = rawBody.startsWith('<?xml') || rawBody.startsWith('<RESPONSE') || rawBody.startsWith('<response');
-
-    if (!isXml) {
-      try {
-        parsedData = JSON.parse(rawBody);
-      } catch (jsonErr) {
-        // Se falhou ao parsear JSON, pode ser XML com caracteres antes
-        if (rawBody.includes('<RESPONSE>') || rawBody.includes('<response>') || rawBody.includes('<SUCCESS>')) {
-          isXml = true;
+    // Se serviços foram encontrados em qualquer uma das ações
+    if (allCollectedServices.length > 0) {
+      // Deduplicar por id
+      const uniqueServices = [];
+      const seenIds = new Set();
+      for (const s of allCollectedServices) {
+        const key = `${s.id}-${(s.name || '').toLowerCase()}`;
+        if (!seenIds.has(key)) {
+          seenIds.add(key);
+          uniqueServices.push(s);
         }
-      }
-    }
-
-    // 3. Extrair serviços
-    let services = [];
-
-    if (parsedData) {
-      // Verificar se o DHRU retornou erro explícito na resposta JSON
-      if (parsedData.ERROR) {
-        let errorMsg = '';
-        const errEntry = Array.isArray(parsedData.ERROR) ? parsedData.ERROR[0] : parsedData.ERROR;
-        if (errEntry && errEntry.MESSAGE) {
-          if (typeof errEntry.MESSAGE === 'string') {
-            errorMsg = errEntry.MESSAGE;
-          } else if (typeof errEntry.MESSAGE === 'object') {
-            // Caso como {"username":["User name must be an email"]}
-            const parts = [];
-            for (const [field, val] of Object.entries(errEntry.MESSAGE)) {
-              const msgText = Array.isArray(val) ? val.join(', ') : String(val);
-              parts.push(`${field}: ${msgText}`);
-            }
-            errorMsg = parts.join(' | ');
-          }
-        }
-        if (!errorMsg) errorMsg = JSON.stringify(parsedData.ERROR);
-
-        // Traduzir ou amigabilizar mensagens comuns da API
-        if (errorMsg.includes('must be an email')) {
-          errorMsg = 'O Usuário da API deve ser o seu e-mail de login no painel do fornecedor (ex: seuemail@gmail.com).';
-        }
-
-        return res.end(JSON.stringify({
-          success: false,
-          error: `Erro retornado pela API DHRU: ${errorMsg}`
-        }));
-      }
-
-      services = parseDhruJsonServices(parsedData);
-    } else if (isXml) {
-      services = parseDhruXmlServices(rawBody);
-    } else {
-      // Se não for nem JSON nem XML válido
-      let extraHint = '';
-      if (rawBody.toLowerCase().includes('<html') || rawBody.toLowerCase().includes('login')) {
-        extraHint = ' O servidor retornou uma página de navegação HTML em vez da resposta da API. Certifique-se de colocar a URL do arquivo de API (ex: https://seuservidor.com/api/index.php).';
       }
 
       return res.end(JSON.stringify({
+        success: true,
+        count: uniqueServices.length,
+        action: action,
+        services: uniqueServices,
+        source: effectiveUrl
+      }));
+    }
+
+    // Se nenhum serviço foi obtido e houve erro
+    if (lastError) {
+      if (lastError.toLowerCase().includes('invalid action')) {
+        lastError = 'O servidor atacadista informou "Invalid Action". O seu fornecedor pode exigir que você ative as permissões de API (Server Services / IMEI Services) no perfil da sua conta.';
+      }
+      return res.end(JSON.stringify({
         success: false,
-        error: `Resposta da API em formato inesperado (não é JSON nem XML).${extraHint} Resposta recebida: ${rawBody.substring(0, 160)}`
+        error: lastError
       }));
     }
 
     return res.end(JSON.stringify({
       success: true,
-      count: services.length,
-      action: action,
-      services: services,
-      source: targetResponse.finalUrl || targetUrl
+      count: 0,
+      services: [],
+      source: effectiveUrl
     }));
 
   } catch (err) {
