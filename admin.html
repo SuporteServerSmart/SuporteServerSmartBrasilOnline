@@ -151,28 +151,28 @@
             Menu Principal
           </div>
           <nav class="admin-nav">
-            <div class="admin-nav-item active" data-tab="dashboard">
+            <div class="admin-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
               <i class="fa-solid fa-chart-line"></i>
               <span>Dashboard Geral</span>
             </div>
-            <div class="admin-nav-item" data-tab="orders">
+            <div class="admin-nav-item" data-tab="orders" onclick="switchTab('orders')">
               <i class="fa-solid fa-boxes-stacked"></i>
               <span>Pedidos (<span id="sidebar-pending-count" class="mono">0</span>)</span>
             </div>
-            <div class="admin-nav-item" data-tab="services">
+            <div class="admin-nav-item" data-tab="services" onclick="switchTab('services')">
               <i class="fa-solid fa-screwdriver-wrench"></i>
               <span>Catálogo de Serviços</span>
             </div>
-            <div class="admin-nav-item" data-tab="api-sync" style="background: rgba(0, 240, 255, 0.08); border-left: 3px solid var(--accent-cyan); margin: 0.25rem 0;">
+            <div class="admin-nav-item" data-tab="api-sync" onclick="switchTab('api-sync')" style="background: rgba(0, 240, 255, 0.08); border-left: 3px solid var(--accent-cyan); margin: 0.25rem 0;">
               <i class="fa-solid fa-cloud-arrow-down" style="color: var(--accent-cyan);"></i>
               <span>APIs GSM & DHRU</span>
               <span style="margin-left: auto; font-size: 0.65rem; background: var(--accent-cyan); color: #000; padding: 0.1rem 0.45rem; border-radius: var(--radius-full); font-weight: 800;">MIGRAR</span>
             </div>
-            <div class="admin-nav-item" data-tab="users">
+            <div class="admin-nav-item" data-tab="users" onclick="switchTab('users')">
               <i class="fa-solid fa-users"></i>
               <span>Clientes & Revenda</span>
             </div>
-            <div class="admin-nav-item" data-tab="settings">
+            <div class="admin-nav-item" data-tab="settings" onclick="switchTab('settings')">
               <i class="fa-solid fa-sliders"></i>
               <span>Configurações & PIX</span>
             </div>

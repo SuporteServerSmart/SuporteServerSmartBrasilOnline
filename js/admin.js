@@ -10,10 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initAdmin() {
-  checkAuth();
-  setupAuthForm();
-  setupNavigation();
-  setupFiltersAndForms();
+  window.switchTab = switchTab;
+  try { setupNavigation(); } catch (e) { console.error('Navigation error:', e); }
+  try { setupAuthForm(); } catch (e) { console.error('Auth form error:', e); }
+  try { setupFiltersAndForms(); } catch (e) { console.error('Filters error:', e); }
+  try { checkAuth(); } catch (e) { console.error('Auth check error:', e); }
 }
 
 function getStoredCustomer() {
@@ -153,39 +154,68 @@ function logoutAndSwitchAccount() {
 
 // 2. Navigation Tabs
 function setupNavigation() {
+  window.switchTab = switchTab;
+
+  // Delegação de eventos no container pai nav
+  const navContainer = document.querySelector('.admin-nav');
+  if (navContainer) {
+    navContainer.addEventListener('click', (e) => {
+      const item = e.target.closest('.admin-nav-item');
+      if (item) {
+        const tab = item.getAttribute('data-tab');
+        if (tab) switchTab(tab);
+      }
+    });
+  }
+
+  // Listeners diretos em cada item como redundância
   const navItems = document.querySelectorAll('.admin-nav-item');
   navItems.forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (e) => {
       const tab = item.getAttribute('data-tab');
-      switchTab(tab);
+      if (tab) switchTab(tab);
     });
   });
 }
 
 function switchTab(tabName) {
-  document.querySelectorAll('.admin-nav-item').forEach(el => {
-    el.classList.toggle('active', el.getAttribute('data-tab') === tabName);
+  if (!tabName) return;
+
+  // 1. Alterna estado ativo nos botões do menu lateral
+  const navItems = document.querySelectorAll('.admin-nav-item');
+  navItems.forEach(el => {
+    const isTarget = el.getAttribute('data-tab') === tabName;
+    el.classList.toggle('active', isTarget);
   });
 
-  document.querySelectorAll('.admin-view').forEach(view => {
-    view.style.display = view.id === `view-${tabName}` ? 'block' : 'none';
+  // 2. Alterna exibição das seções
+  const views = document.querySelectorAll('.admin-view');
+  views.forEach(view => {
+    const isTarget = view.id === `view-${tabName}`;
+    view.style.display = isTarget ? 'block' : 'none';
   });
 
-  if (tabName === 'dashboard') renderDashboard();
-  if (tabName === 'orders') renderOrdersTable();
-  if (tabName === 'services') renderServicesTable();
-  if (tabName === 'api-sync') renderApiSyncView();
-  if (tabName === 'users') renderUsersTable();
-  if (tabName === 'settings') renderSettingsForm();
+  // 3. Renderiza dados da aba selecionada de forma isolada e segura
+  try {
+    if (tabName === 'dashboard') renderDashboard();
+    else if (tabName === 'orders') renderOrdersTable();
+    else if (tabName === 'services') renderServicesTable();
+    else if (tabName === 'api-sync') renderApiSyncView();
+    else if (tabName === 'users') renderUsersTable();
+    else if (tabName === 'settings') renderSettingsForm();
+  } catch (err) {
+    console.error(`Erro ao carregar dados da aba ${tabName}:`, err);
+  }
 }
+window.switchTab = switchTab;
 
 // 3. Load all admin views
 function loadAllAdminData() {
-  renderDashboard();
-  renderOrdersTable();
-  renderServicesTable();
-  renderUsersTable();
-  renderSettingsForm();
+  try { renderDashboard(); } catch (e) { console.error('Dashboard load error:', e); }
+  try { renderOrdersTable(); } catch (e) { console.error('Orders load error:', e); }
+  try { renderServicesTable(); } catch (e) { console.error('Services load error:', e); }
+  try { renderUsersTable(); } catch (e) { console.error('Users load error:', e); }
+  try { renderSettingsForm(); } catch (e) { console.error('Settings load error:', e); }
 }
 
 // 4. Render Dashboard
@@ -310,21 +340,24 @@ function renderServicesTable() {
   const services = window.SSB.getServices();
 
   tbody.innerHTML = services.map(s => {
-    const profit = s.priceBRL - s.costBRL;
-    const profitPercent = ((profit / s.costBRL) * 100).toFixed(0);
+    const priceBRL = typeof s.priceBRL === 'number' ? s.priceBRL : parseFloat(s.priceBRL) || 0;
+    const costBRL = typeof s.costBRL === 'number' ? s.costBRL : parseFloat(s.costBRL) || 0;
+    const profit = priceBRL - costBRL;
+    const profitPercent = costBRL > 0 ? ((profit / costBRL) * 100).toFixed(0) : '0';
+    const descText = s.description ? String(s.description).substring(0, 50) : '';
 
     return `
       <tr>
         <td>
-          <div style="font-weight: 600;">${escapeHtml(s.name)}</div>
-          <small style="color: var(--text-muted);">${s.badge ? `[${s.badge}]` : ''} ${escapeHtml(s.description.substring(0, 50))}...</small>
+          <div style="font-weight: 600;">${escapeHtml(s.name || '')}</div>
+          <small style="color: var(--text-muted);">${s.badge ? `[${escapeHtml(s.badge)}]` : ''} ${escapeHtml(descText)}...</small>
         </td>
-        <td><span class="service-badge">${s.categoryLabel || s.category}</span></td>
-        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">R$ ${s.priceBRL.toFixed(2)}</td>
-        <td class="mono" style="color: var(--text-muted);">R$ ${s.costBRL.toFixed(2)}</td>
+        <td><span class="service-badge">${escapeHtml(s.categoryLabel || s.category || '')}</span></td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">R$ ${priceBRL.toFixed(2)}</td>
+        <td class="mono" style="color: var(--text-muted);">R$ ${costBRL.toFixed(2)}</td>
         <td class="mono" style="color: var(--accent-green); font-weight: 600;">+R$ ${profit.toFixed(2)} (${profitPercent}%)</td>
-        <td>${s.deliveryTime}</td>
-        <td class="mono" style="font-size: 0.8rem; color: var(--text-secondary);">${s.serverApi}</td>
+        <td>${escapeHtml(s.deliveryTime || 'Instantâneo')}</td>
+        <td class="mono" style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHtml(s.serverApi || 'DHRU')}</td>
         <td>
           <span style="color: ${s.status === 'active' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 700; font-size: 0.8rem;">
             ${s.status === 'active' ? 'ATIVO' : 'INATIVO'}
@@ -410,21 +443,25 @@ function renderUsersTable() {
 
   const users = window.SSB.getUsers();
 
-  tbody.innerHTML = users.map(u => `
-    <tr>
-      <td><strong>${escapeHtml(u.name)}</strong></td>
-      <td style="color: var(--text-secondary);">${escapeHtml(u.email)}</td>
-      <td><span class="service-badge ${u.role.includes('Master') ? 'pro' : ''}">${u.role}</span></td>
-      <td class="mono" style="font-weight: 700; color: var(--accent-green); font-size: 1rem;">R$ ${u.balanceBRL.toFixed(2)}</td>
-      <td class="mono">${u.ordersCount} pedidos</td>
-      <td class="mono" style="color: var(--accent-cyan); font-weight: 600;">${u.discountPercent}% OFF</td>
-      <td>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="addCreditToUser('${u.id}')">
-          <i class="fa-solid fa-circle-plus"></i> Injetar Créditos
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = users.map(u => {
+    const balanceBRL = typeof u.balanceBRL === 'number' ? u.balanceBRL : parseFloat(u.balanceBRL) || 0;
+    const roleStr = u.role || 'Cliente Técnico';
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.name || '')}</strong></td>
+        <td style="color: var(--text-secondary);">${escapeHtml(u.email || '')}</td>
+        <td><span class="service-badge ${roleStr.includes('Master') ? 'pro' : ''}">${escapeHtml(roleStr)}</span></td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-green); font-size: 1rem;">R$ ${balanceBRL.toFixed(2)}</td>
+        <td class="mono">${u.ordersCount || 0} pedidos</td>
+        <td class="mono" style="color: var(--accent-cyan); font-weight: 600;">${u.discountPercent || 0}% OFF</td>
+        <td>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addCreditToUser('${u.id}')">
+            <i class="fa-solid fa-circle-plus"></i> Injetar Créditos
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function addCreditToUser(userId) {
