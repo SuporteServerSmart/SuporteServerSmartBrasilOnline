@@ -1129,7 +1129,8 @@ function setupDhruApiForm() {
 }
 
 async function testDhruApiConnection() {
-  const url = document.getElementById('dhru-api-url')?.value.trim();
+  const urlInput = document.getElementById('dhru-api-url');
+  let url = (urlInput?.value || '').trim();
   const username = document.getElementById('dhru-api-username')?.value.trim();
   const apiKey = document.getElementById('dhru-api-key')?.value.trim();
 
@@ -1139,9 +1140,15 @@ async function testDhruApiConnection() {
     return;
   }
 
+  // Auto-completar https:// se o usuário digitou sem protocolo
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+    if (urlInput) urlInput.value = url;
+  }
+
   const provider = document.getElementById('dhru-api-provider')?.value || 'dhru';
-  logApiTerminal(`Testando credenciais e conexão com a API: ${url}...`, 'info');
-  showToast('info', 'Verificando credenciais na API do servidor...');
+  logApiTerminal(`Iniciando teste de conexão na API: ${url}...`, 'info');
+  showToast('info', 'Verificando conexão e seguindo redirecionamentos HTTP...');
 
   try {
     const response = await fetch('/api/proxy-dhru', {
@@ -1159,6 +1166,11 @@ async function testDhruApiConnection() {
     const data = await response.json().catch(() => null);
 
     if (data && data.success) {
+      if (data.source && urlInput && data.source !== url) {
+        urlInput.value = data.source;
+        logApiTerminal(`Redirecionamento seguido com sucesso: URL atualizada para ${data.source}`, 'info');
+      }
+
       logApiTerminal(`Conexão com a API estabelecida com sucesso! Acesso validado no servidor.`, 'success');
       showToast('success', 'Conexão com a API estabelecida com sucesso!');
       const badge = document.getElementById('api-connection-badge');
@@ -1168,9 +1180,39 @@ async function testDhruApiConnection() {
         badge.style.color = 'var(--accent-green)';
       }
     } else {
-      const errMsg = data ? data.error : 'Falha na resposta do servidor proxy';
-      logApiTerminal(`Resposta do servidor: ${errMsg}`, 'error');
-      showToast('error', `Erro na API: ${errMsg}`);
+      // Se a ação accountinfo falhou, alguns servidores DHRU só liberam imeiservicelist nas permissões da API Key:
+      logApiTerminal(`Tentativa com 'accountinfo' retornou aviso. Tentando verificar via 'imeiservicelist'...`, 'info');
+      const retryResponse = await fetch('/api/proxy-dhru', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: url,
+          username: username,
+          apiKey: apiKey,
+          action: 'imeiservicelist',
+          provider: provider
+        })
+      });
+
+      const retryData = await retryResponse.json().catch(() => null);
+
+      if (retryData && retryData.success) {
+        if (retryData.source && urlInput && retryData.source !== url) {
+          urlInput.value = retryData.source;
+        }
+        logApiTerminal(`Conexão com a API estabelecida com sucesso via lista de serviços!`, 'success');
+        showToast('success', 'Conexão com a API autenticada com sucesso!');
+        const badge = document.getElementById('api-connection-badge');
+        if (badge) {
+          badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Autenticada';
+          badge.style.borderColor = 'rgba(0, 255, 136, 0.4)';
+          badge.style.color = 'var(--accent-green)';
+        }
+      } else {
+        const errMsg = retryData ? retryData.error : (data ? data.error : 'Falha na resposta do servidor proxy');
+        logApiTerminal(`Resposta do servidor: ${errMsg}`, 'error');
+        showToast('error', `Erro na API: ${errMsg}`);
+      }
     }
   } catch (err) {
     console.warn("DHRU Connection test:", err);
@@ -1180,7 +1222,8 @@ async function testDhruApiConnection() {
 }
 
 async function pullServicesFromLiveApi() {
-  const url = document.getElementById('dhru-api-url')?.value.trim();
+  const urlInput = document.getElementById('dhru-api-url');
+  let url = (urlInput?.value || '').trim();
   const username = document.getElementById('dhru-api-username')?.value.trim();
   const apiKey = document.getElementById('dhru-api-key')?.value.trim();
   const provider = document.getElementById('dhru-api-provider')?.value || 'dhru';
@@ -1189,6 +1232,11 @@ async function pullServicesFromLiveApi() {
     showToast('warning', 'Configure e salve a URL e a Chave da API primeiro.');
     logApiTerminal('URL ou API Key não informadas. Preencha os campos da API.', 'warn');
     return;
+  }
+
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+    if (urlInput) urlInput.value = url;
   }
 
   logApiTerminal(`Consultando lista de serviços via proxy seguro em ${url}...`, 'info');
@@ -1214,6 +1262,11 @@ async function pullServicesFromLiveApi() {
       });
 
       const resData = await response.json().catch(() => null);
+
+      if (resData && resData.source && urlInput && resData.source !== url) {
+        urlInput.value = resData.source;
+        url = resData.source;
+      }
 
       if (resData && resData.success && Array.isArray(resData.services) && resData.services.length > 0) {
         pulledServices = pulledServices.concat(resData.services);

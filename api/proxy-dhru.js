@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
     return res.end(JSON.stringify({ success: false, error: 'JSON de requisição inválido' }));
   }
 
-  const targetUrl = (params.url || params.targetUrl || '').trim();
+  let targetUrl = (params.url || params.targetUrl || '').trim();
   const username = (params.username || '').trim();
   const apiKey = (params.apiKey || params.apiaccesskey || '').trim();
   const action = (params.action || 'imeiservicelist').trim();
@@ -53,67 +53,62 @@ module.exports = async function handler(req, res) {
     }));
   }
 
+  // Normalização de protocolo (se não tiver http:// ou https://, assumir https://)
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    targetUrl = 'https://' + targetUrl;
+  }
+
+  // DHRU Fusion aceita envio em form urlencoded ou parameters JSON
+  const postPayload = new URLSearchParams({
+    username: username,
+    apiaccesskey: apiKey,
+    action: action,
+    requestformat: 'JSON'
+  }).toString();
+
   try {
-    const parsedTarget = new URL(targetUrl);
-    const isHttps = parsedTarget.protocol === 'https:';
-    const client = isHttps ? https : http;
+    let targetResponse = await executeRequestWithRedirects(targetUrl, postPayload);
 
-    // DHRU Fusion aceita envio em form urlencoded ou parameters JSON
-    const postPayload = new URLSearchParams({
-      username: username,
-      apiaccesskey: apiKey,
-      action: action,
-      requestformat: 'JSON'
-    }).toString();
+    // Se o retorno foi HTML puro ou erro 404 e a URL informada não continha '/api', tentar fallback automático para /api/index.php
+    let rawBody = targetResponse.body.trim();
+    const isHtmlOrError = targetResponse.statusCode === 404 || 
+      (targetResponse.statusCode === 200 && (rawBody.toLowerCase().startsWith('<!doctype html') || rawBody.toLowerCase().startsWith('<html')));
 
-    const requestOptions = {
-      hostname: parsedTarget.hostname,
-      port: parsedTarget.port || (isHttps ? 443 : 80),
-      path: parsedTarget.pathname + parsedTarget.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(postPayload),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GSMServerClient/2.0',
-        'Accept': 'application/json, text/plain, */*'
-      },
-      timeout: 15000
-    };
+    if (isHtmlOrError && !targetUrl.toLowerCase().includes('/api')) {
+      try {
+        const candidateUrl = new URL('/api/index.php', targetUrl).href;
+        const retryResponse = await executeRequestWithRedirects(candidateUrl, postPayload);
+        const retryBody = retryResponse.body.trim();
+        const retryIsXml = retryBody.startsWith('<?xml') || retryBody.startsWith('<RESPONSE') || retryBody.startsWith('<response');
+        let retryIsJson = false;
+        try { JSON.parse(retryBody); retryIsJson = true; } catch (e) {}
 
-    const targetResponse = await new Promise((resolve, reject) => {
-      const externalReq = client.request(requestOptions, (extRes) => {
-        let rawData = '';
-        extRes.on('data', chunk => rawData += chunk);
-        extRes.on('end', () => {
-          resolve({
-            statusCode: extRes.statusCode,
-            headers: extRes.headers,
-            body: rawData
-          });
-        });
-      });
+        if (retryResponse.statusCode === 200 && (retryIsJson || retryIsXml)) {
+          targetResponse = retryResponse;
+          rawBody = retryBody;
+          targetUrl = candidateUrl;
+        }
+      } catch (retryErr) {
+        // Ignora erro de fallback e prossegue com o resultado original
+      }
+    }
 
-      externalReq.on('timeout', () => {
-        externalReq.destroy();
-        reject(new Error('Timeout de 15 segundos excedido ao conectar no servidor atacadista.'));
-      });
-
-      externalReq.on('error', (err) => {
-        reject(err);
-      });
-
-      externalReq.write(postPayload);
-      externalReq.end();
-    });
-
-    const rawBody = targetResponse.body.trim();
-
-    // 1. Verificar se retornou erro HTTP do fornecedor
+    // 1. Verificar se retornou erro HTTP do fornecedor (após seguir redirecionamentos)
     if (targetResponse.statusCode !== 200 && targetResponse.statusCode !== 201) {
+      let advice = '';
+      if (targetResponse.statusCode === 301 || targetResponse.statusCode === 302) {
+        advice = ' O servidor atacadista enviou um redirecionamento sem rota válida. Verifique se o endereço da API está correto (ex: https://seusite.com/api/index.php).';
+      } else if (targetResponse.statusCode === 404) {
+        advice = ' O endpoint da API não foi encontrado. Em servidores DHRU Fusion, a URL costuma terminar em /api/index.php ou /api/.';
+      } else if (targetResponse.statusCode === 403) {
+        advice = ' Acesso negado pelo servidor atacadista. Verifique se o seu IP está liberado na API do fornecedor.';
+      }
+
       return res.end(JSON.stringify({
         success: false,
         httpStatus: targetResponse.statusCode,
-        error: `O servidor atacadista respondeu com erro HTTP ${targetResponse.statusCode}: ${rawBody.substring(0, 300)}`
+        finalUrl: targetResponse.finalUrl,
+        error: `O servidor atacadista respondeu com erro HTTP ${targetResponse.statusCode}.${advice} ${rawBody.substring(0, 200)}`
       }));
     }
 
@@ -152,9 +147,14 @@ module.exports = async function handler(req, res) {
       services = parseDhruXmlServices(rawBody);
     } else {
       // Se não for nem JSON nem XML válido
+      let extraHint = '';
+      if (rawBody.toLowerCase().includes('<html') || rawBody.toLowerCase().includes('login')) {
+        extraHint = ' O servidor retornou uma página de navegação HTML em vez da resposta da API. Certifique-se de colocar a URL do arquivo de API (ex: https://seuservidor.com/api/index.php).';
+      }
+
       return res.end(JSON.stringify({
         success: false,
-        error: `Resposta da API em formato inesperado (não é JSON nem XML): ${rawBody.substring(0, 200)}`
+        error: `Resposta da API em formato inesperado (não é JSON nem XML).${extraHint} Resposta recebida: ${rawBody.substring(0, 160)}`
       }));
     }
 
@@ -163,7 +163,7 @@ module.exports = async function handler(req, res) {
       count: services.length,
       action: action,
       services: services,
-      source: targetUrl
+      source: targetResponse.finalUrl || targetUrl
     }));
 
   } catch (err) {
@@ -174,6 +174,83 @@ module.exports = async function handler(req, res) {
     }));
   }
 };
+
+// Envia requisição POST seguindo redirecionamentos (301, 302, 303, 307, 308) automaticamente
+async function executeRequestWithRedirects(startUrl, postPayload, maxRedirects = 5) {
+  let currentUrl = startUrl.trim();
+  if (!/^https?:\/\//i.test(currentUrl)) {
+    currentUrl = 'https://' + currentUrl;
+  }
+
+  let redirects = 0;
+  const history = [currentUrl];
+
+  while (redirects <= maxRedirects) {
+    const parsedTarget = new URL(currentUrl);
+    const isHttps = parsedTarget.protocol === 'https:';
+    const client = isHttps ? https : http;
+
+    const requestOptions = {
+      hostname: parsedTarget.hostname,
+      port: parsedTarget.port || (isHttps ? 443 : 80),
+      path: (parsedTarget.pathname || '/') + (parsedTarget.search || ''),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postPayload),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GSMServerClient/2.0',
+        'Accept': 'application/json, text/plain, */*'
+      },
+      timeout: 15000
+    };
+
+    const res = await new Promise((resolve, reject) => {
+      const req = client.request(requestOptions, (extRes) => {
+        let rawData = '';
+        extRes.on('data', chunk => rawData += chunk);
+        extRes.on('end', () => {
+          resolve({
+            statusCode: extRes.statusCode,
+            headers: extRes.headers,
+            body: rawData
+          });
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Timeout de 15 segundos excedido ao conectar no servidor atacadista.'));
+      });
+
+      req.on('error', (err) => {
+        reject(err);
+      });
+
+      req.write(postPayload);
+      req.end();
+    });
+
+    // Se respondeu status de redirecionamento e tem cabeçalho Location
+    if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+      redirects++;
+      const nextUrl = new URL(res.headers.location, currentUrl).href;
+      history.push(nextUrl);
+      currentUrl = nextUrl;
+      continue;
+    }
+
+    return {
+      statusCode: res.statusCode,
+      headers: res.headers,
+      body: res.body,
+      finalUrl: currentUrl,
+      redirectsFollowed: redirects,
+      history: history
+    };
+  }
+
+  throw new Error(`Limite de redirecionamentos excedido (${maxRedirects}): ${history.join(' -> ')}`);
+}
 
 // Parser inteligente para estruturas JSON retornadas por servidores DHRU Fusion
 function parseDhruJsonServices(data) {
