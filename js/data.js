@@ -733,10 +733,24 @@ window.SSB = {
     let updatedCount = 0;
 
     servicesToImport.forEach(item => {
-      const costUSD = typeof item.costUSD === 'number' ? item.costUSD : (parseFloat(item.costUSD) || 0);
-      const costBRL = typeof item.costBRL === 'number' ? item.costBRL : (parseFloat(item.costBRL) || (costUSD * usdRate));
-      const calculatedPriceBRL = item.priceBRL || (costBRL * (1 + (profitMargin / 100)));
-      const calculatedPriceUSD = item.priceUSD || (costUSD ? costUSD * (1 + (profitMargin / 100)) : (calculatedPriceBRL / usdRate));
+      const isBrl = item.currency === 'BRL';
+      let costBRL = 0;
+      let costUSD = 0;
+
+      if (isBrl) {
+        // Se a moeda nativa da API é Real (BRL), o custo em BRL é o valor exato da API sem multiplicar pela cotação do dólar
+        costBRL = typeof item.costBRL === 'number' ? item.costBRL : (typeof item.cost === 'number' ? item.cost : (parseFloat(item.costBRL || item.cost || item.rawCost) || 0));
+        costUSD = typeof item.costUSD === 'number' && item.currency !== 'BRL' ? item.costUSD : Math.round((costBRL / usdRate) * 100) / 100;
+      } else {
+        // Se a moeda nativa é Dólar (USD), armazena o valor exato em USD e converte para BRL
+        costUSD = typeof item.costUSD === 'number' ? item.costUSD : (typeof item.cost === 'number' ? item.cost : (parseFloat(item.costUSD || item.cost || item.rawCost) || 0));
+        costBRL = typeof item.costBRL === 'number' && item.currency === 'BRL' ? item.costBRL : Math.round((costUSD * usdRate) * 100) / 100;
+      }
+
+      // Preço de venda: se a margem for 0%, vende EXATAMENTE pelo preço de custo da API
+      const effectiveMargin = typeof profitMargin === 'number' ? profitMargin : 0;
+      const calculatedPriceBRL = item.priceBRL !== undefined ? item.priceBRL : (costBRL * (1 + (effectiveMargin / 100)));
+      const calculatedPriceUSD = item.priceUSD !== undefined ? item.priceUSD : (costUSD * (1 + (effectiveMargin / 100)));
 
       const serviceObj = {
         id: item.id || `srv-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}`,
@@ -746,6 +760,9 @@ window.SSB = {
         priceBRL: Math.round(calculatedPriceBRL * 100) / 100,
         priceUSD: Math.round(calculatedPriceUSD * 100) / 100,
         costBRL: Math.round(costBRL * 100) / 100,
+        costUSD: Math.round(costUSD * 100) / 100,
+        rawCost: item.rawCost !== undefined ? item.rawCost : (isBrl ? costBRL : costUSD),
+        currency: item.currency || (isBrl ? 'BRL' : 'USD'),
         deliveryTime: item.deliveryTime || item.time || 'Instantâneo (1-15 min)',
         status: 'active',
         type: item.type || 'username',

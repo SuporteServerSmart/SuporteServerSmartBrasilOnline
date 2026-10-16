@@ -38,6 +38,8 @@ function initAdmin() {
   window.changeApiServicesPage = changeApiServicesPage;
   window.onServicesSearchInput = onServicesSearchInput;
   window.onApiSearchFilterInput = onApiSearchFilterInput;
+  window.updateApiProfitMarginControl = updateApiProfitMarginControl;
+  window.setApiMarginZero = setApiMarginZero;
 
   // Gerenciador de Serviços e Grupos (Novas telas fotos 2, 3 e 4)
   window.renderServicesListTable = renderServicesListTable;
@@ -1220,6 +1222,10 @@ function handleSaveApi(e) {
     }
   }
 
+  const currencyMode = document.getElementById('api-mgr-currency')?.value || 'auto';
+  const profitMarginVal = parseFloat(document.getElementById('api-mgr-margin')?.value);
+  const profitMargin = isNaN(profitMarginVal) ? 30 : Math.max(0, profitMarginVal);
+
   const apiObj = {
     id: id || undefined,
     name,
@@ -1228,12 +1234,14 @@ function handleSaveApi(e) {
     url,
     username,
     apiKey,
-    color
+    color,
+    currencyMode,
+    profitMargin
   };
 
   const saved = window.SSB.saveApi(apiObj);
-  showToast('success', `API [${name}] salva com sucesso!`);
-  logApiTerminal(`API [${name}] salva com sucesso no gerenciador de provedores.`, 'success');
+  showToast('success', `API [${name}] salva com sucesso! (Moeda: ${currencyMode.toUpperCase()}, Margem: ${profitMargin}%)`);
+  logApiTerminal(`API [${name}] salva com sucesso no gerenciador de provedores. Moeda: ${currencyMode.toUpperCase()}, Margem: ${profitMargin}%.`, 'success');
 
   resetApiForm();
   renderApisTable();
@@ -1254,6 +1262,11 @@ function editApiItem(apiId) {
   document.getElementById('api-mgr-key').value = api.apiKey || '';
   document.getElementById('api-mgr-color').value = api.color || '#8b5cf6';
   updateApiColorPreview(api.color || '#8b5cf6');
+
+  const currSelect = document.getElementById('api-mgr-currency');
+  if (currSelect) currSelect.value = api.currencyMode || 'auto';
+  const marginInput = document.getElementById('api-mgr-margin');
+  if (marginInput) marginInput.value = api.profitMargin !== undefined ? api.profitMargin : 30;
 
   const titleEl = document.getElementById('api-form-title');
   if (titleEl) titleEl.textContent = `Editar API: ${api.name}`;
@@ -1347,10 +1360,31 @@ async function syncServicesFromApi(apiId) {
       }
     }
 
-    // Associar nome da API a cada serviço importado
+    // Identificar moeda do servidor atacadista (BRL ou USD)
+    const detectedCurrency = (api.currencyMode && api.currencyMode !== 'auto') 
+      ? api.currencyMode 
+      : (resData.currency || (api.name && api.name.toLowerCase().includes('conectproo') ? 'BRL' : 'USD'));
+
+    const settings = window.SSB.getSettings();
+    const usdRate = settings.usdRate || 5.65;
+    const margin = getActiveApiProfitMargin(api);
+
+    // Associar dados exatos de custo e API a cada serviço importado
     unique.forEach(s => {
       s.serverApi = api.name || 'DHRU Fusion API';
       s.apiName = api.name || 'DHRU Fusion API';
+      s.currency = s.currency || detectedCurrency;
+      const raw = typeof s.rawCost === 'number' ? s.rawCost : (parseFloat(s.cost) || parseFloat(s.costUSD) || 0);
+      s.rawCost = raw;
+      if (s.currency === 'BRL') {
+        s.costBRL = raw;
+        s.costUSD = parseFloat((raw / usdRate).toFixed(4));
+      } else {
+        s.costUSD = raw;
+        s.costBRL = parseFloat((raw * usdRate).toFixed(2));
+      }
+      s.profitMargin = margin;
+      s.priceBRL = parseFloat((s.costBRL * (1 + margin / 100)).toFixed(2));
     });
 
     apiCachedServices = unique;
@@ -1358,8 +1392,6 @@ async function syncServicesFromApi(apiId) {
     apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
 
     // Publicar automaticamente todos os serviços puxados diretamente no catálogo do site público
-    const settings = window.SSB.getSettings();
-    const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
     const importResult = window.SSB.importServicesToCatalog(unique, margin);
 
     try { renderServicesListTable(); } catch (e) {}
@@ -1797,9 +1829,26 @@ async function pullServicesFromLiveApi() {
       }
     }
 
+    const detectedCurrency = resData.currency || (url.includes('conectproo') ? 'BRL' : 'USD');
+    const settings = window.SSB.getSettings();
+    const usdRate = settings.usdRate || 5.65;
+    const margin = getActiveApiProfitMargin();
+
     unique.forEach(s => {
       s.serverApi = 'API GSM Direta';
       s.apiName = 'API GSM Direta';
+      s.currency = s.currency || detectedCurrency;
+      const raw = typeof s.rawCost === 'number' ? s.rawCost : (parseFloat(s.cost) || parseFloat(s.costUSD) || 0);
+      s.rawCost = raw;
+      if (s.currency === 'BRL') {
+        s.costBRL = raw;
+        s.costUSD = parseFloat((raw / usdRate).toFixed(4));
+      } else {
+        s.costUSD = raw;
+        s.costBRL = parseFloat((raw * usdRate).toFixed(2));
+      }
+      s.profitMargin = margin;
+      s.priceBRL = parseFloat((s.costBRL * (1 + margin / 100)).toFixed(2));
     });
 
     apiCachedServices = unique;
@@ -1807,8 +1856,6 @@ async function pullServicesFromLiveApi() {
     apiCachedServices.forEach(s => selectedApiServiceIds.add(s.id));
 
     // Publicar automaticamente todos os serviços puxados diretamente no catálogo do site público
-    const settings = window.SSB.getSettings();
-    const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
     const importResult = window.SSB.importServicesToCatalog(unique, margin);
 
     try { renderServicesListTable(); } catch (e) {}
@@ -1927,6 +1974,36 @@ function changeApiServicesPage(delta) {
   filterApiServicesTable();
 }
 
+// Helper para obter margem ativa configurada pelo usuário (suporta 0% para vender a preço de custo)
+function getActiveApiProfitMargin(api) {
+  const marginInput = document.getElementById('api-profit-margin-control');
+  if (marginInput && marginInput.value !== '' && !isNaN(Number(marginInput.value))) {
+    return Math.max(0, Number(marginInput.value));
+  }
+  if (api && api.profitMargin !== undefined && api.profitMargin !== null && !isNaN(Number(api.profitMargin))) {
+    return Math.max(0, Number(api.profitMargin));
+  }
+  const settings = window.SSB.getSettings();
+  if (settings.dhruProfitMargin !== undefined && !isNaN(Number(settings.dhruProfitMargin))) {
+    return Math.max(0, Number(settings.dhruProfitMargin));
+  }
+  return 30;
+}
+
+function updateApiProfitMarginControl(val) {
+  const margin = isNaN(Number(val)) ? 0 : Math.max(0, Number(val));
+  const marginInput = document.getElementById('api-profit-margin-control');
+  if (marginInput) marginInput.value = margin;
+  filterApiServicesTable();
+}
+
+function setApiMarginZero() {
+  const marginInput = document.getElementById('api-profit-margin-control');
+  if (marginInput) marginInput.value = 0;
+  updateApiProfitMarginControl(0);
+  showToast('info', 'Margem 0% ativada: Os serviços serão importados pelo Custo Exato da API!');
+}
+
 let apiFilterSearchDebounceTimer = null;
 function onApiSearchFilterInput() {
   clearTimeout(apiFilterSearchDebounceTimer);
@@ -1947,7 +2024,7 @@ function renderApiServicesTable(services) {
 
   const settings = window.SSB.getSettings();
   const usdRate = settings.usdRate || 5.65;
-  const marginPercent = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+  const activeMargin = getActiveApiProfitMargin();
 
   const totalCount = services.length;
   if (totalCountEl) totalCountEl.textContent = totalCount;
@@ -1988,12 +2065,16 @@ function renderApiServicesTable(services) {
     const isSelected = selectedApiServiceIds.has(s.id);
     const isAlreadyImported = existingNames.has(s.name.trim().toLowerCase()) || existingApis.has(s.id.toLowerCase());
 
-    const costUSD = s.costUSD || 0;
-    const costBRL = s.costBRL || (costUSD * usdRate);
-    const profitMargin = s.profitMargin || marginPercent;
+    const isBrl = s.currency === 'BRL' || (!s.currency && s.serverApi && s.serverApi.toLowerCase().includes('conectproo'));
+    const rawCost = typeof s.rawCost === 'number' ? s.rawCost : (parseFloat(s.cost) || parseFloat(s.costUSD) || 0);
+    const costBRL = typeof s.costBRL === 'number' ? s.costBRL : (isBrl ? rawCost : parseFloat((rawCost * usdRate).toFixed(2)));
+    const costUSD = typeof s.costUSD === 'number' ? s.costUSD : (isBrl ? parseFloat((rawCost / usdRate).toFixed(4)) : rawCost);
+
+    const profitMargin = activeMargin;
     const finalPriceBRL = parseFloat((costBRL * (1 + profitMargin / 100)).toFixed(2));
 
     const categoryBadgeClass = s.category === 'tools' ? 'badge-processing' : (s.category === 'imei' ? 'badge-completed' : 'badge-pending');
+    const wholesaleDisplay = isBrl ? `R$ ${rawCost.toFixed(2)}` : `$ ${costUSD.toFixed(2)}`;
 
     return `
       <tr style="${isAlreadyImported ? 'background: rgba(0, 255, 136, 0.03);' : ''}">
@@ -2010,11 +2091,11 @@ function renderApiServicesTable(services) {
             ${escapeHtml(s.categoryLabel || s.category)}
           </span>
         </td>
-        <td class="mono" style="color: #ffd700; font-weight: 600;">$ ${costUSD.toFixed(2)}</td>
-        <td class="mono" style="color: var(--text-secondary);">R$ ${costBRL.toFixed(2)}</td>
+        <td class="mono" style="color: #ffd700; font-weight: 600;" title="Custo original do provedor">${wholesaleDisplay}</td>
+        <td class="mono" style="color: var(--text-secondary);" title="Custo convertido para Real">R$ ${costBRL.toFixed(2)}</td>
         <td>
-          <span style="font-size: 0.8rem; background: rgba(0, 255, 136, 0.1); color: var(--accent-green); padding: 0.15rem 0.45rem; border-radius: var(--radius-sm); font-weight: 700;">
-            +${profitMargin}%
+          <span style="font-size: 0.8rem; background: ${profitMargin === 0 ? 'rgba(0, 240, 255, 0.15)' : 'rgba(0, 255, 136, 0.1)'}; color: ${profitMargin === 0 ? 'var(--accent-cyan)' : 'var(--accent-green)'}; padding: 0.15rem 0.45rem; border-radius: var(--radius-sm); font-weight: 700;">
+            ${profitMargin === 0 ? 'Custo Puro (0%)' : '+' + profitMargin + '%'}
           </span>
         </td>
         <td class="mono" style="color: var(--accent-green); font-weight: 800; font-size: 0.95rem;">
@@ -2111,9 +2192,7 @@ async function migrateSingleApiService(apiId) {
   const item = apiCachedServices.find(s => s.id === apiId);
   if (!item) return;
 
-  const settings = window.SSB.getSettings();
-  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
-
+  const margin = getActiveApiProfitMargin();
   const result = window.SSB.importServicesToCatalog([item], margin);
 
   // Sincronizar com Supabase se ativo
@@ -2139,10 +2218,9 @@ async function migrateSelectedServices() {
   }
 
   const itemsToMigrate = apiCachedServices.filter(s => selectedApiServiceIds.has(s.id));
-  const settings = window.SSB.getSettings();
-  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+  const margin = getActiveApiProfitMargin();
 
-  logApiTerminal(`Migrando ${itemsToMigrate.length} serviços selecionados para o catálogo do site...`, 'info');
+  logApiTerminal(`Migrando ${itemsToMigrate.length} serviços selecionados com margem de ${margin}% para o catálogo...`, 'info');
 
   const result = window.SSB.importServicesToCatalog(itemsToMigrate, margin);
 
@@ -2168,10 +2246,9 @@ async function sendAllPulledServicesToPublicSite() {
     return;
   }
 
-  const settings = window.SSB.getSettings();
-  const margin = settings.dhruProfitMargin !== undefined ? settings.dhruProfitMargin : 30;
+  const margin = getActiveApiProfitMargin();
 
-  logApiTerminal(`Publicando ${apiCachedServices.length} serviços no catálogo do site público...`, 'info');
+  logApiTerminal(`Publicando ${apiCachedServices.length} serviços com margem de ${margin}% no catálogo do site público...`, 'info');
 
   const result = window.SSB.importServicesToCatalog(apiCachedServices, margin);
 

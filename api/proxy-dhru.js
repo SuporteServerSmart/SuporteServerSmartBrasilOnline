@@ -137,6 +137,7 @@ module.exports = async function handler(req, res) {
     let lastError = null;
     let authFailed = false;
     let effectiveUrl = targetUrl;
+    let detectedApiGlobalCurrency = '';
 
     for (let i = 0; i < actionsToExecute.length; i++) {
       const currentAct = actionsToExecute[i];
@@ -226,7 +227,10 @@ module.exports = async function handler(req, res) {
           }));
         }
 
-        const currentServices = parseDhruJsonServices(parsedData);
+        const c = detectApiCurrency(parsedData, rawBody);
+        if (c && !detectedApiGlobalCurrency) detectedApiGlobalCurrency = c;
+
+        const currentServices = parseDhruJsonServices(parsedData, detectedApiGlobalCurrency || 'USD');
         if (currentServices && currentServices.length > 0) {
           allCollectedServices.push(...currentServices);
         }
@@ -243,7 +247,10 @@ module.exports = async function handler(req, res) {
           }));
         }
 
-        const currentServices = parseDhruXmlServices(rawBody);
+        const c = detectApiCurrency(null, rawBody);
+        if (c && !detectedApiGlobalCurrency) detectedApiGlobalCurrency = c;
+
+        const currentServices = parseDhruXmlServices(rawBody, detectedApiGlobalCurrency || 'USD');
         if (currentServices && currentServices.length > 0) {
           allCollectedServices.push(...currentServices);
         }
@@ -258,6 +265,7 @@ module.exports = async function handler(req, res) {
         success: true,
         action: 'accountinfo',
         message: 'Conexão validada com sucesso através do catálogo de serviços.',
+        currency: detectedApiGlobalCurrency || 'USD',
         source: effectiveUrl
       }));
     }
@@ -279,6 +287,7 @@ module.exports = async function handler(req, res) {
         success: true,
         count: uniqueServices.length,
         action: action,
+        currency: detectedApiGlobalCurrency || 'USD',
         services: uniqueServices,
         source: effectiveUrl
       }));
@@ -406,16 +415,105 @@ async function executeRequestWithRedirects(startUrl, postPayload, maxRedirects =
   throw new Error(`Limite de redirecionamentos excedido (${maxRedirects}): ${history.join(' -> ')}`);
 }
 
+// Limpa e converte strings de valor monetário sem perder centavos ou sofrer com formatação local
+function parseExactAmount(val) {
+  if (typeof val === 'number') return Math.round(val * 10000) / 10000;
+  if (!val) return 0;
+  let s = String(val).trim();
+  // Remover caracteres não numéricos exceto ponto e vírgula
+  s = s.replace(/[^0-9.,]/g, '');
+  if (!s) return 0;
+
+  // Lidar com separadores mistos (ex: 1,250.50 ou 1.250,50)
+  if (s.includes(',') && s.includes('.')) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      // Padrão brasileiro/europeu: 1.250,50 -> 1250.50
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Padrão americano: 1,250.50 -> 1250.50
+      s = s.replace(/,/g, '');
+    }
+  } else if (s.includes(',')) {
+    // Apenas vírgula: 25,50 -> 25.50
+    s = s.replace(',', '.');
+  }
+
+  const num = parseFloat(s);
+  return isNaN(num) ? 0 : Math.round(num * 10000) / 10000;
+}
+
+// Extrai o custo exato do objeto de serviço usando qualquer chave compatível com DHRU e GSM
+function extractExactCost(obj) {
+  if (!obj || typeof obj !== 'object') return 0;
+
+  const costKeys = [
+    'CREDIT', 'credit', 'Credit',
+    'USER_PRICE', 'UserPrice', 'user_price',
+    'SPECIAL_PRICE', 'SpecialPrice', 'special_price',
+    'PRICE', 'price', 'Price',
+    'COST', 'cost', 'Cost',
+    'AMOUNT', 'amount', 'Amount',
+    'RATE', 'rate', 'Rate',
+    'CREDITS', 'credits', 'Credits'
+  ];
+
+  for (const k of costKeys) {
+    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') {
+      const parsed = parseExactAmount(obj[k]);
+      if (!isNaN(parsed) && parsed >= 0) {
+        return parsed;
+      }
+    }
+  }
+
+  return 0;
+}
+
+// Detecta a moeda retornada pela API (USD, BRL, EUR)
+function detectApiCurrency(data, rawBody = '') {
+  let currency = '';
+
+  function scan(obj) {
+    if (!obj || typeof obj !== 'object' || currency) return;
+    if (Array.isArray(obj)) {
+      for (const item of obj) scan(item);
+      return;
+    }
+    for (const [k, v] of Object.entries(obj)) {
+      const lower = k.toLowerCase();
+      if ((lower === 'currency' || lower === 'curr' || lower === 'currency_code' || lower === 'currencyname') && typeof v === 'string') {
+        const c = v.trim().toUpperCase();
+        if (c.length <= 4) {
+          currency = c;
+          return;
+        }
+      }
+      if (typeof v === 'object' && v !== null) scan(v);
+    }
+  }
+
+  if (data) scan(data);
+
+  if (!currency && rawBody) {
+    const m = rawBody.match(/<currency>([A-Za-z]{3,4})<\/currency>|<CURRENCY>([A-Za-z]{3,4})<\/CURRENCY>/i);
+    if (m) currency = (m[1] || m[2]).trim().toUpperCase();
+  }
+
+  if (currency === 'R$' || currency === 'REAL' || currency === 'REAIS') currency = 'BRL';
+  return currency || '';
+}
+
 // Parser inteligente para estruturas JSON retornadas por servidores DHRU Fusion e GSM Theme
-function parseDhruJsonServices(data) {
+function parseDhruJsonServices(data, defaultCurrency = 'USD') {
   const result = [];
   const seenIds = new Set();
+  const globalCurrency = detectApiCurrency(data) || defaultCurrency;
 
   function isService(obj) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
-    const hasName = Boolean(obj.SERVICENAME || obj.servicename || obj.ServiceName || obj.service_name);
-    const hasId = Boolean(obj.SERVICEID || obj.serviceid || obj.ServiceID || obj.service_id);
-    const hasCredit = obj.CREDIT !== undefined || obj.credit !== undefined || obj.price !== undefined || obj.cost !== undefined || obj.Cost !== undefined;
+    const hasName = Boolean(obj.SERVICENAME || obj.servicename || obj.ServiceName || obj.service_name || obj.name);
+    const hasId = Boolean(obj.SERVICEID || obj.serviceid || obj.ServiceID || obj.service_id || obj.id);
+    const hasCredit = obj.CREDIT !== undefined || obj.credit !== undefined || obj.price !== undefined || obj.cost !== undefined || obj.Cost !== undefined || obj.amount !== undefined;
     
     return hasName || (hasId && hasCredit);
   }
@@ -429,17 +527,22 @@ function parseDhruJsonServices(data) {
     if (seenIds.has(key)) return;
     seenIds.add(key);
 
-    const credit = parseFloat(obj.CREDIT || obj.credit || obj.price || obj.cost || obj.Cost || 0) || 0;
+    const exactCost = extractExactCost(obj);
     const time = String(obj.TIME || obj.time || obj.DeliveryTime || obj.delivery_time || obj.timeframe || '1-24 Horas').trim();
     const group = String(obj.GROUPNAME || obj.groupname || obj.GroupName || obj.GROUP_NAME || groupName || '').trim();
     const info = String(obj.INFO || obj.info || obj.description || obj.Description || '').trim();
+    const svcCurrency = detectApiCurrency(obj) || globalCurrency;
 
     result.push({
       id: id,
       name: name,
       category: detectCategory(name, group),
       categoryLabel: detectCategoryLabel(name, group),
-      costUSD: credit,
+      cost: exactCost,            // Custo exato sem arredondamento
+      rawCost: exactCost,         // Custo exato original da API
+      costUSD: exactCost,         // Campo de compatibilidade
+      costBRL: exactCost,         // Campo de compatibilidade
+      currency: svcCurrency,      // Moeda nativa da API
       time: time,
       description: info || (group ? `${name} (${group})` : `${name} - Via API DHRU Fusion`)
     });
@@ -482,8 +585,9 @@ function parseDhruJsonServices(data) {
 }
 
 // Parser para respostas XML de servidores DHRU Fusion
-function parseDhruXmlServices(xmlStr) {
+function parseDhruXmlServices(xmlStr, defaultCurrency = 'USD') {
   const result = [];
+  const globalCurrency = detectApiCurrency(null, xmlStr) || defaultCurrency;
   const serviceRegex = /<SERVICES>([\s\S]*?)<\/SERVICES>|<SERVICE>([\s\S]*?)<\/SERVICE>/gi;
   let match;
 
@@ -491,14 +595,14 @@ function parseDhruXmlServices(xmlStr) {
     const block = match[1] || match[2];
     const idMatch = block.match(/<SERVICEID>([\s\S]*?)<\/SERVICEID>|<id>([\s\S]*?)<\/id>/i);
     const nameMatch = block.match(/<SERVICENAME>([\s\S]*?)<\/SERVICENAME>|<name>([\s\S]*?)<\/name>/i);
-    const creditMatch = block.match(/<CREDIT>([\s\S]*?)<\/CREDIT>|<price>([\s\S]*?)<\/price>/i);
+    const creditMatch = block.match(/<CREDIT>([\s\S]*?)<\/CREDIT>|<price>([\s\S]*?)<\/price>|<cost>([\s\S]*?)<\/cost>|<amount>([\s\S]*?)<\/amount>|<rate>([\s\S]*?)<\/rate>/i);
     const timeMatch = block.match(/<TIME>([\s\S]*?)<\/TIME>|<delivery_time>([\s\S]*?)<\/delivery_time>/i);
     const groupMatch = block.match(/<GROUP_NAME>([\s\S]*?)<\/GROUP_NAME>|<group>([\s\S]*?)<\/group>/i);
 
     if (nameMatch && nameMatch[1]) {
       const name = nameMatch[1].trim();
       const id = idMatch ? idMatch[1].trim() : `dhru-xml-${result.length}`;
-      const credit = creditMatch ? parseFloat(creditMatch[1].trim()) || 0 : 0;
+      const exactCost = creditMatch ? parseExactAmount(creditMatch[1] || creditMatch[2] || creditMatch[3] || creditMatch[4] || creditMatch[5] || 0) : 0;
       const time = timeMatch ? timeMatch[1].trim() : '1-24 Horas';
       const group = groupMatch ? groupMatch[1].trim() : '';
 
@@ -507,7 +611,11 @@ function parseDhruXmlServices(xmlStr) {
         name: name,
         category: detectCategory(name, group),
         categoryLabel: detectCategoryLabel(name, group),
-        costUSD: credit,
+        cost: exactCost,
+        rawCost: exactCost,
+        costUSD: exactCost,
+        costBRL: exactCost,
+        currency: globalCurrency,
         time: time,
         description: `${name} - Via API DHRU Fusion`
       });
@@ -546,11 +654,13 @@ function extractDhruAccountInfo(data, rawBody) {
     for (const [k, v] of Object.entries(obj)) {
       const lower = k.toLowerCase();
       if ((lower === 'credit' || lower === 'credits' || lower === 'balance' || lower === 'saldo' || lower === 'acc_credit') && (typeof v === 'string' || typeof v === 'number')) {
-        const parsed = parseFloat(String(v).replace(',', '.'));
+        const parsed = parseExactAmount(v);
         if (!isNaN(parsed)) credit = parsed;
       }
       if ((lower === 'currency' || lower === 'curr' || lower === 'currency_code') && typeof v === 'string') {
-        currency = v.trim().toUpperCase();
+        let c = v.trim().toUpperCase();
+        if (c === 'R$' || c === 'REAL' || c === 'REAIS') c = 'BRL';
+        currency = c;
       }
       if ((lower === 'username' || lower === 'mail' || lower === 'email' || lower === 'acc_username') && typeof v === 'string') {
         email = v.trim();
@@ -567,11 +677,15 @@ function extractDhruAccountInfo(data, rawBody) {
   if (credit === null && rawBody) {
     const credMatch = rawBody.match(/<credit>([\s\S]*?)<\/credit>|<balance>([\s\S]*?)<\/balance>/i);
     if (credMatch) {
-      const parsed = parseFloat((credMatch[1] || credMatch[2] || '').trim().replace(',', '.'));
+      const parsed = parseExactAmount(credMatch[1] || credMatch[2] || '');
       if (!isNaN(parsed)) credit = parsed;
     }
     const currMatch = rawBody.match(/<currency>([\s\S]*?)<\/currency>/i);
-    if (currMatch) currency = (currMatch[1] || 'USD').trim().toUpperCase();
+    if (currMatch) {
+      let c = (currMatch[1] || 'USD').trim().toUpperCase();
+      if (c === 'R$' || c === 'REAL' || c === 'REAIS') c = 'BRL';
+      currency = c;
+    }
     const mailMatch = rawBody.match(/<mail>([\s\S]*?)<\/mail>|<username>([\s\S]*?)<\/username>|<email>([\s\S]*?)<\/email>/i);
     if (mailMatch) email = (mailMatch[1] || mailMatch[2] || mailMatch[3] || '').trim();
   }

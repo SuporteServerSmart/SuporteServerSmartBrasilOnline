@@ -995,12 +995,28 @@
                 </div>
               </div>
 
-              <!-- Linha 3: Cor da API -->
-              <div style="margin-bottom: 1.5rem;">
-                <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Cor</label>
-                <div style="display: flex; gap: 0.85rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.4rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.08);">
-                  <input type="color" id="api-mgr-color" value="#8b5cf6" onchange="updateApiColorPreview(this.value)" style="width: 44px; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: transparent; padding: 0;">
-                  <div id="api-mgr-color-bar" style="flex: 1; height: 14px; border-radius: 4px; background: #8b5cf6; transition: background 0.2s;"></div>
+              <!-- Linha 3: Moeda dos Custos, Margem Padrão, Cor da API -->
+              <div style="display: grid; grid-template-columns: 1.5fr 1.2fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Moeda dos Custos na API</label>
+                  <select id="api-mgr-currency" class="form-control" style="background: #111422; border-color: rgba(255,255,255,0.1);">
+                    <option value="auto">Auto-detectar (da API)</option>
+                    <option value="BRL">BRL - Real Brasileiro (R$)</option>
+                    <option value="USD">USD - Dólar Americano ($)</option>
+                  </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Margem Padrão (%)</label>
+                  <input type="number" id="api-mgr-margin" class="form-control" placeholder="0 para vender a preço de custo" value="30" min="0" max="500" style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);">
+                </div>
+
+                <div>
+                  <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Cor de Identificação</label>
+                  <div style="display: flex; gap: 0.85rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.4rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.08);">
+                    <input type="color" id="api-mgr-color" value="#8b5cf6" onchange="updateApiColorPreview(this.value)" style="width: 44px; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: transparent; padding: 0;">
+                    <div id="api-mgr-color-bar" style="flex: 1; height: 14px; border-radius: 4px; background: #8b5cf6; transition: background 0.2s;"></div>
+                  </div>
                 </div>
               </div>
 
@@ -1104,13 +1120,23 @@
                 <input type="text" id="api-search-filter" class="form-control" style="padding-left: 2.3rem; font-size: 0.85rem;" placeholder="Buscar ferramenta (ex: UnlockTool, Chimera, Pandora, EDL, FRP)..." oninput="onApiSearchFilterInput()">
               </div>
 
-              <div style="width: 220px;">
+              <div style="width: 200px;">
                 <select id="api-category-filter" class="form-control" style="font-size: 0.85rem;" onchange="filterApiServicesTable()">
                   <option value="all">Todas as Categorias</option>
                   <option value="licenca">Licenças Digitais</option>
                   <option value="creditos">Servidor & Créditos</option>
                   <option value="frp">FRP & EDL Remoto</option>
                 </select>
+              </div>
+
+              <!-- Controle de Margem em Tempo Real -->
+              <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(0, 0, 0, 0.4); padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid rgba(0, 255, 136, 0.3);">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap;">Margem:</label>
+                <input type="number" id="api-profit-margin-control" value="30" min="0" max="500" style="width: 58px; background: rgba(255,255,255,0.06); border: 1px solid rgba(0, 255, 136, 0.4); border-radius: 4px; color: var(--accent-green); font-weight: 800; font-family: var(--font-mono); text-align: center; padding: 0.2rem;" onchange="updateApiProfitMarginControl(this.value)">
+                <span style="color: var(--accent-green); font-weight: 700; font-size: 0.85rem;">%</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setApiMarginZero()" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: rgba(255,255,255,0.25);" title="Definir margem 0% para vender exatamente pelo valor de custo da API">
+                  Preço de Custo (0%)
+                </button>
               </div>
 
               <div style="font-size: 0.82rem; color: var(--text-secondary); margin-left: auto;">
