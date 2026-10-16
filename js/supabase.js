@@ -72,9 +72,18 @@ window.SSB_Supabase = {
   getConfig() {
     try {
       const stored = localStorage.getItem(SUPABASE_STORAGE_CONFIG);
-      return stored ? JSON.parse(stored) : { url: '', key: '', enabled: false };
+      const defaults = { 
+        url: 'https://vyiixpbgeuvenmpdbxyx.supabase.co', 
+        key: '', 
+        enabled: true 
+      };
+      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
     } catch (e) {
-      return { url: '', key: '', enabled: false };
+      return { 
+        url: 'https://vyiixpbgeuvenmpdbxyx.supabase.co', 
+        key: '', 
+        enabled: true 
+      };
     }
   },
 
