@@ -1,766 +1,703 @@
-// Suporte Server Smart Brasil Online - Client Application Logic
-// Com Autenticação de Clientes / Técnicos e Bloqueio de Preços para Visitantes Não Logados
+// ==========================================================================
+// TECH UNION SOLUTIONS - APLICAÇÃO PRINCIPAL (APP.JS)
+// ==========================================================================
 
-const CUSTOMER_SESSION_KEY = 'sss_customer_session_v1';
-const CUSTOMER_ACCOUNTS_KEY = 'sss_customer_accounts_v1';
-const ADMIN_SESSION_KEY = 'sss_admin_authenticated';
-const ADMIN_EMAIL_KEY = 'sss_admin_email_v1';
+const STORAGE_KEYS = {
+  USERS: 'tu_users_db_v1',
+  CURRENT_USER: 'tu_current_user_v1',
+  SOLUTIONS: 'tu_custom_solutions_v1',
+  TICKER: 'tu_custom_ticker_v1',
+  CONFIG: 'tu_system_config_v1'
+};
 
-const DEFAULT_ACCOUNTS = [
-  {
-    name: "Técnico Assistência Express",
-    email: "cliente@smart.com",
-    password: "123",
-    whatsapp: "11999999999",
-    balance: 0.00,
-    role: "cliente",
-    isAdmin: false
-  }
-];
+const AppState = {
+  currentUser: null,
+  users: [],
+  solutions: [],
+  tickerNews: [],
+  systemConfig: {},
+  activeView: 'dashboard'
+};
 
+// ==========================================================================
+// INICIALIZAÇÃO
+// ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-  initApp();
+  initStorage();
+  renderBrandCards();
+  renderTicker();
+  setupEventListeners();
+  checkAuth();
 });
 
-let currentCategory = 'all';
-let searchQuery = '';
-let activeServiceForCheckout = null;
+function initStorage() {
+  // 1. Configurações do Sistema
+  const savedConfig = localStorage.getItem(STORAGE_KEYS.CONFIG);
+  AppState.systemConfig = savedConfig 
+    ? { ...window.TECH_UNION_DATA.system, ...JSON.parse(savedConfig) }
+    : { ...window.TECH_UNION_DATA.system };
 
-async function initApp() {
-  renderSettings();
-  renderAuthUI();
-  renderServices();
-  setupEventListeners();
+  // 2. Notícias do Ticker
+  const savedTicker = localStorage.getItem(STORAGE_KEYS.TICKER);
+  AppState.tickerNews = savedTicker
+    ? JSON.parse(savedTicker)
+    : [...window.TECH_UNION_DATA.tickerNews];
 
-  // Sincronizar serviços em tempo real da nuvem (Supabase)
-  if (window.SSB && window.SSB.syncServicesFromCloud) {
-    try {
-      const cloudServices = await window.SSB.syncServicesFromCloud();
-      if (cloudServices && cloudServices.length > 0) {
-        renderServices();
-      }
-    } catch (e) {
-      console.warn("Usando serviços locais em cache:", e);
-    }
-  }
+  // 3. Soluções
+  const savedSolutions = localStorage.getItem(STORAGE_KEYS.SOLUTIONS);
+  AppState.solutions = savedSolutions
+    ? JSON.parse(savedSolutions)
+    : [...window.TECH_UNION_DATA.solutions];
+
+  // 4. Usuários
+  const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+  AppState.users = savedUsers ? JSON.parse(savedUsers) : [];
+
+  // 5. Usuário Logado
+  const savedCurrentUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+  AppState.currentUser = savedCurrentUser ? JSON.parse(savedCurrentUser) : null;
 }
 
-// 1. Gerenciamento de Sessão de Cliente & Detecção de Primeiro Admin
-function getCurrentCustomer() {
-  try {
-    const session = localStorage.getItem(CUSTOMER_SESSION_KEY);
-    return session ? JSON.parse(session) : null;
-  } catch (e) {
-    return null;
-  }
+// ==========================================================================
+// RENDERIZAÇÃO DOS 16 CARDS DO GRID
+// ==========================================================================
+function renderBrandCards() {
+  const container = document.getElementById('cardsGrid');
+  if (!container) return;
+
+  container.innerHTML = '';
+  window.TECH_UNION_DATA.cards.forEach(card => {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'tech-card';
+    cardEl.innerHTML = `
+      <div class="card-top">
+        <div class="card-brand-badge" style="background-color: ${card.badgeBg}; color: ${card.badgeColor};">
+          <i class="${card.icon}"></i>
+        </div>
+        <div class="card-brand-info">
+          <h3>${card.name}</h3>
+          <p>${card.description}</p>
+        </div>
+      </div>
+      <button class="btn-ver-solucoes ${card.btnColor}" onclick="openSolutionsForBrand('${card.id}', '${card.name}')">
+        Ver Soluções
+      </button>
+    `;
+    container.appendChild(cardEl);
+  });
 }
 
-function getCustomerAccounts() {
-  try {
-    const stored = localStorage.getItem(CUSTOMER_ACCOUNTS_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_ACCOUNTS;
-  } catch (e) {
-    return DEFAULT_ACCOUNTS;
-  }
+// ==========================================================================
+// TICKER DE NOTÍCIAS ROLANTE
+// ==========================================================================
+function renderTicker() {
+  const tickerEl = document.getElementById('tickerText');
+  if (!tickerEl) return;
+
+  const newsItems = AppState.tickerNews.map(item => `🔥 ${item.text}`).join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+  tickerEl.innerHTML = newsItems;
 }
 
-function saveCustomerAccounts(accounts) {
-  localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts));
-}
+// ==========================================================================
+// AUTENTICAÇÃO & REGRA CENTRAL (1º USUÁRIO = ADMIN SUPREMO)
+// ==========================================================================
+function checkAuth() {
+  const userCardEl = document.getElementById('heroUserCard');
+  const sidebarAdminSection = document.getElementById('navAdminSection');
+  const sidebarUserSnippet = document.getElementById('sidebarUserSnippet');
 
-function hasAdminAccount() {
-  const accounts = getCustomerAccounts();
-  const designatedEmail = localStorage.getItem(ADMIN_EMAIL_KEY);
-  return accounts.some(acc => acc.role === 'admin' || acc.isAdmin === true || (designatedEmail && acc.email.toLowerCase() === designatedEmail.toLowerCase()));
-}
+  if (AppState.currentUser) {
+    const u = AppState.currentUser;
+    const isSuperAdmin = u.role === 'superadmin';
+    const isSpecialPlan = isSuperAdmin || u.daysRemaining > 300;
 
-function renderAuthUI() {
-  const customer = getCurrentCustomer();
-  const navContainer = document.getElementById('nav-auth-container');
-  const catalogBanner = document.getElementById('catalog-auth-banner');
-  const topAuthAction = document.getElementById('top-auth-action');
-
-  if (customer) {
-    const isUserAdmin = customer.role === 'admin' || customer.isAdmin === true;
-
-    // Logado
-    if (navContainer) {
-      if (isUserAdmin) {
-        // Usuário é Administrador: Mostra badge Admin e botão de acesso ao Painel Admin
-        navContainer.innerHTML = `
-          <div class="user-pill admin-pill" title="Administrador Geral Conectado">
-            <i class="fa-solid fa-crown" style="color: #ffd700;"></i>
-            <span>${escapeHtml(customer.name.split(' ')[0])}</span>
-            <span class="admin-badge-tag">ADMIN</span>
+    userCardEl.innerHTML = `
+      <div class="user-info-group">
+        <i class="fa-solid fa-user-circle"></i>
+        <div>
+          <div class="user-name-label">${escapeHtml(u.username)}</div>
+          <div style="font-size: 10px; color: ${isSuperAdmin ? '#fef08a' : '#bae6fd'}; font-weight: 700;">
+            ${isSuperAdmin ? '👑 Super Administrador' : (u.role === 'admin' ? 'Administrador' : 'Técnico Autorizado')}
           </div>
-          <a href="admin.html" class="btn btn-admin btn-sm" title="Acessar Painel Administrativo">
-            <i class="fa-solid fa-shield-halved"></i> Painel Admin
-          </a>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
-        `;
-      } else {
-        // Usuário Técnico Comum: Mostra perfil e saldo, SEM botão Admin
-        navContainer.innerHTML = `
-          <div class="user-pill" title="Conta de Técnico Conectada">
-            <i class="fa-solid fa-user-check" style="color: var(--accent-cyan);"></i>
-            <span>${escapeHtml(customer.name.split(' ')[0])}</span>
-            <span class="user-pill-balance">R$ ${(customer.balance || 0).toFixed(2)}</span>
-          </div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="handleCustomerLogout()" style="color: var(--accent-red); padding: 0.45rem 0.65rem;" title="Sair da Conta">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
-        `;
-      }
-    }
+        </div>
+      </div>
 
-    if (topAuthAction) {
-      if (isUserAdmin) {
-        topAuthAction.innerHTML = `<i class="fa-solid fa-crown" style="color: #ffd700;"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])} <span class="admin-badge-tag" style="margin-left: 0.35rem;">ADMIN</span>`;
-        topAuthAction.onclick = () => {
-          window.location.href = 'admin.html';
-        };
-      } else {
-        topAuthAction.innerHTML = `<i class="fa-solid fa-user-check"></i> Olá, ${escapeHtml(customer.name.split(' ')[0])}`;
-        topAuthAction.onclick = () => {
-          showToast('info', `Você está logado como: ${customer.name}`);
-        };
-      }
-    }
+      <div class="license-pill" style="background-color: ${u.daysRemaining <= 0 ? '#ef4444' : '#16a34a'};">
+        <div class="license-pill-days">
+          <i class="fa-solid fa-check"></i>
+          <span>${isSuperAdmin ? 'Acesso Vitalício' : `${u.daysRemaining} dias`}</span>
+        </div>
+        <div class="license-pill-expire">
+          ${isSuperAdmin ? 'Encerra: Nunca' : `Encerra: ${u.expireDate || 'Ativo'}`}
+        </div>
+      </div>
 
-    if (catalogBanner) {
-      catalogBanner.innerHTML = '';
-      catalogBanner.style.display = 'none';
-    }
-  } else {
-    // Não Logado: exibe estritamente botões Entrar e Criar Conta (Painel Admin oculto)
-    if (navContainer) {
-      navContainer.innerHTML = `
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
-          <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
+      ${isSuperAdmin ? `
+        <button class="btn-plan-premium" onclick="showAdminView()" title="Abrir Painel Admin">
+          <i class="fa-solid fa-shield-halved"></i> Painel Admin
         </button>
-        <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
-          <i class="fa-solid fa-user-plus"></i> Criar Conta
+      ` : `
+        <button class="btn-plan-premium" onclick="openProfileModal()">
+          <i class="fa-solid fa-star"></i> ${isSpecialPlan ? 'Plano Premium' : 'Meu Plano'}
         </button>
-      `;
-    }
+      `}
+    `;
 
-    if (topAuthAction) {
-      topAuthAction.innerHTML = `<i class="fa-solid fa-user-lock"></i> Entrar / Criar Conta`;
-      topAuthAction.onclick = () => openCustomerAuthModal('login');
-    }
-
-    if (catalogBanner) {
-      catalogBanner.style.display = 'block';
-      catalogBanner.innerHTML = `
-        <div class="auth-banner-locked">
-          <div style="display: flex; align-items: center; gap: 0.85rem;">
-            <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(255, 183, 3, 0.15); border: 1px solid rgba(255, 183, 3, 0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-yellow); font-size: 1.3rem;">
-              <i class="fa-solid fa-lock"></i>
-            </div>
-            <div>
-              <h4 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem;">
-                Valores de Serviços e Pedidos Exclusivos para Técnicos Cadastrados
-              </h4>
-              <p style="font-size: 0.85rem; color: var(--text-secondary);">
-                Crie sua conta gratuitamente ou faça login para desbloquear a tabela de preços de atacado e enviar ordens de serviço.
-              </p>
-            </div>
+    // Atualizar rodapé da sidebar
+    if (sidebarUserSnippet) {
+      sidebarUserSnippet.innerHTML = `
+        <div class="user-snippet">
+          <div class="user-avatar-sm">${u.username.substring(0, 2).toUpperCase()}</div>
+          <div class="user-snippet-info">
+            <div class="user-snippet-name">${escapeHtml(u.username)}</div>
+            <div class="user-snippet-role">${isSuperAdmin ? '👑 Super Admin' : 'Técnico'}</div>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
-            <i class="fa-solid fa-user-plus"></i> Criar Minha Conta Grátis
+          <button class="btn-sidebar-logout" onclick="logout()" title="Sair da Conta">
+            <i class="fa-solid fa-right-from-bracket"></i>
           </button>
         </div>
       `;
     }
+
+    // Se for admin, mostrar menu Admin
+    if (sidebarAdminSection) {
+      sidebarAdminSection.style.display = (u.role === 'superadmin' || u.role === 'admin') ? 'block' : 'none';
+    }
+
+  } else {
+    // Não logado: Exibir botão de login no banner
+    const isFirstRegistration = AppState.users.length === 0;
+
+    userCardEl.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 12px; opacity: 0.9;">Visitante Técnico</span>
+        <button class="btn-login-cta" onclick="openAuthModal('login')">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
+        </button>
+        <button class="btn-plan-premium" onclick="openAuthModal('register')">
+          <i class="fa-solid ${isFirstRegistration ? 'fa-crown' : 'fa-user-plus'}"></i> 
+          ${isFirstRegistration ? 'Cadastre-se (Seja o Admin)' : 'Criar Conta'}
+        </button>
+      </div>
+    `;
+
+    if (sidebarUserSnippet) {
+      sidebarUserSnippet.innerHTML = `
+        <div class="user-snippet" style="cursor: pointer;" onclick="openAuthModal('login')">
+          <div class="user-avatar-sm"><i class="fa-solid fa-user"></i></div>
+          <div class="user-snippet-info">
+            <div class="user-snippet-name">Não Conectado</div>
+            <div class="user-snippet-role">Clique para entrar</div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (sidebarAdminSection) {
+      sidebarAdminSection.style.display = 'none';
+    }
   }
 }
 
-// 2. Modais e Controle de Auth
-function openCustomerAuthModal(tab = 'login') {
+// Abrir Modal de Autenticação (Login / Cadastro)
+function openAuthModal(tab = 'login') {
+  const modal = document.getElementById('authModal');
+  const isFirst = AppState.users.length === 0;
+  
+  const firstUserBanner = document.getElementById('firstUserBanner');
+  if (firstUserBanner) {
+    firstUserBanner.style.display = isFirst ? 'flex' : 'none';
+  }
+
   switchAuthTab(tab);
+  modal.classList.add('active');
+}
 
-  const hasAdmin = hasAdminAccount();
-  const firstNotice = document.getElementById('first-admin-notice');
-  const firstLoginNotice = document.getElementById('first-admin-login-notice');
-
-  if (firstNotice) {
-    firstNotice.style.display = !hasAdmin ? 'flex' : 'none';
-  }
-  if (firstLoginNotice) {
-    firstLoginNotice.style.display = !hasAdmin ? 'flex' : 'none';
-  }
-
-  openModal('customer-auth-modal');
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('active');
 }
 
 function switchAuthTab(tab) {
-  const loginForm = document.getElementById('customer-login-form');
-  const registerForm = document.getElementById('customer-register-form');
-  const tabLogin = document.getElementById('tab-btn-login');
-  const tabRegister = document.getElementById('tab-btn-register');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const tabLoginBtn = document.getElementById('tabLoginBtn');
+  const tabRegBtn = document.getElementById('tabRegBtn');
 
-  if (tab === 'register') {
-    if (loginForm) loginForm.style.display = 'none';
-    if (registerForm) registerForm.style.display = 'block';
-    if (tabLogin) tabLogin.classList.remove('active');
-    if (tabRegister) tabRegister.classList.add('active');
+  if (tab === 'login') {
+    loginForm.style.display = 'block';
+    registerForm.style.display = 'none';
+    tabLoginBtn.classList.add('active');
+    tabRegBtn.classList.remove('active');
   } else {
-    if (loginForm) loginForm.style.display = 'block';
-    if (registerForm) registerForm.style.display = 'none';
-    if (tabLogin) tabLogin.classList.add('active');
-    if (tabRegister) tabRegister.classList.remove('active');
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'block';
+    tabLoginBtn.classList.remove('active');
+    tabRegBtn.classList.add('active');
   }
 }
 
-function handleCustomerLogin(email, password) {
-  let accounts = getCustomerAccounts();
-  let customer = accounts.find(c => c.email.toLowerCase() === email.toLowerCase() && c.password === password);
+// Executar Cadastro (com a regra do 1º usuário = ADMIN)
+function handleRegister(e) {
+  e.preventDefault();
+  const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim().toLowerCase();
+  const whatsapp = document.getElementById('regWhatsapp').value.trim();
+  const password = document.getElementById('regPassword').value;
 
-  if (customer) {
-    // Se ainda não houver admin no sistema, quem loga primeiro vira admin!
-    if (!hasAdminAccount()) {
-      customer.role = 'admin';
-      customer.isAdmin = true;
-      localStorage.setItem(ADMIN_EMAIL_KEY, customer.email);
-      saveCustomerAccounts(accounts);
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      showToast('success', `👑 Como primeiro acesso verificado, você agora é o ADMINISTRADOR GERAL!`);
-    } else if (customer.role === 'admin' || customer.isAdmin === true) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      showToast('success', `👑 Bem-vindo de volta, Administrador ${customer.name}!`);
-    } else {
-      showToast('success', `Bem-vindo de volta, ${customer.name}!`);
-    }
-
-    localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(customer));
-    closeModal('customer-auth-modal');
-    renderAuthUI();
-    renderServices();
-  } else {
-    showToast('error', 'E-mail ou senha incorretos! Se ainda não tem cadastro, clique em Criar Conta.');
-  }
-}
-
-function handleCustomerRegister(name, email, whatsapp, password) {
-  const accounts = getCustomerAccounts();
-  const exists = accounts.find(c => c.email.toLowerCase() === email.toLowerCase());
-
-  if (exists) {
-    showToast('error', 'Este e-mail já está cadastrado! Faça login.');
-    switchAuthTab('login');
+  if (!username || !email || !password) {
+    alert('Por favor, preencha todos os campos obrigatórios.');
     return;
   }
 
-  // Se for o primeiro usuário a cadastrar no sistema, torna-se Administrador Geral!
-  const isFirstUser = !hasAdminAccount();
+  // Verificar se e-mail ou username já existe
+  const exists = AppState.users.some(u => u.email === email || u.username.toLowerCase() === username.toLowerCase());
+  if (exists) {
+    alert('Este e-mail ou nome de usuário já está cadastrado. Faça login!');
+    return;
+  }
 
-  const newCustomer = {
-    name,
-    email,
-    whatsapp,
-    password,
-    role: isFirstUser ? 'admin' : 'cliente',
+  // REGRA DE OURO: O primeiro usuário a se cadastrar torna-se SUPER ADMIN!
+  const isFirstUser = AppState.users.length === 0;
+
+  const newUser = {
+    id: 'user_' + Date.now(),
+    username: username,
+    email: email,
+    whatsapp: whatsapp,
+    password: password,
+    role: isFirstUser ? 'superadmin' : 'tecnico',
     isAdmin: isFirstUser,
-    balance: isFirstUser ? 500.00 : 0.00,
-    createdAt: new Date().toISOString()
+    plan: isFirstUser ? 'Plano Super Admin Vitalício' : 'Plano Técnico (Período de Teste)',
+    daysRemaining: isFirstUser ? 9999 : (AppState.systemConfig.trialDaysDefault || 7),
+    expireDate: isFirstUser ? 'Vitalício' : calculateExpireDate(AppState.systemConfig.trialDaysDefault || 7),
+    status: 'active',
+    createdAt: new Date().toLocaleDateString('pt-BR')
   };
 
-  accounts.push(newCustomer);
-  saveCustomerAccounts(accounts);
-  localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(newCustomer));
+  AppState.users.push(newUser);
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+
+  // Logar imediatamente
+  AppState.currentUser = newUser;
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(newUser));
+
+  closeAuthModal();
+  checkAuth();
 
   if (isFirstUser) {
-    localStorage.setItem(ADMIN_EMAIL_KEY, newCustomer.email);
-    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-  }
-
-  // Sincronizar novo revendedor/admin no Supabase
-  if (window.SSB_Supabase && window.SSB_Supabase.isConfigured && window.SSB_Supabase.client) {
-    window.SSB_Supabase.client.from('resellers').insert([{
-      id: `usr-${Date.now().toString().slice(-4)}`,
-      name: newCustomer.name,
-      email: newCustomer.email,
-      role: isFirstUser ? 'Administrador Geral' : 'Cliente Técnico',
-      balance_brl: newCustomer.balance
-    }]).then(res => {
-      console.log("☁️ Usuário sincronizado com Supabase:", newCustomer.name);
-    }).catch(e => console.warn(e));
-  }
-
-  closeModal('customer-auth-modal');
-  renderAuthUI();
-  renderServices();
-
-  if (isFirstUser) {
-    showToast('success', `👑 Parabéns ${newCustomer.name}! Você é o primeiro usuário e agora é o ADMINISTRADOR GERAL do servidor!`);
+    alert(`🎉 PARABÉNS, ${username}!\n\nVocê é o PRIMEIRO USUÁRIO CADASTRADO no sistema e acaba de receber o cargo de SUPER ADMINISTRADOR SUPREMO com controle total da plataforma!`);
+    showAdminView();
   } else {
-    showToast('success', `Conta criada com sucesso! Bem-vindo, ${newCustomer.name}!`);
+    alert(`Bem-vindo, ${username}! Sua conta foi criada com sucesso com ${newUser.daysRemaining} dias de acesso teste.`);
   }
 }
 
-function handleCustomerLogout() {
-  localStorage.removeItem(CUSTOMER_SESSION_KEY);
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  renderAuthUI();
-  renderServices();
-  showToast('warning', 'Você saiu da sua conta.');
-}
+// Executar Login
+function handleLogin(e) {
+  e.preventDefault();
+  const loginInput = document.getElementById('loginIdentifier').value.trim().toLowerCase();
+  const password = document.getElementById('loginPassword').value;
 
-// 3. Render system settings on page
-function renderSettings() {
-  const settings = window.SSB.getSettings();
+  const user = AppState.users.find(u => 
+    (u.email === loginInput || u.username.toLowerCase() === loginInput) && u.password === password
+  );
 
-  const usdRateEl = document.getElementById('top-usd-rate');
-  if (usdRateEl) {
-    usdRateEl.textContent = `R$ ${settings.usdRate.toFixed(2).replace('.', ',')}`;
-  }
-
-  const serverStatusEl = document.getElementById('top-server-status');
-  if (serverStatusEl) {
-    serverStatusEl.textContent = `${settings.serverStatus.toUpperCase()} (18ms)`;
-  }
-
-  const topWhatsappBtn = document.getElementById('btn-top-whatsapp');
-  if (topWhatsappBtn) {
-    topWhatsappBtn.href = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent("Olá, gostaria de suporte sobre o servidor GSM Brasil Online.")}`;
-    topWhatsappBtn.title = `Falar no WhatsApp: ${settings.whatsappFormatted}`;
-  }
-
-  const footerWhatsappEl = document.getElementById('footer-whatsapp');
-  if (footerWhatsappEl) {
-    footerWhatsappEl.textContent = settings.whatsappFormatted;
-  }
-}
-
-// Helper para normalizar categorias da API para as abas do site público
-function normalizeCategory(cat) {
-  if (!cat) return 'tools';
-  const c = String(cat).toLowerCase();
-  if (c.includes('credit') || c.includes('crédito') || c.includes('server') || c.includes('servidor')) return 'credits';
-  if (c.includes('imei') || c.includes('frp') || c.includes('icloud') || c.includes('edl') || c.includes('remote') || c.includes('remoto')) return 'imei';
-  return 'tools';
-}
-
-// 4. Render dynamic services grid com Bloqueio de Preços para Não Logados
-function renderServices() {
-  const grid = document.getElementById('services-grid');
-  if (!grid) return;
-
-  const services = window.SSB.getServices();
-  const customer = getCurrentCustomer();
-
-  const filtered = services.filter(srv => {
-    if (!srv) return false;
-    // Oculta apenas serviços explicitamente inativos
-    if (srv.status === 'inactive' || srv.status === 'Desabilitado') return false;
-
-    // Normalização flexível de categoria
-    const srvNormCat = normalizeCategory(srv.category);
-    const matchCategory = currentCategory === 'all' || srv.category === currentCategory || srvNormCat === currentCategory;
-
-    // Busca textual sem falhas com tratamento seguro de nulos
-    const q = (searchQuery || '').toLowerCase().trim();
-    const matchSearch = !q || 
-      (srv.name && srv.name.toLowerCase().includes(q)) ||
-      (srv.description && srv.description.toLowerCase().includes(q)) ||
-      (srv.serverApi && srv.serverApi.toLowerCase().includes(q)) ||
-      (srv.apiName && srv.apiName.toLowerCase().includes(q)) ||
-      (srv.categoryLabel && srv.categoryLabel.toLowerCase().includes(q)) ||
-      (srv.id && srv.id.toLowerCase().includes(q));
-
-    return matchCategory && matchSearch;
-  });
-
-  const countTextEl = document.getElementById('catalog-count-text');
-  if (countTextEl) {
-    countTextEl.textContent = `${filtered.length} serviços oficiais disponíveis para ativação`;
-  }
-
-  if (filtered.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
-        <i class="fa-solid fa-box-open" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-        <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Nenhum serviço encontrado</h3>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Tente buscar por outro termo ou mude a categoria acima.</p>
-      </div>
-    `;
+  if (!user) {
+    alert('Credenciais incorretas! Verifique o e-mail/usuário e a senha.');
     return;
   }
 
-  grid.innerHTML = filtered.map(srv => {
-    let badgeClass = '';
-    if (srv.badge === 'PRO') badgeClass = 'pro';
-    else if (srv.badge === 'ONLINE 24/7' || srv.badge === 'DEFINITIVO') badgeClass = 'green';
+  if (user.status === 'blocked') {
+    alert('Esta conta foi bloqueada pelo administrador. Entre em contato com o suporte.');
+    return;
+  }
 
-    const priceBRL = typeof srv.priceBRL === 'number' ? srv.priceBRL : (parseFloat(srv.priceBRL) || 0);
-    const priceUSD = typeof srv.priceUSD === 'number' ? srv.priceUSD : (parseFloat(srv.priceUSD) || 0);
-    const badgeText = escapeHtml(srv.badge || srv.categoryLabel || 'Oficial');
-    const apiName = escapeHtml(srv.serverApi || srv.apiName || 'API Direta');
-    const delivery = escapeHtml(srv.deliveryTime || srv.time || 'Instantâneo (1-15 min)');
-    const inputType = escapeHtml((srv.inputLabel || 'Dado').split(' ')[0]);
+  AppState.currentUser = user;
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 
-    return `
-      <div class="service-card">
-        <div>
-          <div class="service-header">
-            <span class="service-badge ${badgeClass}">${badgeText}</span>
-            <span style="font-size: 0.75rem; color: var(--accent-cyan);" class="mono">
-              <i class="fa-solid fa-bolt"></i> ${apiName}
-            </span>
+  closeAuthModal();
+  checkAuth();
+}
+
+function logout() {
+  if (confirm('Deseja realmente sair da sua conta?')) {
+    AppState.currentUser = null;
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    checkAuth();
+    showDashboardView();
+  }
+}
+
+// ==========================================================================
+// VISUALIZAÇÃO DE SOLUÇÕES POR MARCA
+// ==========================================================================
+function openSolutionsForBrand(brandId, brandName) {
+  const modal = document.getElementById('solutionsModal');
+  const modalTitle = document.getElementById('solutionsModalTitle');
+  const container = document.getElementById('solutionsListContainer');
+
+  modalTitle.innerHTML = `<i class="fa-solid fa-folder-open"></i> Soluções: <strong>${brandName}</strong>`;
+  
+  // Filtrar soluções da marca
+  const list = AppState.solutions.filter(s => s.brandId === brandId);
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #64748b;">
+        <i class="fa-solid fa-microchip" style="font-size: 36px; margin-bottom: 12px; color: #cbd5e1;"></i>
+        <h4>Nenhuma solução cadastrada ainda para ${brandName}.</h4>
+        <p style="font-size: 13px; margin-top: 6px;">O administrador pode adicionar esquemas e soluções a qualquer momento.</p>
+        ${AppState.currentUser && AppState.currentUser.isAdmin ? `
+          <button class="btn-plan-premium" style="margin: 16px auto 0;" onclick="closeSolutionsModal(); showAdminView('tab-add-solution');">
+            <i class="fa-solid fa-plus"></i> Adicionar Solução para ${brandName}
+          </button>
+        ` : ''}
+      </div>
+    `;
+  } else {
+    container.innerHTML = list.map(sol => `
+      <div class="tech-card" style="margin-bottom: 14px; cursor: pointer;" onclick="openSolutionDetail('${sol.id}')">
+        <div class="card-top" style="margin-bottom: 8px;">
+          <div class="card-brand-badge" style="background-color: #e0edff; color: #0284c7; width: 38px; height: 38px; font-size: 16px;">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
           </div>
-
-          <h3 class="service-title">${escapeHtml(srv.name || 'Serviço GSM')}</h3>
-          <p class="service-desc">${escapeHtml(srv.description || (srv.name + ' - Ativação oficial via servidor.'))}</p>
-
-          <div class="service-meta">
-            <div class="meta-row">
-              <span><i class="fa-regular fa-clock"></i> Tempo de Envio:</span>
-              <span class="meta-val">${delivery}</span>
-            </div>
-            <div class="meta-row">
-              <span><i class="fa-solid fa-cube"></i> Tipo de Entrada:</span>
-              <span class="meta-val">${inputType}</span>
-            </div>
+          <div class="card-brand-info">
+            <h3 style="font-size: 14px; color: #0f172a;">${escapeHtml(sol.title)}</h3>
+            <p style="font-size: 12px; color: #2563eb; font-weight: 600;">${escapeHtml(sol.model)} &bull; ${escapeHtml(sol.category)}</p>
           </div>
         </div>
-
-        <div class="service-footer">
-          ${customer ? `
-            <div class="price-box">
-              <span class="price-brl">R$ ${priceBRL.toFixed(2).replace('.', ',')}</span>
-              <span class="price-usd">~ US$ ${priceUSD.toFixed(2)}</span>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="openCheckoutModal('${srv.id}')">
-              <i class="fa-solid fa-bolt"></i> Ativar Agora
-            </button>
-          ` : `
-            <div class="price-locked-box" title="Faça login para ver o valor">
-              <i class="fa-solid fa-lock"></i> <span>Preço sob login</span>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
-              <i class="fa-solid fa-arrow-right-to-bracket"></i> Ver Preço / Pedir
-            </button>
-          `}
+        <div style="font-size: 12px; color: #64748b; line-height: 1.4; margin-bottom: 10px;">
+          ${escapeHtml(sol.symptoms.substring(0, 140))}...
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 8px; font-size: 11px; color: #94a3b8;">
+          <span><i class="fa-regular fa-clock"></i> ${sol.date || 'Recente'}</span>
+          <span style="color: #2563eb; font-weight: 700;">Abrir Procedimento Completo &rarr;</span>
         </div>
       </div>
+    `).join('');
+  }
+
+  modal.classList.add('active');
+}
+
+function closeSolutionsModal() {
+  document.getElementById('solutionsModal').classList.remove('active');
+}
+
+// Abrir Detalhe da Solução Passo a Passo
+function openSolutionDetail(solId) {
+  const sol = AppState.solutions.find(s => s.id === solId);
+  if (!sol) return;
+
+  const modal = document.getElementById('solutionDetailModal');
+  const titleEl = document.getElementById('solDetailTitle');
+  const bodyEl = document.getElementById('solDetailBody');
+
+  titleEl.innerText = sol.title;
+
+  const guideHtml = sol.guide.map(step => `
+    <div class="solution-guide-step">
+      ${escapeHtml(step)}
+    </div>
+  `).join('');
+
+  bodyEl.innerHTML = `
+    <div class="solution-detail-header">
+      <span class="solution-detail-badge">${escapeHtml(sol.category)}</span>
+      <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">${escapeHtml(sol.model)}</h2>
+      <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+        Publicado por: <strong>${escapeHtml(sol.author || 'Tech Union')}</strong> &bull; Dificuldade: <strong>${sol.difficulty || 'Intermediário'}</strong>
+      </div>
+    </div>
+
+    <div class="solution-symptom-box">
+      <strong><i class="fa-solid fa-triangle-exclamation"></i> Sintoma do Aparelho:</strong><br>
+      ${escapeHtml(sol.symptoms)}
+    </div>
+
+    <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 10px; color: #1e293b;">
+      <i class="fa-solid fa-list-check"></i> Procedimento e Análise Técnica Passo a Passo:
+    </h4>
+    <div class="solution-guide-list">
+      ${guideHtml}
+    </div>
+
+    ${sol.jumperTip ? `
+      <div class="jumper-tip-box">
+        <i class="fa-solid fa-bolt" style="font-size: 18px; color: #16a34a;"></i>
+        <div>
+          <strong>Dica de Bancada / Jumper:</strong><br>
+          ${escapeHtml(sol.jumperTip)}
+        </div>
+      </div>
+    ` : ''}
+
+    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+      <button class="btn-ticker-all" onclick="window.print()">
+        <i class="fa-solid fa-print"></i> Imprimir Guia
+      </button>
+      <button class="btn-primary-block" style="width: auto; margin-top: 0; padding: 8px 18px;" onclick="closeSolutionDetailModal()">
+        Fechar
+      </button>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeSolutionDetailModal() {
+  document.getElementById('solutionDetailModal').classList.remove('active');
+}
+
+// ==========================================================================
+// PAINEL DE CONTROLE ADMINISTRATIVO (ADMIN VIEW)
+// ==========================================================================
+function showAdminView(initialTab = 'tab-users') {
+  if (!AppState.currentUser || !AppState.currentUser.isAdmin) {
+    alert('Acesso restrito para Administradores!');
+    return;
+  }
+
+  document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'block';
+
+  // Atualizar botões da sidebar
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const adminNavItem = document.getElementById('navAdminLink');
+  if (adminNavItem) adminNavItem.classList.add('active');
+
+  renderAdminUsersTable();
+  switchAdminTab(initialTab);
+}
+
+function showDashboardView() {
+  document.getElementById('dashboardView').style.display = 'block';
+  document.getElementById('adminView').style.display = 'none';
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const dashNavItem = document.getElementById('navDashboardLink');
+  if (dashNavItem) dashNavItem.classList.add('active');
+}
+
+function switchAdminTab(tabId) {
+  document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+
+  const btn = document.getElementById(`btn-${tabId}`);
+  const content = document.getElementById(tabId);
+  if (btn) btn.classList.add('active');
+  if (content) content.style.display = 'block';
+}
+
+function renderAdminUsersTable() {
+  const tbody = document.getElementById('adminUsersTbody');
+  if (!tbody) return;
+
+  if (AppState.users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = AppState.users.map(u => {
+    const isSuper = u.role === 'superadmin';
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(u.username)}</strong><br>
+          <span style="font-size: 11px; color: #94a3b8;">${escapeHtml(u.email)}</span>
+        </td>
+        <td>${escapeHtml(u.whatsapp || '-')}</td>
+        <td>
+          <span class="badge-pill" style="background: ${isSuper ? '#fef3c7' : '#e0edff'}; color: ${isSuper ? '#854d0e' : '#1e40af'};">
+            ${isSuper ? '👑 Super Admin' : (u.role === 'admin' ? 'Admin' : 'Técnico')}
+          </span>
+        </td>
+        <td>
+          <strong>${isSuper ? 'Vitalício' : `${u.daysRemaining} dias`}</strong>
+        </td>
+        <td>
+          <span style="color: ${u.status === 'active' ? '#16a34a' : '#dc2626'}; font-weight: 700;">
+            ${u.status === 'active' ? '● Ativo' : '● Bloqueado'}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${!isSuper ? `
+              <button class="btn-action-sm btn-action-green" onclick="adminAddDays('${u.id}', 30)" title="Adicionar 30 Dias">+30D</button>
+              <button class="btn-action-sm btn-action-green" onclick="adminAddDays('${u.id}', 365)" title="Adicionar 1 Ano">+365D</button>
+              <button class="btn-action-sm btn-action-blue" onclick="adminToggleRole('${u.id}')" title="Mudar Cargo">
+                ${u.role === 'admin' ? 'Tornar Técnico' : 'Promover Admin'}
+              </button>
+              <button class="btn-action-sm btn-action-red" onclick="adminToggleStatus('${u.id}')" title="Bloquear / Desbloquear">
+                ${u.status === 'active' ? 'Bloquear' : 'Ativar'}
+              </button>
+            ` : `
+              <span style="font-size: 11px; color: #ca8a04; font-weight: 700;">Admin Supremo</span>
+            `}
+          </div>
+        </td>
+      </tr>
     `;
   }).join('');
 }
 
-// 5. Event listeners
-function setupEventListeners() {
-  // Category tabs
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentCategory = btn.getAttribute('data-category');
-      renderServices();
-    });
-  });
+// Ações do Admin nos Usuários
+function adminAddDays(userId, days) {
+  const user = AppState.users.find(u => u.id === userId);
+  if (!user) return;
 
-  // Escutar eventos de atualização entre abas do navegador
-  window.addEventListener('storage', (e) => {
-    if (!e.key || e.key === 'sss_services_v1' || e.key === 'sss_settings_v1') {
-      renderServices();
-    }
-  });
-
-  // Atualizar quando a aba voltar a ficar visível
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      renderServices();
-    }
-  });
-
-  // Search input
-  const searchInput = document.getElementById('service-search-input');
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim();
-      renderServices();
-    });
-  }
-
-  // Order Tracker Form
-  const trackerForm = document.getElementById('tracker-form');
-  if (trackerForm) {
-    trackerForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const input = document.getElementById('tracker-input');
-      handleTrackOrder(input.value);
-    });
-  }
-
-  // Checkout Form Submission
-  const checkoutForm = document.getElementById('checkout-form');
-  if (checkoutForm) {
-    checkoutForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      handleCreateOrder();
-    });
-  }
-
-  // Customer Login Form
-  const loginForm = document.getElementById('customer-login-form');
-  if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value.trim();
-      handleCustomerLogin(email, password);
-    });
-  }
-
-  // Customer Register Form
-  const registerForm = document.getElementById('customer-register-form');
-  if (registerForm) {
-    registerForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const whatsapp = document.getElementById('reg-whatsapp').value.trim();
-      const password = document.getElementById('reg-password').value.trim();
-      handleCustomerRegister(name, email, whatsapp, password);
-    });
-  }
+  user.daysRemaining = (parseInt(user.daysRemaining) || 0) + days;
+  user.expireDate = calculateExpireDate(user.daysRemaining);
+  saveUsers();
+  renderAdminUsersTable();
+  alert(`Foram adicionados +${days} dias para ${user.username}. Total: ${user.daysRemaining} dias.`);
 }
 
-// 6. Order tracking logic
-function handleTrackOrder(query) {
-  const resultContainer = document.getElementById('tracker-result-container');
-  if (!resultContainer) return;
+function adminToggleRole(userId) {
+  const user = AppState.users.find(u => u.id === userId);
+  if (!user) return;
 
-  const order = window.SSB.findOrder(query);
+  user.role = user.role === 'admin' ? 'tecnico' : 'admin';
+  user.isAdmin = user.role === 'admin';
+  saveUsers();
+  renderAdminUsersTable();
+}
 
-  resultContainer.style.display = 'block';
+function adminToggleStatus(userId) {
+  const user = AppState.users.find(u => u.id === userId);
+  if (!user) return;
 
-  if (!order) {
-    resultContainer.innerHTML = `
-      <div class="order-result-card" style="border-color: rgba(255, 51, 102, 0.4);">
-        <div style="display: flex; align-items: center; gap: 0.75rem; color: var(--accent-red); margin-bottom: 0.5rem;">
-          <i class="fa-solid fa-circle-xmark" style="font-size: 1.4rem;"></i>
-          <h4 style="font-size: 1.1rem;">Nenhum pedido encontrado</h4>
-        </div>
-        <p style="font-size: 0.88rem; color: var(--text-secondary);">
-          Não localizamos nenhuma ordem com o termo "<strong>${escapeHtml(query)}</strong>". Verifique se digitou o ID correto (Ex: SSB-98421) ou contate nosso suporte via WhatsApp.
-        </p>
-      </div>
-    `;
+  user.status = user.status === 'active' ? 'blocked' : 'active';
+  saveUsers();
+  renderAdminUsersTable();
+}
+
+function saveUsers() {
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+}
+
+// Formulário de Adicionar Nova Solução (Admin)
+function handleAddSolution(e) {
+  e.preventDefault();
+  const brandId = document.getElementById('newSolBrand').value;
+  const model = document.getElementById('newSolModel').value.trim();
+  const category = document.getElementById('newSolCategory').value.trim();
+  const title = document.getElementById('newSolTitle').value.trim();
+  const symptoms = document.getElementById('newSolSymptoms').value.trim();
+  const stepsRaw = document.getElementById('newSolSteps').value.trim();
+  const jumper = document.getElementById('newSolJumper').value.trim();
+
+  if (!model || !title || !symptoms || !stepsRaw) {
+    alert('Preencha os campos obrigatórios!');
     return;
   }
 
-  let statusBadge = '';
-  let statusIcon = '';
-  let statusText = '';
+  const newSol = {
+    id: 'sol_custom_' + Date.now(),
+    brandId: brandId,
+    model: model,
+    title: title,
+    category: category || 'Geral',
+    date: new Date().toLocaleDateString('pt-BR'),
+    author: AppState.currentUser ? AppState.currentUser.username : 'Admin',
+    difficulty: 'Intermediário',
+    symptoms: symptoms,
+    guide: stepsRaw.split('\n').filter(s => s.trim().length > 0),
+    jumperTip: jumper,
+    tags: [model, category]
+  };
 
-  switch (order.status) {
-    case 'completed':
-      statusBadge = 'badge-completed';
-      statusIcon = '<i class="fa-solid fa-circle-check"></i>';
-      statusText = 'CONCLUÍDO COM SUCESSO';
-      break;
-    case 'processing':
-      statusBadge = 'badge-processing';
-      statusIcon = '<i class="fa-solid fa-arrows-rotate fa-spin"></i>';
-      statusText = 'EM PROCESSAMENTO NO SERVIDOR';
-      break;
-    case 'rejected':
-      statusBadge = 'badge-rejected';
-      statusIcon = '<i class="fa-solid fa-ban"></i>';
-      statusText = 'REJEITADO / ESTORNADO';
-      break;
-    default:
-      statusBadge = 'badge-pending';
-      statusIcon = '<i class="fa-regular fa-clock"></i>';
-      statusText = 'AGUARDANDO PAGAMENTO';
-  }
+  AppState.solutions.unshift(newSol);
+  localStorage.setItem(STORAGE_KEYS.SOLUTIONS, JSON.stringify(AppState.solutions));
 
-  resultContainer.innerHTML = `
-    <div class="order-result-card">
-      <div class="order-result-header">
-        <div>
-          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">ID do Pedido:</span>
-          <h3 class="mono" style="font-size: 1.35rem; color: var(--accent-cyan);">${order.orderId}</h3>
-        </div>
-        <span class="order-badge-status ${statusBadge}">
-          ${statusIcon} ${statusText}
-        </span>
+  // Adicionar ao ticker automaticamente
+  const tickerText = `${model.toUpperCase()} - ${title.toUpperCase()} (${newSol.date})`;
+  AppState.tickerNews.unshift({
+    id: Date.now(),
+    text: tickerText,
+    brand: brandId.toUpperCase(),
+    date: newSol.date
+  });
+  localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+  renderTicker();
+
+  alert('Solução cadastrada e publicada no catálogo com sucesso!');
+  document.getElementById('formAddSolution').reset();
+  showDashboardView();
+  openSolutionsForBrand(brandId, brandId.toUpperCase());
+}
+
+// ==========================================================================
+// UTILITÁRIOS
+// ==========================================================================
+function calculateExpireDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + parseInt(days));
+  return d.toLocaleDateString('pt-BR');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function setupEventListeners() {
+  // Fechar modais ao clicar no overlay
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+      }
+    });
+  });
+}
+
+function openAllNewsModal() {
+  const modal = document.getElementById('solutionsModal');
+  const title = document.getElementById('solutionsModalTitle');
+  const list = document.getElementById('solutionsListContainer');
+
+  title.innerHTML = '<i class="fa-solid fa-bullhorn"></i> Todas as Notícias & Atualizações';
+  list.innerHTML = AppState.tickerNews.map(item => `
+    <div class="tech-card" style="margin-bottom: 12px; padding: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="badge-pill" style="background: #e0edff; color: #0066ff;">${item.brand || 'GERAL'}</span>
+        <span style="font-size: 11px; color: #94a3b8;">${item.date || ''}</span>
       </div>
+      <h4 style="font-size: 14px; margin-top: 8px; color: #0f172a;">${escapeHtml(item.text)}</h4>
+    </div>
+  `).join('');
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
-        <div>
-          <span style="font-size: 0.78rem; color: var(--text-muted);">Serviço Solicitado:</span>
-          <p style="font-weight: 600; font-size: 0.95rem;">${order.serviceName}</p>
+  modal.classList.add('active');
+}
+
+function openToolsModal(categoryName) {
+  const modal = document.getElementById('solutionsModal');
+  const title = document.getElementById('solutionsModalTitle');
+  const list = document.getElementById('solutionsListContainer');
+
+  title.innerHTML = `<i class="fa-solid fa-wrench"></i> Ferramentas: <strong>${categoryName}</strong>`;
+  list.innerHTML = window.TECH_UNION_DATA.tools.map(tool => `
+    <div class="tech-card" style="margin-bottom: 14px;">
+      <div class="card-top">
+        <div class="card-brand-badge" style="background-color: #ffedd5; color: #ea580c;">
+          <i class="${tool.icon}"></i>
         </div>
-        <div>
-          <span style="font-size: 0.78rem; color: var(--text-muted);">Dado Informado (IMEI/Usuário):</span>
-          <p class="mono" style="font-weight: 600; font-size: 0.95rem; color: #fff;">${order.dataInput}</p>
-        </div>
-        <div>
-          <span style="font-size: 0.78rem; color: var(--text-muted);">Cliente / Responsável:</span>
-          <p style="font-weight: 600; font-size: 0.95rem;">${order.customerName}</p>
-        </div>
-        <div>
-          <span style="font-size: 0.78rem; color: var(--text-muted);">Data da Solicitação:</span>
-          <p style="font-weight: 500; font-size: 0.88rem; color: var(--text-secondary);">${order.date}</p>
+        <div class="card-brand-info">
+          <h3>${tool.name} ${tool.badge ? `<span class="nav-badge-new">${tool.badge}</span>` : ''}</h3>
+          <p style="color: #64748b; font-size: 12px;">${tool.description}</p>
         </div>
       </div>
-
-      <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
-        <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.35rem;">
-          <i class="fa-solid fa-terminal"></i> Resposta do Servidor & Instruções:
-        </span>
-        <p style="font-size: 0.9rem; color: var(--text-primary); line-height: 1.5;">${order.serverNotes || 'Processando envio...'}</p>
-        ${order.resultCode ? `
-          <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Código de Liberação / Token: </span>
-            <code class="mono" style="color: var(--accent-green); background: rgba(0,255,136,0.1); padding: 0.2rem 0.5rem; border-radius: 4px;">${order.resultCode}</code>
-          </div>
-        ` : ''}
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <span style="font-size: 11px; color: #94a3b8;">Versão: ${tool.version}</span>
+        <a href="${tool.downloadUrl}" target="_blank" class="btn-ticker-all" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-download"></i> Baixar Ferramenta
+        </a>
       </div>
     </div>
-  `;
-}
+  `).join('');
 
-// 7. Checkout Modal (Bloqueado se não estiver logado)
-function openCheckoutModal(serviceId) {
-  const customer = getCurrentCustomer();
-  if (!customer) {
-    showToast('warning', 'Faça login ou crie sua conta para solicitar ativações no servidor!');
-    openCustomerAuthModal('login');
-    return;
-  }
-
-  const services = window.SSB.getServices();
-  const service = services.find(s => s.id === serviceId);
-  if (!service) return;
-
-  activeServiceForCheckout = service;
-  const settings = window.SSB.getSettings();
-
-  document.getElementById('modal-service-id').value = service.id;
-  document.getElementById('modal-service-name').textContent = service.name;
-  document.getElementById('modal-service-time').innerHTML = `<i class="fa-regular fa-clock"></i> ${service.deliveryTime || service.time || 'Instantâneo (1-15 min)'}`;
-  const priceVal = typeof service.priceBRL === 'number' ? service.priceBRL : (parseFloat(service.priceBRL) || 0);
-  document.getElementById('modal-service-price').textContent = `R$ ${priceVal.toFixed(2).replace('.', ',')}`;
-
-  const labelEl = document.getElementById('modal-input-label');
-  const inputEl = document.getElementById('modal-data-input');
-  labelEl.textContent = `${service.inputLabel || 'Dado para Ativação'}:`;
-  inputEl.placeholder = service.inputPlaceholder || 'Digite os dados requeridos (ex: IMEI ou Usuário)';
-
-  // Pré-preencher com dados do cliente logado
-  const customerNameInput = document.getElementById('modal-customer-name');
-  if (customerNameInput) customerNameInput.value = customer.name;
-
-  const customerContactInput = document.getElementById('modal-customer-contact');
-  if (customerContactInput) customerContactInput.value = customer.whatsapp || '';
-
-  // PIX QR Code & key
-  const pixKeyText = document.getElementById('modal-pix-key-text');
-  pixKeyText.textContent = settings.pixKey;
-
-  const qrImg = document.getElementById('modal-pix-qr-img');
-  const qrData = encodeURIComponent(`PIX:${settings.pixKey}:VALOR:${service.priceBRL.toFixed(2)}:${service.name}`);
-  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}`;
-
-  openModal('checkout-modal');
-}
-
-// 8. Create Order Handler
-function handleCreateOrder() {
-  if (!activeServiceForCheckout) return;
-
-  const customer = getCurrentCustomer();
-  const dataInput = document.getElementById('modal-data-input').value.trim();
-  const customerName = document.getElementById('modal-customer-name').value.trim() || (customer ? customer.name : 'Cliente');
-  const customerContact = document.getElementById('modal-customer-contact').value.trim() || (customer ? customer.whatsapp : '');
-
-  const newOrder = window.SSB.addOrder({
-    serviceId: activeServiceForCheckout.id,
-    serviceName: activeServiceForCheckout.name,
-    customerName: customerName,
-    customerContact: customerContact,
-    dataInput: dataInput,
-    priceBRL: activeServiceForCheckout.priceBRL,
-    paymentMethod: "PIX Instantâneo"
-  });
-
-  closeModal('checkout-modal');
-
-  // Show Success Modal
-  document.getElementById('success-order-id').textContent = newOrder.orderId;
-  document.getElementById('success-service-name').textContent = newOrder.serviceName;
-
-  const settings = window.SSB.getSettings();
-  const whatsappMsg = `Olá! Acabei de realizar o pedido *${newOrder.orderId}* no Servidor Smart Brasil Online.\n\n*Serviço:* ${newOrder.serviceName}\n*Valor:* R$ ${newOrder.priceBRL.toFixed(2)}\n*Dado:* ${newOrder.dataInput}\n\nEnvio em anexo o comprovante PIX para liberação imediata.`;
-  
-  const successWaBtn = document.getElementById('btn-success-whatsapp');
-  successWaBtn.href = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(whatsappMsg)}`;
-
-  openModal('success-modal');
-
-  // Pre-fill tracker input and search
-  const trackerInput = document.getElementById('tracker-input');
-  if (trackerInput) {
-    trackerInput.value = newOrder.orderId;
-    handleTrackOrder(newOrder.orderId);
-  }
-
-  showToast('success', `Pedido ${newOrder.orderId} criado com sucesso!`);
-}
-
-// 9. Modals helper
-function openModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) modal.classList.add('active');
-}
-
-function closeModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) modal.classList.remove('active');
-}
-
-// 10. Copy PIX Key helper
-function copyPixKey() {
-  const settings = window.SSB.getSettings();
-  navigator.clipboard.writeText(settings.pixKey).then(() => {
-    showToast('success', 'Chave PIX copiada para a área de transferência!');
-  }).catch(() => {
-    showToast('warning', `Chave PIX: ${settings.pixKey}`);
-  });
-}
-
-// 11. Toast notification helper
-function showToast(type, message) {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  
-  let icon = '<i class="fa-solid fa-circle-info" style="color: var(--accent-cyan);"></i>';
-  if (type === 'success') icon = '<i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>';
-  else if (type === 'error') icon = '<i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>';
-  else if (type === 'warning') icon = '<i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-yellow);"></i>';
-
-  toast.innerHTML = `${icon} <span>${message}</span>`;
-  container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(50px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/[&<>'"]/g, 
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-  );
+  modal.classList.add('active');
 }

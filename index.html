@@ -3,701 +3,536 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Suporte Server Smart Brasil Online | Servidor GSM, Ativações & Ferramentas Digitais</title>
-  <meta name="description" content="Servidor oficial GSM Brasil Online. Ativação instantânea de UnlockTool, Chimera, Pandora, Créditos Xiaomi Auth, FRP Samsung, iCloud Check e suporte remoto 24/7.">
-  <meta name="keywords" content="unlocktool, chimera tool, servidor gsm brasil, ativação gsm, xiaomi auth edl, frp samsung, gsm themer brasil">
+  <title>TECH UNION SOLUTIONS | Plataforma para Técnicos de Smartphones</title>
   
-  <!-- Favicon & Icons -->
+  <!-- Fontes Google & FontAwesome 6 Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Estilos Customizados -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- Top Live Status Bar -->
-  <div class="top-status-bar">
-    <div class="container status-bar-content">
-      <div class="status-items">
-        <span class="status-pill">
-          <span class="pulse-dot"></span>
-          <span>Servidor Principal: <strong id="top-server-status" class="mono text-gradient">ONLINE (18ms)</strong></span>
-        </span>
-        <span class="status-pill">
-          <i class="fa-solid fa-server" style="color: var(--accent-cyan);"></i>
-          <span>APIs Ativas: <strong class="mono" style="color: #fff;">12/12</strong></span>
-        </span>
-        <span class="status-pill">
-          <i class="fa-solid fa-dollar-sign" style="color: var(--accent-green);"></i>
-          <span>Câmbio USD: <strong id="top-usd-rate" class="mono">R$ 5,65</strong></span>
-        </span>
-      </div>
-      <div class="status-actions">
-        <a href="#order-checker" class="status-link">
-          <i class="fa-solid fa-magnifying-glass"></i> Rastrear Pedido
-        </a>
-        <a id="top-auth-action" href="javascript:void(0)" onclick="openCustomerAuthModal('login')" class="status-link" style="color: var(--accent-cyan);">
-          <i class="fa-solid fa-user-lock"></i> Entrar / Criar Conta
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main Navigation Header -->
-  <header class="main-header">
-    <div class="container header-inner">
-      <a href="index.html" class="logo-brand">
-        <div class="logo-icon-box">
+  <div class="app-container">
+    
+    <!-- ====================================================================
+         SIDEBAR (Menu Lateral Escuro Idêntico à Imagem)
+         ==================================================================== -->
+    <aside class="sidebar">
+      
+      <!-- Logo do Topo -->
+      <div class="sidebar-brand">
+        <div class="brand-icon">
           <i class="fa-solid fa-microchip"></i>
         </div>
-        <div class="logo-text-box">
-          <h1>SERVER SMART <span class="logo-badge">GSM BRASIL</span></h1>
-          <span class="logo-tagline">SuporteServerSmartBrasilOnline.com</span>
+        <div class="brand-text">
+          <h2>TECH UNION</h2>
+          <span>SOLUTIONS</span>
         </div>
-      </a>
+      </div>
 
-      <nav>
-        <ul class="nav-links">
-          <li><a href="#inicio" class="active">Início</a></li>
-          <li><a href="#servicos">Serviços GSM</a></li>
-          <li><a href="#order-checker">Rastrear Pedido</a></li>
-          <li><a href="#cluster-status">Status APIs</a></li>
-          <li><a href="#faq">FAQ</a></li>
+      <!-- SEÇÃO: PRINCIPAL -->
+      <div class="nav-section">
+        <div class="nav-section-title">Principal</div>
+        <ul class="nav-list">
+          <li>
+            <a class="nav-item active" id="navDashboardLink" onclick="showDashboardView()">
+              <i class="fa-solid fa-gauge-high"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('samsung', 'Samsung')">
+              <i class="fa-solid fa-layer-group"></i>
+              <span>Soluções</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('samsung', 'Samsung')">
+              <i class="fa-brands fa-android"></i>
+              <span>Samsung</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('apple', 'Apple')">
+              <i class="fa-brands fa-apple"></i>
+              <span>Apple</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('motorola', 'Motorola')">
+              <i class="fa-solid fa-mobile-screen"></i>
+              <span>Motorola</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('xiaomi', 'Xiaomi')">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Xiaomi</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openAllNewsModal()">
+              <i class="fa-solid fa-diagram-project"></i>
+              <span>Esquemas Elétricos</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openSolutionsForBrand('realme', 'Outras Marcas')">
+              <i class="fa-solid fa-mobile-retro"></i>
+              <span>Outras Marcas</span>
+              <i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="showDashboardView()">
+              <i class="fa-solid fa-tags"></i>
+              <span>Categorias</span>
+            </a>
+          </li>
         </ul>
-      </nav>
-
-      <div class="header-cta-group">
-        <a id="btn-top-whatsapp" href="https://wa.me/5511999999999" target="_blank" class="btn btn-whatsapp btn-sm">
-          <i class="fa-brands fa-whatsapp"></i> WhatsApp
-        </a>
-        <div id="nav-auth-container" style="display: flex; align-items: center; gap: 0.5rem;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openCustomerAuthModal('login')">
-            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
-          </button>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openCustomerAuthModal('register')">
-            <i class="fa-solid fa-user-plus"></i> Criar Conta
-          </button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Hero Section -->
-  <section id="inicio" class="hero-section">
-    <div class="hero-glow-blob"></div>
-    <div class="container hero-content">
-      <div class="hero-pill">
-        <i class="fa-solid fa-bolt"></i>
-        <span>TECNOLOGIA GSMTHEMER & DHRU FUSION HIGH-SPEED CLUSTER</span>
       </div>
 
-      <h1 class="hero-title">
-        Servidor Oficial de <span class="text-gradient">Ferramentas GSM</span>, Créditos & Desbloqueios no Brasil
-      </h1>
-
-      <p class="hero-subtitle">
-        Ativações instantâneas de licenças digitais para <strong>UnlockTool, Chimera, Pandora</strong>, créditos de servidor Xiaomi Auth, reset FRP Samsung e suporte remoto especializado via AnyDesk.
-      </p>
-
-      <div class="hero-actions">
-        <a href="#servicos" class="btn btn-primary btn-lg">
-          <i class="fa-solid fa-cart-shopping"></i> Ver Todos os Serviços
-        </a>
-        <a href="#order-checker" class="btn btn-secondary btn-lg">
-          <i class="fa-solid fa-magnifying-glass"></i> Consultar Status de Pedido
-        </a>
+      <!-- SEÇÃO: FERRAMENTAS -->
+      <div class="nav-section">
+        <div class="nav-section-title">Ferramentas</div>
+        <ul class="nav-list">
+          <li>
+            <a class="nav-item" onclick="openToolsModal('MTK Tools')">
+              <i class="fa-solid fa-microchip"></i>
+              <span>MTK Tools</span>
+              <span class="nav-badge-new">NOVO</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Qcom EDL')">
+              <i class="fa-solid fa-bolt-lightning"></i>
+              <span>Qcom EDL</span>
+              <span class="nav-badge-new">NOVO</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('FRP Tools')">
+              <i class="fa-solid fa-unlock-keyhole"></i>
+              <span>FRP Tools</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Tira Vírus')">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span>Tira Vírus</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Monitor UART')">
+              <i class="fa-solid fa-terminal"></i>
+              <span>Monitor UART</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Películas')">
+              <i class="fa-solid fa-file-shield"></i>
+              <span>Películas</span>
+              <span class="nav-badge-new">NOVO</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Tools')">
+              <i class="fa-solid fa-screwdriver-wrench"></i>
+              <span>Tools</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Ferramentas')">
+              <i class="fa-solid fa-toolbox"></i>
+              <span>Ferramentas</span>
+              <i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>
+            </a>
+          </li>
+        </ul>
       </div>
 
-      <!-- Quick Order Tracker Box -->
-      <div id="order-checker" class="order-check-wrapper">
-        <h3 style="font-size: 1.1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
-          <i class="fa-solid fa-satellite-dish" style="color: var(--accent-cyan);"></i>
-          <span>Rastreamento em Tempo Real de IMEI & Pedidos</span>
-        </h3>
-        <form id="tracker-form" class="order-check-form">
-          <div class="order-input-group">
-            <i class="fa-solid fa-fingerprint"></i>
-            <input type="text" id="tracker-input" class="order-input" placeholder="Digite o ID do Pedido (Ex: SSB-98421) ou IMEI / Usuário..." required>
-          </div>
-          <button type="submit" class="btn btn-primary">
-            <i class="fa-solid fa-magnifying-glass"></i> Consultar Agora
-          </button>
-        </form>
-
-        <!-- Order Search Result Placeholder -->
-        <div id="tracker-result-container" style="display: none;"></div>
+      <!-- SEÇÃO: SISTEMA -->
+      <div class="nav-section">
+        <div class="nav-section-title">Sistema</div>
+        <ul class="nav-list">
+          <li>
+            <a class="nav-item" onclick="openToolsModal('OS Manager')">
+              <i class="fa-solid fa-desktop"></i>
+              <span>OS Manager</span>
+              <span class="nav-badge-new">NOVO</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Server GSM')">
+              <i class="fa-solid fa-server"></i>
+              <span>Server GSM</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Sistema O.S.')">
+              <i class="fa-solid fa-clipboard-list"></i>
+              <span>Sistema O.S.</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="openToolsModal('Downloads')">
+              <i class="fa-solid fa-download"></i>
+              <span>Downloads</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" onclick="showDashboardView()">
+              <i class="fa-solid fa-bookmark"></i>
+              <span>Minhas Soluções</span>
+            </a>
+          </li>
+        </ul>
       </div>
 
-      <!-- Stats Ribbon -->
-      <div class="stats-ribbon">
-        <div class="stat-card">
-          <div class="stat-icon cyan">
-            <i class="fa-solid fa-rocket"></i>
-          </div>
-          <div class="stat-info">
-            <h3 id="stat-orders-count">48.290+</h3>
-            <p>Pedidos Processados</p>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon purple">
-            <i class="fa-solid fa-clock"></i>
-          </div>
-          <div class="stat-info">
-            <h3>1-5 Min</h3>
-            <p>Tempo Médio de Ativação</p>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon green">
-            <i class="fa-solid fa-shield-check"></i>
-          </div>
-          <div class="stat-info">
-            <h3>99.98%</h3>
-            <p>Uptime & Disponibilidade</p>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon yellow">
-            <i class="fa-solid fa-users-gear"></i>
-          </div>
-          <div class="stat-info">
-            <h3>3.150+</h3>
-            <p>Técnicos & Revendedores</p>
-          </div>
-        </div>
+      <!-- SEÇÃO: PAINEL ADMIN (Visível apenas para Administrador) -->
+      <div class="nav-section" id="navAdminSection" style="display: none;">
+        <div class="nav-section-title" style="color: #f59e0b;">Administração</div>
+        <ul class="nav-list">
+          <li>
+            <a class="nav-item" id="navAdminLink" onclick="showAdminView()">
+              <i class="fa-solid fa-crown" style="color: #f59e0b;"></i>
+              <span style="font-weight: 700; color: #fef3c7;">Painel Admin</span>
+              <span class="nav-badge-admin">ADMIN</span>
+            </a>
+          </li>
+        </ul>
       </div>
 
-    </div>
-  </section>
-
-  <!-- Catalog Section -->
-  <section id="servicos" class="section">
-    <div class="container">
-      <!-- Banner Dinâmico para Visitantes Não Logados -->
-      <div id="catalog-auth-banner"></div>
-
-      <div class="section-header">
-        <div class="section-title-box">
-          <h2>Catálogo de <span class="text-gradient">Serviços Oficiais</span></h2>
-          <p>Escolha sua licença ou crédito de servidor com entrega automática via PIX ou USDT</p>
-          <div id="catalog-services-count" style="font-size: 0.85rem; color: var(--accent-cyan); margin-top: 0.4rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i> <span id="catalog-count-text">Carregando serviços...</span>
-          </div>
-        </div>
-        <div class="catalog-controls">
-          <div class="category-tabs" id="category-tabs">
-            <button class="tab-btn active" data-category="all">
-              <i class="fa-solid fa-layer-group"></i> Todos
-            </button>
-            <button class="tab-btn" data-category="tools">
-              <i class="fa-solid fa-screwdriver-wrench"></i> Ferramentas Digitais
-            </button>
-            <button class="tab-btn" data-category="imei">
-              <i class="fa-solid fa-mobile-screen"></i> IMEI & FRP
-            </button>
-            <button class="tab-btn" data-category="credits">
-              <i class="fa-solid fa-coins"></i> Créditos Servidor
-            </button>
-            <button class="tab-btn" data-category="remote">
-              <i class="fa-solid fa-headset"></i> Atendimento Remoto
-            </button>
-          </div>
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="service-search-input" class="search-input" placeholder="Buscar por UnlockTool, Chimera, Xiaomi, FRP...">
-          </div>
-        </div>
+      <!-- Rodapé da Sidebar (Informações do Usuário) -->
+      <div class="sidebar-footer" id="sidebarUserSnippet">
+        <!-- Renderizado dinamicamente via checkAuth() -->
       </div>
 
-      <!-- Services Dynamic Grid -->
-      <div id="services-grid" class="services-grid">
-        <!-- Rendered by JavaScript -->
-      </div>
-    </div>
-  </section>
+    </aside>
 
-  <!-- How It Works Section -->
-  <section id="como-funciona" class="section" style="background: rgba(13, 17, 26, 0.5);">
-    <div class="container">
-      <div class="section-header" style="text-align: center; justify-content: center; margin-bottom: 3.5rem;">
-        <div class="section-title-box" style="text-align: center;">
-          <h2>Como Funciona a <span class="text-gradient">Automação do Servidor</span></h2>
-          <p>Processo simples, transparente e 100% digital em 4 passos rápidos</p>
-        </div>
-      </div>
+    <!-- ====================================================================
+         ÁREA DE CONTEÚDO PRINCIPAL
+         ==================================================================== -->
+    <main class="main-wrapper">
+      
+      <!-- ================================================================
+           DASHBOARD VIEW (Visual Idêntico à Imagem)
+           ================================================================ -->
+      <div id="dashboardView">
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
-        <div class="service-card" style="text-align: center; align-items: center;">
-          <div class="stat-icon cyan" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
-            <i class="fa-solid fa-list-check"></i>
-          </div>
-          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">1. Escolha o Serviço</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary);">
-            Selecione a ferramenta ou crédito desejado (UnlockTool, Chimera, Xiaomi Auth, etc.).
-          </p>
-        </div>
-
-        <div class="service-card" style="text-align: center; align-items: center;">
-          <div class="stat-icon purple" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
-            <i class="fa-solid fa-keyboard"></i>
-          </div>
-          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">2. Informe seus Dados</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary);">
-            Insira o nome de usuário registrado no software ou o IMEI do aparelho a ser processado.
-          </p>
-        </div>
-
-        <div class="service-card" style="text-align: center; align-items: center;">
-          <div class="stat-icon green" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
-            <i class="fa-brands fa-pix"></i>
-          </div>
-          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">3. Pagamento PIX Instantâneo</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary);">
-            Efetue o pagamento através do QR Code PIX gerado ou chave Copia e Cola.
-          </p>
-        </div>
-
-        <div class="service-card" style="text-align: center; align-items: center;">
-          <div class="stat-icon yellow" style="width: 60px; height: 60px; font-size: 1.6rem; margin-bottom: 1rem;">
-            <i class="fa-solid fa-circle-check"></i>
-          </div>
-          <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">4. Entrega & Ativação</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary);">
-            O servidor dispara a API direta e ativa a licença ou executa o reparo imediatamente.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Server Cluster & Status Grid -->
-  <section id="cluster-status" class="section">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-title-box">
-          <h2>Monitoramento de <span class="text-gradient">Servidores & APIs</span></h2>
-          <p>Status ao vivo das conexões de backend com servidores mundiais</p>
-        </div>
-        <span class="status-pill">
-          <span class="pulse-dot"></span>
-          <span>Latência Média: <strong class="mono" style="color: var(--accent-cyan);">24ms</strong></span>
-        </span>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">UnlockTool Direct API</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">Cluster Singapura / US</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">100% OPERACIONAL</span>
-        </div>
-
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">Chimera Tool Gateway</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">Budapeste Node</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">100% OPERACIONAL</span>
-        </div>
-
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">Xiaomi Global Auth Server</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">EDL 9008 Token Cluster</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">DISPONÍVEL 24/7</span>
-        </div>
-
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">Samsung Knox Server</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">FRP Fast Ingestion</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">NORMAL (1-5m)</span>
-        </div>
-
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">Apple GSX / Check Gateway</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">iCloud Status & Clean Checker</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">INSTANTÂNEO</span>
-        </div>
-
-        <div class="stat-card" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span class="pulse-dot"></span>
-            <div>
-              <h4 style="font-size: 0.95rem;">Pandora / Octoplus Digital</h4>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">License Verification Server</p>
-            </div>
-          </div>
-          <span class="mono" style="color: var(--accent-green); font-size: 0.8rem; font-weight: 700;">OPERACIONAL</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ Section -->
-  <section id="faq" class="section" style="background: rgba(13, 17, 26, 0.4);">
-    <div class="container" style="max-width: 900px;">
-      <div class="section-header" style="justify-content: center; text-align: center; margin-bottom: 2.5rem;">
-        <div class="section-title-box">
-          <h2>Dúvidas <span class="text-gradient">Frequentes</span></h2>
-          <p>Respostas diretas sobre ativações, prazos e garantia</p>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <div class="service-card" style="padding: 1.25rem;">
-          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fa-solid fa-circle-question"></i> Quanto tempo leva para ativar o UnlockTool?
-          </h4>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">
-            A ativação do UnlockTool é efetuada em média de 1 a 10 minutos após o pagamento via PIX. Basta nos informar seu nome de usuário exato cadastrado no site oficial da ferramenta.
-          </p>
-        </div>
-
-        <div class="service-card" style="padding: 1.25rem;">
-          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fa-solid fa-circle-question"></i> Como funciona a remoção de Conta Google (FRP) Samsung?
-          </h4>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">
-            Trabalhamos com o método de injeção de token via servidor direto por IMEI ou via suporte remoto com cabo USB e AnyDesk para os modelos mais novos com o último patch de segurança.
-          </p>
-        </div>
-
-        <div class="service-card" style="padding: 1.25rem;">
-          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fa-solid fa-circle-question"></i> Posso me tornar um Revendedor de Créditos?
-          </h4>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">
-            Sim! Temos preços diferenciados para assistências técnicas e lojistas com alto volume mensal. Acesse a área de revenda ou contate nosso atendimento comercial no WhatsApp.
-          </p>
-        </div>
-
-        <div class="service-card" style="padding: 1.25rem;">
-          <h4 style="font-size: 1.05rem; margin-bottom: 0.4rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fa-solid fa-circle-question"></i> O que acontece se o serviço não for concluído?
-          </h4>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">
-            Garantia total de 100%. Se o servidor rejeitar a ordem (por exemplo IMEI incorreto ou aparelho não suportado), o valor é estornado imediatamente para sua chave PIX ou saldo do painel.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="main-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-col">
-          <div class="logo-brand" style="margin-bottom: 1rem;">
-            <div class="logo-icon-box">
+        <!-- Top Blue Gradient Banner -->
+        <header class="top-hero-banner">
+          
+          <div class="hero-left">
+            <div class="hero-logo-box">
               <i class="fa-solid fa-microchip"></i>
             </div>
-            <div class="logo-text-box">
-              <h2 style="font-size: 1.2rem;">SERVER SMART <span class="logo-badge">GSM BRASIL</span></h2>
-            </div>
-          </div>
-          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem;">
-            Plataforma especializada em infraestrutura de servidores GSM, ativação de boxes e dongles digitais, créditos de autenticação Xiaomi, Samsung, Motorola e suporte remoto para bancadas em todo o território nacional.
-          </p>
-          <div style="display: flex; gap: 0.75rem;">
-            <a href="https://wa.me/5511999999999" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
-            <a href="https://t.me/SuporteServerSmartOficial" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-brands fa-telegram"></i> Telegram</a>
-          </div>
-        </div>
-
-        <div class="footer-col">
-          <h4>Ferramentas Populares</h4>
-          <ul>
-            <li><a href="#servicos">UnlockTool 3 / 6 / 12 Meses</a></li>
-            <li><a href="#servicos">Chimera Tool All Modules</a></li>
-            <li><a href="#servicos">Pandora Box Digital</a></li>
-            <li><a href="#servicos">Octoplus FRP Tool</a></li>
-            <li><a href="#servicos">Cheetah Tool Pro</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Serviços & Suporte</h4>
-          <ul>
-            <li><a href="#order-checker">Rastreamento de IMEI</a></li>
-            <li><a href="#cluster-status">Monitoramento de Servidores</a></li>
-            <li><a href="#servicos">Xiaomi Auth EDL Server</a></li>
-            <li><a href="#servicos">Desbloqueio FRP Samsung</a></li>
-            <li><a href="javascript:void(0)" onclick="openCustomerAuthModal('login')">Área do Cliente</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Central de Atendimento</h4>
-          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-            Atendimento técnico especializado de Segunda a Sábado das 08:00 às 22:00.
-          </p>
-          <p style="font-size: 0.88rem; color: var(--accent-cyan); font-weight: 600; margin-bottom: 0.5rem;">
-            <i class="fa-brands fa-whatsapp"></i> <span id="footer-whatsapp">+55 (11) 99999-9999</span>
-          </p>
-          <p style="font-size: 0.88rem; color: var(--text-muted);">
-            <i class="fa-solid fa-envelope"></i> suporte@serversmartbrasil.com
-          </p>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p>&copy; 2026 Suporte Server Smart Brasil Online. Todos os direitos reservados. Plataforma de Servidores GSM.</p>
-        <p style="color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-          <span>Tecnologia GSM Server Engine v3.8</span> &bull; 
-          <span style="color: var(--accent-green);"><i class="fa-solid fa-shield-check"></i> Conexão SSL Segura</span>
-        </p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Checkout / Order Modal -->
-  <div id="checkout-modal" class="modal-overlay">
-    <div class="modal-window">
-      <div class="modal-header">
-        <h3 class="modal-title">
-          <i class="fa-solid fa-cart-shopping" style="color: var(--accent-cyan);"></i>
-          <span>Solicitar Ativação no Servidor</span>
-        </h3>
-        <button type="button" class="modal-close" onclick="closeModal('checkout-modal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="checkout-form">
-          <input type="hidden" id="modal-service-id">
-
-          <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
-            <h4 id="modal-service-name" style="font-size: 1.1rem; color: #fff; margin-bottom: 0.35rem;">Nome do Serviço</h4>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);" id="modal-service-time"><i class="fa-regular fa-clock"></i> 1-10 min</span>
-              <span id="modal-service-price" class="mono" style="font-size: 1.35rem; font-weight: 800; color: var(--accent-cyan);">R$ 0,00</span>
+            <div class="hero-info">
+              <h1>Bem-vindo ao <span>TECH UNION SOLUTIONS</span></h1>
+              <div class="hero-subtitle">Feita de técnico para técnicos!</div>
+              <div class="hero-tagline">A plataforma Nº1 em soluções para técnicos de smartphones.</div>
+              
+              <div class="hero-badges-row">
+                <span class="badge-pill">
+                  <span class="dot-online"></span> Online
+                </span>
+                <span class="badge-pill">
+                  <i class="fa-solid fa-shield-halved" style="color: #38bdf8;"></i> Seguro
+                </span>
+                <span class="badge-pill">
+                  <i class="fa-solid fa-gear" style="color: #bae6fd;"></i> Versão 1.3.4
+                </span>
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" id="modal-input-label">Usuário / IMEI / Lock Code:</label>
-            <input type="text" id="modal-data-input" class="form-control" required placeholder="Digite o dado necessário">
-            <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; display: block;" id="modal-input-hint">
-              Certifique-se de preencher com atenção para ativação automática sem erros.
-            </small>
+          <!-- Card do Usuário no Lado Direito -->
+          <div class="hero-user-card" id="heroUserCard">
+            <!-- Renderizado dinamicamente via checkAuth() -->
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Seu Nome / Nome da Assistência Técnica:</label>
-            <input type="text" id="modal-customer-name" class="form-control" required placeholder="Ex: Lucas Tech">
+        </header>
+
+        <!-- Ticker de Notícias Rolante -->
+        <div class="ticker-container">
+          <div class="ticker-icon">
+            <i class="fa-solid fa-bell"></i>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">WhatsApp para Notificação de Conclusão:</label>
-            <input type="tel" id="modal-customer-contact" class="form-control" required placeholder="(XX) 9XXXX-XXXX">
-          </div>
-
-          <!-- PIX Box -->
-          <div class="pix-box">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-green); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
-              <i class="fa-brands fa-pix"></i> PAGAMENTO INSTANTÂNEO VIA PIX
-            </div>
-            
-            <div class="pix-qr">
-              <img id="modal-pix-qr-img" src="" alt="QR Code PIX" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>
-
-            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-              Chave PIX Oficial do Servidor:
-            </p>
-            <div class="pix-key-display">
-              <span id="modal-pix-key-text" class="mono" style="font-size: 0.82rem; word-break: break-all;">financeiro@serversmartbrasil.com</span>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="copyPixKey()">
-                <i class="fa-regular fa-copy"></i> Copiar
-              </button>
+          <div class="ticker-marquee-box">
+            <div class="ticker-content" id="tickerText">
+              <!-- Renderizado via app.js -->
             </div>
           </div>
-
-          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.9rem; font-size: 1rem;">
-            <i class="fa-solid fa-paper-plane"></i> Confirmar Pedido no Servidor
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Order Created Success Modal -->
-  <div id="success-modal" class="modal-overlay">
-    <div class="modal-window" style="text-align: center;">
-      <div class="modal-body" style="padding: 2.5rem 2rem;">
-        <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(0, 255, 136, 0.15); border: 2px solid var(--accent-green); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: var(--accent-green); font-size: 2rem; box-shadow: var(--shadow-green);">
-          <i class="fa-solid fa-check"></i>
-        </div>
-        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Pedido Enviado ao Servidor!</h3>
-        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-          Sua solicitação foi registrada no cluster com sucesso.
-        </p>
-
-        <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem; text-align: left;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="color: var(--text-muted); font-size: 0.85rem;">Protocolo / Order ID:</span>
-            <strong id="success-order-id" class="mono" style="color: var(--accent-cyan); font-size: 1.05rem;">SSB-00000</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="color: var(--text-muted); font-size: 0.85rem;">Serviço:</span>
-            <span id="success-service-name" style="font-size: 0.85rem; font-weight: 600;">-</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted); font-size: 0.85rem;">Status:</span>
-            <span class="order-badge-status badge-pending">PENDENTE / PROCESSANDO</span>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem; justify-content: center;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('success-modal')">
-            Fechar
-          </button>
-          <a id="btn-success-whatsapp" href="#" target="_blank" class="btn btn-whatsapp">
-            <i class="fa-brands fa-whatsapp"></i> Notificar Suporte no WhatsApp
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Customer Auth Modal (Login & Cadastro) -->
-  <div id="customer-auth-modal" class="modal-overlay">
-    <div class="modal-window" style="max-width: 480px;">
-      <div class="modal-header">
-        <div style="display: flex; gap: 0.5rem;" id="auth-modal-tabs">
-          <button type="button" class="tab-btn active" id="tab-btn-login" onclick="switchAuthTab('login')">
-            <i class="fa-solid fa-right-to-bracket"></i> Entrar
-          </button>
-          <button type="button" class="tab-btn" id="tab-btn-register" onclick="switchAuthTab('register')">
-            <i class="fa-solid fa-user-plus"></i> Criar Conta
+          <button class="btn-ticker-all" onclick="openAllNewsModal()">
+            Ver Todas
           </button>
         </div>
-        <button type="button" class="modal-close" onclick="closeModal('customer-auth-modal')">&times;</button>
+
+        <!-- Grid de 16 Cards de Marcas e Soluções (como na foto) -->
+        <section class="cards-grid" id="cardsGrid">
+          <!-- 16 cards renderizados via app.js -->
+        </section>
+
       </div>
-      <div class="modal-body">
-        <!-- FORMULÁRIO DE LOGIN -->
-        <form id="customer-login-form">
-          <div id="first-admin-login-notice" style="display: none; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.35); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.15rem; font-size: 0.82rem; color: #ffd700; align-items: center; gap: 0.75rem;">
-            <i class="fa-solid fa-crown" style="font-size: 1.25rem; color: #ffd700; flex-shrink: 0;"></i>
+
+      <!-- ================================================================
+           PAINEL ADMINISTRATIVO (ADMIN VIEW)
+           ================================================================ -->
+      <div id="adminView" class="admin-view-container">
+        
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <i class="fa-solid fa-crown"></i>
             <div>
-              <strong>Primeiro Acesso:</strong> O primeiro usuário que criar conta ou logar será automaticamente o <strong>Administrador Geral</strong> do servidor!
+              <h2>Painel de Controle do Super Administrador</h2>
+              <p style="font-size: 12px; color: var(--text-muted);">
+                Gerencie usuários, libere dias de licença e adicione novas soluções técnicas.
+              </p>
             </div>
           </div>
-
-          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Entre na sua conta para desbloquear a visualização de preços oficiais e efetuar pedidos no servidor.
-          </p>
-
-          <div class="form-group">
-            <label class="form-label">E-mail Cadastrado:</label>
-            <div style="position: relative;">
-              <i class="fa-solid fa-envelope" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-              <input type="email" id="login-email" class="form-control" style="padding-left: 2.6rem;" placeholder="seu@email.com" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Sua Senha:</label>
-            <div style="position: relative;">
-              <i class="fa-solid fa-lock" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-              <input type="password" id="login-password" class="form-control" style="padding-left: 2.6rem;" placeholder="••••••••" required>
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem;">
-            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar no Servidor
+          <button class="btn-ticker-all" onclick="showDashboardView()">
+            <i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard
           </button>
+        </div>
 
-          <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-            Ainda não tem conta? <a href="javascript:void(0)" onclick="switchAuthTab('register')" style="color: var(--accent-cyan); font-weight: 600;">Cadastre-se grátis</a>
+        <!-- Abas do Admin -->
+        <div class="admin-tabs">
+          <button class="admin-tab-btn active" id="btn-tab-users" onclick="switchAdminTab('tab-users')">
+            <i class="fa-solid fa-users"></i> Gestão de Usuários
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-add-solution" onclick="switchAdminTab('tab-add-solution')">
+            <i class="fa-solid fa-plus-circle"></i> Publicar Nova Solução
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-config" onclick="switchAdminTab('tab-config')">
+            <i class="fa-solid fa-sliders"></i> Configurações do Sistema
+          </button>
+        </div>
+
+        <!-- Conteúdo Aba: Usuários -->
+        <div class="admin-tab-content" id="tab-users">
+          <div style="margin-bottom: 12px; font-size: 13px; color: var(--text-muted);">
+            Lista de técnicos cadastrados na plataforma. O 1º usuário registrado é o Super Administrador.
           </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Usuário / E-mail</th>
+                  <th>WhatsApp</th>
+                  <th>Cargo</th>
+                  <th>Dias de Licença</th>
+                  <th>Status</th>
+                  <th>Ações Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conteúdo Aba: Adicionar Solução -->
+        <div class="admin-tab-content" id="tab-add-solution" style="display: none;">
+          <form id="formAddSolution" onsubmit="handleAddSolution(event)">
+            <div class="form-grid">
+              
+              <div class="form-group">
+                <label>Marca / Categoria:</label>
+                <select id="newSolBrand" required>
+                  <option value="samsung">Samsung</option>
+                  <option value="apple">Apple</option>
+                  <option value="motorola">Motorola</option>
+                  <option value="xiaomi">Xiaomi</option>
+                  <option value="realme">Realme</option>
+                  <option value="oppo">Oppo</option>
+                  <option value="vivo">Vivo</option>
+                  <option value="huawei">Huawei</option>
+                  <option value="infinix">Infinix</option>
+                  <option value="tecno">Tecno</option>
+                  <option value="android-comandos">Android Comandos</option>
+                  <option value="software">Software & Ferramentas</option>
+                  <option value="jumper-telas">Jumper de Telas</option>
+                  <option value="emmc-ufs">eMMC UFS</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Modelo do Aparelho (ex: Galaxy A14 / Moto G53):</label>
+                <input type="text" id="newSolModel" placeholder="Ex: Galaxy A14 4G" required>
+              </div>
+
+              <div class="form-group">
+                <label>Categoria do Defeito (ex: Carga, Display, FRP):</label>
+                <input type="text" id="newSolCategory" placeholder="Ex: Carga & Alimentação" required>
+              </div>
+
+              <div class="form-group">
+                <label>Título da Solução:</label>
+                <input type="text" id="newSolTitle" placeholder="Ex: Falha de Carga VBUS 5V em Curto" required>
+              </div>
+
+              <div class="form-group full-width">
+                <label>Sintomas Apresentados pelo Dispositivo:</label>
+                <textarea id="newSolSymptoms" rows="2" placeholder="Descreva os sintomas que chegam na bancada..." required></textarea>
+              </div>
+
+              <div class="form-group full-width">
+                <label>Procedimento Passo a Passo (Um passo por linha):</label>
+                <textarea id="newSolSteps" rows="5" placeholder="1. Teste o conector de carga&#10;2. Meça a tensão na linha VBUS com multímetro&#10;3. Remova o diodo DZ501 em caso de curto" required></textarea>
+              </div>
+
+              <div class="form-group full-width">
+                <label>Dica de Bancada / Jumper (Opcional):</label>
+                <input type="text" id="newSolJumper" placeholder="Ex: Fazer jumper direto do pino 1 do FPC até o capacitor de entrada do IF-PMIC.">
+              </div>
+
+            </div>
+
+            <button type="submit" class="btn-primary-block" style="width: auto; padding: 12px 24px;">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Publicar Solução no Catálogo
+            </button>
+          </form>
+        </div>
+
+        <!-- Conteúdo Aba: Configurações -->
+        <div class="admin-tab-content" id="tab-config" style="display: none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome do Sistema:</label>
+              <input type="text" id="cfgSystemName" value="TECH UNION SOLUTIONS" readonly>
+            </div>
+            <div class="form-group">
+              <label>Versão:</label>
+              <input type="text" id="cfgVersion" value="1.3.4" readonly>
+            </div>
+            <div class="form-group">
+              <label>WhatsApp de Suporte Técnico:</label>
+              <input type="text" id="cfgWhatsapp" placeholder="5511999999999">
+            </div>
+            <div class="form-group">
+              <label>Dias de Acesso Teste para Novos Usuários:</label>
+              <input type="number" id="cfgTrialDays" value="7">
+            </div>
+          </div>
+          <button class="btn-primary-block" style="width: auto; padding: 10px 20px;" onclick="alert('Configurações salvas com sucesso!')">
+            Salvar Configurações
+          </button>
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- ====================================================================
+       MODAIS (Autenticação, Soluções por Marca, Detalhes)
+       ==================================================================== -->
+  
+  <!-- Modal 1: Autenticação (Login / Cadastro) -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-box">
+      
+      <div class="modal-header">
+        <h3 id="authModalTitle">Acesso à Plataforma Técnica</h3>
+        <button class="modal-close-btn" onclick="closeAuthModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Destaque para o Primeiro Usuário que será o Admin -->
+        <div class="first-user-banner" id="firstUserBanner" style="display: none;">
+          <i class="fa-solid fa-crown"></i>
+          <div class="first-user-banner-text">
+            <h4>Primeiro Registro no Sistema Detectado!</h4>
+            <p>O primeiro técnico a se cadastrar agora será automaticamente configurado como o <strong>SUPER ADMINISTRADOR SUPREMO</strong> da plataforma com acesso irrestrito e licença vitalícia!</p>
+          </div>
+        </div>
+
+        <!-- Alternador entre Login e Cadastro -->
+        <div class="admin-tabs" style="justify-content: center; margin-bottom: 16px;">
+          <button class="admin-tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">
+            Já tenho conta (Entrar)
+          </button>
+          <button class="admin-tab-btn" id="tabRegBtn" onclick="switchAuthTab('register')">
+            Cadastrar Novo Técnico
+          </button>
+        </div>
+
+        <!-- Formulário de Login -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Usuário ou E-mail:</label>
+            <input type="text" id="loginIdentifier" placeholder="Seu nome de usuário ou e-mail" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Senha:</label>
+            <input type="password" id="loginPassword" placeholder="Sua senha secreta" required>
+          </div>
+          <button type="submit" class="btn-primary-block">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Acessar Plataforma
+          </button>
         </form>
 
-        <!-- FORMULÁRIO DE CADASTRO -->
-        <form id="customer-register-form" style="display: none;">
-          <div id="first-admin-notice" style="display: none; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.35); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.15rem; font-size: 0.82rem; color: #ffd700; align-items: center; gap: 0.75rem;">
-            <i class="fa-solid fa-crown" style="font-size: 1.25rem; color: #ffd700; flex-shrink: 0;"></i>
-            <div>
-              <strong>Primeiro Registro do Sistema:</strong> Como nenhum administrador está cadastrado, esta primeira conta criada se tornará o <strong>Administrador Geral</strong>!
-            </div>
+        <!-- Formulário de Cadastro -->
+        <form id="registerForm" style="display: none;" onsubmit="handleRegister(event)">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Nome de Usuário (Username):</label>
+            <input type="text" id="regUsername" placeholder="Ex: ramoncell" required>
           </div>
-
-          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Cadastre sua bancada ou assistência técnica para liberar preços de revenda imediatos.
-          </p>
-
-          <div class="form-group">
-            <label class="form-label">Nome Completo ou Nome da Assistência Técnica:</label>
-            <div style="position: relative;">
-              <i class="fa-solid fa-store" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-              <input type="text" id="reg-name" class="form-control" style="padding-left: 2.6rem;" placeholder="Ex: Smart Cell Assistência" required>
-            </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Seu E-mail Profissional:</label>
+            <input type="email" id="regEmail" placeholder="contato@assistencia.com" required>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">E-mail para Acesso:</label>
-            <div style="position: relative;">
-              <i class="fa-solid fa-envelope" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-              <input type="email" id="reg-email" class="form-control" style="padding-left: 2.6rem;" placeholder="contato@suabancada.com" required>
-            </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>WhatsApp com DDD:</label>
+            <input type="text" id="regWhatsapp" placeholder="(11) 99999-9999">
           </div>
-
-          <div class="form-group">
-            <label class="form-label">WhatsApp (para receber alertas de desbloqueio):</label>
-            <div style="position: relative;">
-              <i class="fa-brands fa-whatsapp" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--accent-green);"></i>
-              <input type="tel" id="reg-whatsapp" class="form-control" style="padding-left: 2.6rem;" placeholder="(11) 98765-4321" required>
-            </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Senha:</label>
+            <input type="password" id="regPassword" placeholder="Crie uma senha segura" required>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">Crie uma Senha:</label>
-            <div style="position: relative;">
-              <i class="fa-solid fa-lock" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-              <input type="password" id="reg-password" class="form-control" style="padding-left: 2.6rem;" placeholder="Mínimo 6 dígitos" minlength="6" required>
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem;">
-            <i class="fa-solid fa-user-check"></i> Concluir Cadastro Gratuito
+          <button type="submit" class="btn-primary-block" style="background: linear-gradient(135deg, #16a34a, #15803d);">
+            <i class="fa-solid fa-user-check"></i> Concluir Cadastro
           </button>
-
-          <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-            Já possui conta? <a href="javascript:void(0)" onclick="switchAuthTab('login')" style="color: var(--accent-cyan); font-weight: 600;">Faça login aqui</a>
-          </div>
         </form>
+
       </div>
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toast-container" class="toast-container"></div>
+  <!-- Modal 2: Lista de Soluções da Marca -->
+  <div class="modal-overlay" id="solutionsModal">
+    <div class="modal-box modal-large">
+      <div class="modal-header">
+        <h3 id="solutionsModalTitle">Soluções</h3>
+        <button class="modal-close-btn" onclick="closeSolutionsModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="solutionsListContainer">
+        <!-- Preenchido via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Detalhe Completo da Solução Técnica -->
+  <div class="modal-overlay" id="solutionDetailModal">
+    <div class="modal-box modal-large">
+      <div class="modal-header">
+        <h3 id="solDetailTitle">Procedimento Técnico</h3>
+        <button class="modal-close-btn" onclick="closeSolutionDetailModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="solDetailBody">
+        <!-- Preenchido via app.js -->
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
 </body>
