@@ -141,6 +141,10 @@ function checkAuth() {
           <i class="fa-solid fa-star"></i> ${isSpecialPlan ? 'Plano Premium' : 'Meu Plano'}
         </button>
       `}
+
+      <button class="btn-logout-hero" onclick="logout()" title="Sair da Plataforma">
+        <i class="fa-solid fa-right-from-bracket"></i> Sair
+      </button>
     `;
 
     // Atualizar rodapé da sidebar
@@ -165,9 +169,7 @@ function checkAuth() {
     }
 
   } else {
-    // Não logado: Exibir botão de login no banner
-    const isFirstRegistration = AppState.users.length === 0;
-
+    // Não logado: Exibir botão de login e cadastro no banner
     userCardEl.innerHTML = `
       <div style="display: flex; align-items: center; gap: 10px;">
         <span style="font-size: 12px; opacity: 0.9;">Visitante Técnico</span>
@@ -175,8 +177,7 @@ function checkAuth() {
           <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
         </button>
         <button class="btn-plan-premium" onclick="openAuthModal('register')">
-          <i class="fa-solid ${isFirstRegistration ? 'fa-crown' : 'fa-user-plus'}"></i> 
-          ${isFirstRegistration ? 'Cadastre-se (Seja o Admin)' : 'Criar Conta'}
+          <i class="fa-solid fa-user-plus"></i> Cadastre-se
         </button>
       </div>
     `;
@@ -202,11 +203,9 @@ function checkAuth() {
 // Abrir Modal de Autenticação (Login / Cadastro)
 function openAuthModal(tab = 'login') {
   const modal = document.getElementById('authModal');
-  const isFirst = AppState.users.length === 0;
-  
   const firstUserBanner = document.getElementById('firstUserBanner');
   if (firstUserBanner) {
-    firstUserBanner.style.display = isFirst ? 'flex' : 'none';
+    firstUserBanner.style.display = 'none';
   }
 
   switchAuthTab(tab);
@@ -253,6 +252,8 @@ function handleRegister(e) {
   const exists = AppState.users.some(u => u.email === email || u.username.toLowerCase() === username.toLowerCase());
   if (exists) {
     alert('Este e-mail ou nome de usuário já está cadastrado. Faça login!');
+    switchAuthTab('login');
+    document.getElementById('loginIdentifier').value = username;
     return;
   }
 
@@ -277,19 +278,16 @@ function handleRegister(e) {
   AppState.users.push(newUser);
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
 
-  // Logar imediatamente
-  AppState.currentUser = newUser;
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(newUser));
+  // Resetar formulário de cadastro
+  document.getElementById('registerForm').reset();
 
-  closeAuthModal();
-  checkAuth();
+  // Direcionar imediatamente para a tela de login
+  switchAuthTab('login');
+  document.getElementById('loginIdentifier').value = username;
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginPassword').focus();
 
-  if (isFirstUser) {
-    alert(`🎉 PARABÉNS, ${username}!\n\nVocê é o PRIMEIRO USUÁRIO CADASTRADO no sistema e acaba de receber o cargo de SUPER ADMINISTRADOR SUPREMO com controle total da plataforma!`);
-    showAdminView();
-  } else {
-    alert(`Bem-vindo, ${username}! Sua conta foi criada com sucesso com ${newUser.daysRemaining} dias de acesso teste.`);
-  }
+  alert(`Cadastro realizado com sucesso, ${username}!\nPor favor, insira suas credenciais para entrar na plataforma.`);
 }
 
 // Executar Login
@@ -325,6 +323,7 @@ function logout() {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     checkAuth();
     showDashboardView();
+    openAuthModal('login'); // Retorna imediatamente para a tela de login!
   }
 }
 
