@@ -113,6 +113,27 @@ body {
   box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
 }
 
+.brand-logo-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #000;
+}
+
+.hero-logo-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: #000;
+  flex-shrink: 0;
+}
+
 .brand-text h2 {
   font-size: 15px;
   font-weight: 800;
