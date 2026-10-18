@@ -1256,6 +1256,9 @@ async function syncSystemConfigFromCloud() {
         version: item.name || configData.version || AppState.systemConfig.version || '1.3.4',
         trialDaysDefault: configData.trialDaysDefault !== undefined ? parseInt(configData.trialDaysDefault) : (AppState.systemConfig.trialDaysDefault || 7)
       };
+      if (!AppState.systemConfig.mpAccessToken || AppState.systemConfig.mpAccessToken.trim() === '') {
+        AppState.systemConfig.mpAccessToken = window.TECH_UNION_DATA.system.mpAccessToken;
+      }
       localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
 
       // Se houver usuário técnico comum logado em teste, atualizar para os dias configurados
@@ -1694,9 +1697,10 @@ function openCheckoutModal(cardId) {
       </div>
 
       <div id="pixQrContainer" style="display: none;">
-        <div style="background: #ffffff; padding: 12px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); margin-bottom: 12px;">
-          <img id="pixQrImage" src="" alt="QR Code PIX" style="width: 220px; height: 220px; display: block; object-fit: contain;">
+        <div style="background: #ffffff; padding: 12px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); margin-bottom: 8px;">
+          <img id="pixQrImage" src="" alt="QR Code PIX Mercado Pago" style="width: 220px; height: 220px; display: block; object-fit: contain;">
         </div>
+        <div id="pixCollectorHolder" style="display: none; font-size: 13px; color: #4ade80; margin-bottom: 8px; font-weight: 600;"></div>
         <div style="font-size: 12.5px; color: #e2e8f0; margin-bottom: 10px;">
           Abra o app do seu banco e escaneie o <strong>QR Code PIX</strong> acima.
         </div>
@@ -1748,7 +1752,10 @@ async function processMercadoPagoPix(cardId) {
   document.getElementById('pixQrContainer').style.display = 'none';
   document.getElementById('pixApprovedContainer').style.display = 'none';
 
-  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken) || '';
+  const defaultMpToken = 'APP_USR-2750012879381679-051115-2dc1610e908f48d05dd63736d9473db7-615957613';
+  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken && AppState.systemConfig.mpAccessToken.trim().length > 15)
+    ? AppState.systemConfig.mpAccessToken.trim()
+    : defaultMpToken;
 
   try {
     const res = await fetch('/api/mercadopago', {
@@ -1767,37 +1774,40 @@ async function processMercadoPagoPix(cardId) {
     const data = await res.json();
     document.getElementById('pixLoadingBox').style.display = 'none';
 
-    if (data.success) {
+    if (data.success && (data.qr_code_base64 || data.qr_code || data.qr_code_url)) {
       document.getElementById('pixQrContainer').style.display = 'block';
       const qrImg = document.getElementById('pixQrImage');
       if (data.qr_code_base64) {
         qrImg.src = 'data:image/png;base64,' + data.qr_code_base64;
       } else if (data.qr_code_url) {
         qrImg.src = data.qr_code_url;
-      } else {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qr_code || 'PIX_PAGAMENTO')}`;
+      } else if (data.qr_code) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qr_code)}`;
       }
 
-      const copiaInput = document.getElementById('pixCopiaColaInput');
-      if (copiaInput) copiaInput.value = data.qr_code || '';
+      const holderEl = document.getElementById('pixCollectorHolder');
+      if (holderEl) {
+        const holderName = data.collector_name || 'Meire Izidoro';
+        holderEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> Beneficiário: <strong>${escapeHtml(holderName)}</strong> (Mercado Pago)`;
+        holderEl.style.display = 'block';
+      }
 
-      // Iniciar polling para checar se o pagamento foi aprovado
-      if (data.payment_id && !data.payment_id.startsWith('pay_')) {
-        startPaymentPolling(data.payment_id, cardId, customerEmail);
+      // Iniciar polling seguro para checar se o pagamento foi aprovado
+      const paymentIdStr = String(data.payment_id || '');
+      if (paymentIdStr && !paymentIdStr.startsWith('pay_')) {
+        startPaymentPolling(paymentIdStr, cardId, customerEmail);
       }
     } else {
-      alert('Erro ao gerar PIX: ' + (data.error || 'Tente novamente.'));
+      alert('Erro ao gerar PIX no Mercado Pago: ' + (data.error || 'Tente novamente.'));
       document.getElementById('checkoutStep1').style.display = 'block';
       document.getElementById('checkoutStep2').style.display = 'none';
     }
   } catch (err) {
-    console.warn('Erro ao chamar API de PIX:', err);
+    console.error('Erro ao chamar API de PIX:', err);
     document.getElementById('pixLoadingBox').style.display = 'none';
-    document.getElementById('pixQrContainer').style.display = 'block';
-    const fakeCode = `00020126580014br.gov.bcb.pix0136test520400005303986540${(card.price || 29.9).toFixed(2)}5802BR5925SUPORTE SERVER SMART6009SAO PAULO62070503***6304`;
-    document.getElementById('pixQrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fakeCode)}`;
-    const copiaInput = document.getElementById('pixCopiaColaInput');
-    if (copiaInput) copiaInput.value = fakeCode;
+    alert('Erro de conexão com o Mercado Pago. Por favor, tente novamente.');
+    document.getElementById('checkoutStep1').style.display = 'block';
+    document.getElementById('checkoutStep2').style.display = 'none';
   }
 }
 
@@ -1811,15 +1821,20 @@ function copyPixCode() {
 
 function startPaymentPolling(paymentId, cardId, customerEmail) {
   if (checkoutPollInterval) clearInterval(checkoutPollInterval);
-  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken) || '';
+  const defaultMpToken = 'APP_USR-2750012879381679-051115-2dc1610e908f48d05dd63736d9473db7-615957613';
+  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken && AppState.systemConfig.mpAccessToken.trim().length > 15)
+    ? AppState.systemConfig.mpAccessToken.trim()
+    : defaultMpToken;
+
+  const paymentIdStr = String(paymentId);
 
   checkoutPollInterval = setInterval(async () => {
     try {
-      const res = await fetch(`/api/mercadopago?action=check_payment&payment_id=${paymentId}&accessToken=${encodeURIComponent(mpToken)}`);
+      const res = await fetch(`/api/mercadopago?action=check_payment&payment_id=${encodeURIComponent(paymentIdStr)}&accessToken=${encodeURIComponent(mpToken)}`);
       const data = await res.json();
       if (data.approved) {
         clearInterval(checkoutPollInterval);
-        confirmPurchaseAndReleaseDownload(cardId, paymentId, customerEmail);
+        confirmPurchaseAndReleaseDownload(cardId, paymentIdStr, customerEmail);
       }
     } catch (e) {
       console.warn('Polling check error:', e);
