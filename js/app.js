@@ -33,6 +33,7 @@ const AppState = {
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initStorage();
+  updateVersionDisplay();
   renderBrandCards();
   renderTicker();
   setupEventListeners();
@@ -600,6 +601,10 @@ function switchAdminTab(tabId) {
   const content = document.getElementById(tabId);
   if (btn) btn.classList.add('active');
   if (content) content.style.display = 'block';
+
+  if (tabId === 'tab-config') {
+    loadConfigForm();
+  }
 }
 
 function renderAdminUsersTable() {
@@ -805,3 +810,62 @@ function openToolsModal(categoryName) {
 
   modal.classList.add('active');
 }
+
+// ==========================================================================
+// CONTROLE DINÂMICO DE VERSÃO & CONFIGURAÇÕES PELO PAINEL ADMIN
+// ==========================================================================
+function updateVersionDisplay() {
+  const version = (AppState.systemConfig && AppState.systemConfig.version) || '1.3.4';
+  const heroVersionText = document.getElementById('heroVersionText');
+  if (heroVersionText) {
+    heroVersionText.innerText = version;
+  }
+}
+
+function loadConfigForm() {
+  const cfg = AppState.systemConfig || {};
+  const cfgVersion = document.getElementById('cfgVersion');
+  const cfgWhatsapp = document.getElementById('cfgWhatsapp');
+  const cfgTrialDays = document.getElementById('cfgTrialDays');
+
+  if (cfgVersion) cfgVersion.value = cfg.version || '1.3.4';
+  if (cfgWhatsapp) cfgWhatsapp.value = cfg.supportWhatsapp || '';
+  if (cfgTrialDays) cfgTrialDays.value = cfg.trialDaysDefault || 7;
+}
+
+function saveSystemConfig(e) {
+  if (e) e.preventDefault();
+
+  if (!AppState.currentUser || !AppState.currentUser.email || AppState.currentUser.email.toLowerCase() !== MASTER_ADMIN.email) {
+    alert('Acesso negado! Apenas o Administrador Principal pode alterar as configurações do sistema.');
+    return;
+  }
+
+  const versionInput = document.getElementById('cfgVersion');
+  const whatsappInput = document.getElementById('cfgWhatsapp');
+  const trialDaysInput = document.getElementById('cfgTrialDays');
+
+  const newVersion = versionInput ? versionInput.value.trim() : '';
+  const newWhatsapp = whatsappInput ? whatsappInput.value.trim() : '';
+  const newTrialDays = trialDaysInput ? (parseInt(trialDaysInput.value) || 7) : 7;
+
+  if (!newVersion) {
+    alert('Por favor, informe a versão do sistema (ex: 1.3.4 ou 2.0.0).');
+    return;
+  }
+
+  AppState.systemConfig.version = newVersion;
+  AppState.systemConfig.supportWhatsapp = newWhatsapp;
+  AppState.systemConfig.trialDaysDefault = newTrialDays;
+
+  localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
+
+  // Atualizar visualmente o selo de versão no topo
+  updateVersionDisplay();
+
+  alert(`✅ Configurações salvas com sucesso!\nA versão foi alterada para: Versão ${newVersion}`);
+}
+
+window.saveSystemConfig = saveSystemConfig;
+window.updateVersionDisplay = updateVersionDisplay;
+window.loadConfigForm = loadConfigForm;
