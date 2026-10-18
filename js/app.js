@@ -313,20 +313,139 @@ function closeAuthModal() {
 function switchAuthTab(tab) {
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
+  const forgotForm = document.getElementById('forgotForm');
   const tabLoginBtn = document.getElementById('tabLoginBtn');
   const tabRegBtn = document.getElementById('tabRegBtn');
+  const tabForgotBtn = document.getElementById('tabForgotBtn');
+  const authModalTitle = document.getElementById('authModalTitle');
+
+  if (loginForm) loginForm.style.display = 'none';
+  if (registerForm) registerForm.style.display = 'none';
+  if (forgotForm) forgotForm.style.display = 'none';
+
+  if (tabLoginBtn) tabLoginBtn.classList.remove('active');
+  if (tabRegBtn) tabRegBtn.classList.remove('active');
+  if (tabForgotBtn) tabForgotBtn.classList.remove('active');
 
   if (tab === 'login') {
-    loginForm.style.display = 'block';
-    registerForm.style.display = 'none';
-    tabLoginBtn.classList.add('active');
-    tabRegBtn.classList.remove('active');
-  } else {
-    loginForm.style.display = 'none';
-    registerForm.style.display = 'block';
-    tabLoginBtn.classList.remove('active');
-    tabRegBtn.classList.add('active');
+    if (loginForm) loginForm.style.display = 'block';
+    if (tabLoginBtn) tabLoginBtn.classList.add('active');
+    if (authModalTitle) authModalTitle.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket" style="color: #c084fc; margin-right: 8px;"></i> Acesso à Plataforma Técnica';
+  } else if (tab === 'register') {
+    if (registerForm) registerForm.style.display = 'block';
+    if (tabRegBtn) tabRegBtn.classList.add('active');
+    if (authModalTitle) authModalTitle.innerHTML = '<i class="fa-solid fa-user-plus" style="color: #10b981; margin-right: 8px;"></i> Cadastrar Novo Técnico';
+  } else if (tab === 'forgot') {
+    if (forgotForm) forgotForm.style.display = 'block';
+    if (tabForgotBtn) tabForgotBtn.classList.add('active');
+    if (authModalTitle) authModalTitle.innerHTML = '<i class="fa-solid fa-key" style="color: #f59e0b; margin-right: 8px;"></i> Redefinir Senha do Técnico';
   }
+}
+
+// Redefinir Senha do Cliente pelo Gmail / E-mail da Conta
+async function handleResetPassword(e) {
+  e.preventDefault();
+  const emailInput = document.getElementById('resetEmail').value.trim().toLowerCase();
+  const newPassword = document.getElementById('resetNewPassword').value;
+  const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+  if (!emailInput || !newPassword) {
+    alert('Por favor, preencha o seu e-mail/Gmail e a nova senha.');
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    alert('A nova senha deve ter no mínimo 4 caracteres.');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('As senhas não coincidem. Digite a mesma senha nos dois campos!');
+    return;
+  }
+
+  // Proteção da conta mestre do administrador
+  if (emailInput === MASTER_ADMIN.email) {
+    alert('A conta oficial do Administrador Geral possui credenciais mestres protegidas e exclusivas.');
+    return;
+  }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Atualizando senha...';
+  }
+
+  // 1. Procurar usuário no cache local
+  let user = AppState.users.find(u => u.email && u.email.toLowerCase() === emailInput);
+
+  // 2. Se não estiver no cache local, buscar diretamente no banco em nuvem Supabase
+  if (!user) {
+    try {
+      const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/resellers?email=eq.${encodeURIComponent(emailInput)}`, {
+        headers: {
+          'apikey': SUPABASE_CONFIG.key,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+        }
+      });
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData && cloudData.length > 0) {
+          const cu = cloudData[0];
+          let meta = {};
+          if (cu.role && (cu.role.startsWith('{') || cu.role.startsWith('['))) {
+            try { meta = JSON.parse(cu.role); } catch(err) {}
+          }
+          user = {
+            id: cu.id,
+            username: cu.name || emailInput.split('@')[0],
+            email: emailInput,
+            whatsapp: meta.whatsapp || '',
+            password: newPassword,
+            role: 'tecnico',
+            isAdmin: false,
+            plan: meta.plan || 'Plano Técnico Autorizado',
+            daysRemaining: meta.daysRemaining !== undefined ? meta.daysRemaining : 7,
+            expireDate: meta.expireDate || calculateExpireDate(meta.daysRemaining || 7),
+            status: meta.status || 'active',
+            createdAt: cu.created_at ? new Date(cu.created_at).toLocaleDateString('pt-BR') : '18/10/2026'
+          };
+          AppState.users.push(user);
+        }
+      }
+    } catch(err) {
+      console.warn('Erro ao consultar usuário na nuvem para redefinir senha:', err);
+    }
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnHtml;
+  }
+
+  if (!user) {
+    alert('Não encontramos nenhuma conta cadastrada com o e-mail: ' + emailInput + '\nPor favor, verifique se digitou o e-mail correto ou crie uma conta na aba "Cadastrar Novo Técnico".');
+    return;
+  }
+
+  // 3. Atualizar a nova senha no cache e banco de dados
+  user.password = newPassword;
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+
+  // 4. Salvar na nuvem Supabase imediatamente
+  await saveUserToCloud(user);
+
+  // Limpar formulário de redefinição
+  document.getElementById('forgotForm').reset();
+
+  alert(`✅ Senha alterada com sucesso para ${user.username}!\nVocê já pode entrar na sua conta com a nova senha criada.`);
+
+  // Direcionar imediatamente para a aba de login com o e-mail preenchido
+  switchAuthTab('login');
+  document.getElementById('loginIdentifier').value = emailInput;
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginPassword').focus();
 }
 
 // Executar Cadastro (Apenas contas de Técnicos; suporteserversmart@gmail.com é exclusivo Admin)
@@ -1121,9 +1240,110 @@ async function refreshAdminUsers() {
   renderAdminUsersTable();
 }
 
+// ==========================================================================
+// MODAL DE PERFIL DO TÉCNICO & TROCA DE SENHA
+// ==========================================================================
+function openProfileModal() {
+  const u = AppState.currentUser;
+  if (!u) {
+    openAuthModal('login');
+    return;
+  }
+
+  const modal = document.getElementById('profileModal');
+  const body = document.getElementById('profileModalBody');
+  if (!modal || !body) return;
+
+  const isMaster = !!(u.email && u.email.toLowerCase() === MASTER_ADMIN.email);
+
+  body.innerHTML = `
+    <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <div class="user-avatar-sm" style="width: 44px; height: 44px; font-size: 18px;">
+          ${escapeHtml(u.username.substring(0, 2).toUpperCase())}
+        </div>
+        <div>
+          <h3 style="color: #ffffff; font-size: 16px; font-weight: 700;">${escapeHtml(u.username)}</h3>
+          <span style="font-size: 12px; color: #c4b5fd;">${escapeHtml(u.email)}</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; border-top: 1px solid rgba(168, 85, 247, 0.15); padding-top: 10px;">
+        <div>Status da Licença: <strong style="color: #4ade80;">${isMaster ? 'Vitalício' : `${u.daysRemaining} dias`}</strong></div>
+        <div>WhatsApp: <strong style="color: #ffffff;">${escapeHtml(u.whatsapp || '-')}</strong></div>
+        <div>Plano: <strong style="color: #c084fc;">${escapeHtml(u.plan || 'Técnico')}</strong></div>
+        <div>Vencimento: <strong style="color: #fde047;">${isMaster ? 'Nunca' : (u.expireDate || 'Ativo')}</strong></div>
+      </div>
+    </div>
+
+    ${!isMaster ? `
+      <form onsubmit="handleProfileChangePassword(event)">
+        <h4 style="font-size: 14px; color: #ffffff; margin-bottom: 12px; font-weight: 700;">
+          <i class="fa-solid fa-lock" style="color: #c084fc; margin-right: 6px;"></i> Alterar Minha Senha
+        </h4>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label>Nova Senha:</label>
+          <input type="password" id="profileNewPassword" placeholder="Digite sua nova senha" required minlength="4">
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label>Confirmar Nova Senha:</label>
+          <input type="password" id="profileConfirmPassword" placeholder="Confirme a nova senha" required minlength="4">
+        </div>
+        <button type="submit" class="btn-primary-block" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+          <i class="fa-solid fa-floppy-disk"></i> Atualizar Minha Senha
+        </button>
+      </form>
+    ` : ''}
+
+    <div style="margin-top: 16px; text-align: right;">
+      <button class="btn-ticker-all" onclick="closeProfileModal()">Fechar</button>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById('profileModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handleProfileChangePassword(e) {
+  e.preventDefault();
+  if (!AppState.currentUser) return;
+
+  const newPass = document.getElementById('profileNewPassword').value;
+  const confPass = document.getElementById('profileConfirmPassword').value;
+
+  if (!newPass || newPass.length < 4) {
+    alert('A nova senha deve ter no mínimo 4 caracteres.');
+    return;
+  }
+
+  if (newPass !== confPass) {
+    alert('As senhas não coincidem!');
+    return;
+  }
+
+  AppState.currentUser.password = newPass;
+  const index = AppState.users.findIndex(u => u.email && u.email.toLowerCase() === AppState.currentUser.email.toLowerCase());
+  if (index >= 0) {
+    AppState.users[index].password = newPass;
+  }
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(AppState.currentUser));
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+
+  await saveUserToCloud(AppState.currentUser);
+  closeProfileModal();
+  alert('✅ Sua senha foi alterada com sucesso!');
+}
+
 window.saveSystemConfig = saveSystemConfig;
 window.updateVersionDisplay = updateVersionDisplay;
 window.loadConfigForm = loadConfigForm;
 window.refreshAdminUsers = refreshAdminUsers;
 window.syncUsersFromCloud = syncUsersFromCloud;
 window.syncSystemConfigFromCloud = syncSystemConfigFromCloud;
+window.handleResetPassword = handleResetPassword;
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.handleProfileChangePassword = handleProfileChangePassword;
