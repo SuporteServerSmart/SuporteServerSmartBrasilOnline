@@ -257,6 +257,7 @@ function checkAuth() {
       showDashboardView();
     }
 
+  } else {
     // Não logado: Exibir botão de login e cadastro no banner com os dias de teste dinâmicos
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_VIEW);
     localStorage.removeItem(STORAGE_KEYS.ADMIN_TAB);
