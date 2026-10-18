@@ -342,12 +342,12 @@ function openSolutionsForBrand(brandId, brandName) {
 
   if (list.length === 0) {
     container.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #64748b;">
-        <i class="fa-solid fa-microchip" style="font-size: 36px; margin-bottom: 12px; color: #cbd5e1;"></i>
-        <h4>Nenhuma solução cadastrada ainda para ${brandName}.</h4>
-        <p style="font-size: 13px; margin-top: 6px;">O administrador pode adicionar esquemas e soluções a qualquer momento.</p>
+      <div style="text-align: center; padding: 40px; color: #c4b5fd;">
+        <i class="fa-solid fa-microchip" style="font-size: 38px; margin-bottom: 14px; color: #a855f7;"></i>
+        <h4 style="color: #ffffff; font-size: 16px;">Nenhuma solução cadastrada ainda para ${brandName}.</h4>
+        <p style="font-size: 13px; margin-top: 8px; color: #a78bfa;">O administrador pode adicionar esquemas e soluções a qualquer momento.</p>
         ${AppState.currentUser && AppState.currentUser.isAdmin ? `
-          <button class="btn-plan-premium" style="margin: 16px auto 0;" onclick="closeSolutionsModal(); showAdminView('tab-add-solution');">
+          <button class="btn-plan-premium" style="margin: 18px auto 0;" onclick="closeSolutionsModal(); showAdminView('tab-add-solution');">
             <i class="fa-solid fa-plus"></i> Adicionar Solução para ${brandName}
           </button>
         ` : ''}
@@ -355,22 +355,22 @@ function openSolutionsForBrand(brandId, brandName) {
     `;
   } else {
     container.innerHTML = list.map(sol => `
-      <div class="tech-card" style="margin-bottom: 14px; cursor: pointer;" onclick="openSolutionDetail('${sol.id}')">
+      <div class="tech-card" style="margin-bottom: 14px; cursor: pointer; background: #190f30; border: 1px solid rgba(168, 85, 247, 0.25);" onclick="openSolutionDetail('${sol.id}')">
         <div class="card-top" style="margin-bottom: 8px;">
-          <div class="card-brand-badge" style="background-color: #e0edff; color: #0284c7; width: 38px; height: 38px; font-size: 16px;">
+          <div class="card-brand-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); width: 38px; height: 38px; font-size: 16px;">
             <i class="fa-solid fa-screwdriver-wrench"></i>
           </div>
           <div class="card-brand-info">
-            <h3 style="font-size: 14px; color: #0f172a;">${escapeHtml(sol.title)}</h3>
-            <p style="font-size: 12px; color: #2563eb; font-weight: 600;">${escapeHtml(sol.model)} &bull; ${escapeHtml(sol.category)}</p>
+            <h3 style="font-size: 14.5px; color: #ffffff; font-weight: 700;">${escapeHtml(sol.title)}</h3>
+            <p style="font-size: 12px; color: #c084fc; font-weight: 600;">${escapeHtml(sol.model)} &bull; ${escapeHtml(sol.category)}</p>
           </div>
         </div>
-        <div style="font-size: 12px; color: #64748b; line-height: 1.4; margin-bottom: 10px;">
+        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.45; margin-bottom: 10px;">
           ${escapeHtml(sol.symptoms.substring(0, 140))}...
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 8px; font-size: 11px; color: #94a3b8;">
-          <span><i class="fa-regular fa-clock"></i> ${sol.date || 'Recente'}</span>
-          <span style="color: #2563eb; font-weight: 700;">Abrir Procedimento Completo &rarr;</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(168, 85, 247, 0.2); padding-top: 10px; font-size: 11.5px; color: #a78bfa;">
+          <span><i class="fa-regular fa-clock" style="margin-right: 4px;"></i> ${sol.date || 'Recente'}</span>
+          <span style="color: #c084fc; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">Abrir Procedimento Completo &rarr;</span>
         </div>
       </div>
     `).join('');
@@ -403,9 +403,9 @@ function openSolutionDetail(solId) {
   bodyEl.innerHTML = `
     <div class="solution-detail-header">
       <span class="solution-detail-badge">${escapeHtml(sol.category)}</span>
-      <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">${escapeHtml(sol.model)}</h2>
-      <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-        Publicado por: <strong>${escapeHtml(sol.author || 'Tech Union')}</strong> &bull; Dificuldade: <strong>${sol.difficulty || 'Intermediário'}</strong>
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin-top: 4px;">${escapeHtml(sol.model)}</h2>
+      <div style="font-size: 12px; color: #c4b5fd; margin-top: 4px;">
+        Publicado por: <strong style="color: #ffffff;">${escapeHtml(sol.author || 'Suporte Server Smart')}</strong> &bull; Dificuldade: <strong style="color: #c084fc;">${sol.difficulty || 'Intermediário'}</strong>
       </div>
     </div>
 
@@ -414,8 +414,8 @@ function openSolutionDetail(solId) {
       ${escapeHtml(sol.symptoms)}
     </div>
 
-    <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 10px; color: #1e293b;">
-      <i class="fa-solid fa-list-check"></i> Procedimento e Análise Técnica Passo a Passo:
+    <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 10px; color: #ffffff;">
+      <i class="fa-solid fa-list-check" style="color: #c084fc; margin-right: 6px;"></i> Procedimento e Análise Técnica Passo a Passo:
     </h4>
     <div class="solution-guide-list">
       ${guideHtml}
@@ -507,7 +507,7 @@ function renderAdminUsersTable() {
         </td>
         <td>${escapeHtml(u.whatsapp || '-')}</td>
         <td>
-          <span class="badge-pill" style="background: ${isSuper ? '#fef3c7' : '#e0edff'}; color: ${isSuper ? '#854d0e' : '#1e40af'};">
+          <span class="badge-pill" style="background: ${isSuper ? 'rgba(234, 179, 8, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${isSuper ? '#fde047' : '#c084fc'}; border: 1px solid ${isSuper ? 'rgba(234, 179, 8, 0.4)' : 'rgba(168, 85, 247, 0.4)'};">
             ${isSuper ? '👑 Super Admin' : (u.role === 'admin' ? 'Admin' : 'Técnico')}
           </span>
         </td>
@@ -531,7 +531,7 @@ function renderAdminUsersTable() {
                 ${u.status === 'active' ? 'Bloquear' : 'Ativar'}
               </button>
             ` : `
-              <span style="font-size: 11px; color: #ca8a04; font-weight: 700;">Admin Supremo</span>
+              <span style="font-size: 11px; color: #fde047; font-weight: 700;">Admin Supremo</span>
             `}
           </div>
         </td>
@@ -658,14 +658,14 @@ function openAllNewsModal() {
   const title = document.getElementById('solutionsModalTitle');
   const list = document.getElementById('solutionsListContainer');
 
-  title.innerHTML = '<i class="fa-solid fa-bullhorn"></i> Todas as Notícias & Atualizações';
+  title.innerHTML = '<i class="fa-solid fa-bullhorn" style="color: #c084fc; margin-right: 8px;"></i> Todas as Notícias & Atualizações';
   list.innerHTML = AppState.tickerNews.map(item => `
-    <div class="tech-card" style="margin-bottom: 12px; padding: 14px;">
+    <div class="tech-card" style="margin-bottom: 12px; padding: 14px; background: #190f30; border: 1px solid rgba(168, 85, 247, 0.25);">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="badge-pill" style="background: #e0edff; color: #0066ff;">${item.brand || 'GERAL'}</span>
-        <span style="font-size: 11px; color: #94a3b8;">${item.date || ''}</span>
+        <span class="badge-pill" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 700;">${escapeHtml(item.brand || 'GERAL')}</span>
+        <span style="font-size: 11.5px; color: #a78bfa;"><i class="fa-regular fa-calendar-days" style="margin-right: 4px;"></i>${escapeHtml(item.date || '')}</span>
       </div>
-      <h4 style="font-size: 14px; margin-top: 8px; color: #0f172a;">${escapeHtml(item.text)}</h4>
+      <h4 style="font-size: 14.5px; margin-top: 10px; color: #ffffff; font-weight: 700; line-height: 1.45; letter-spacing: 0.3px;">${escapeHtml(item.text)}</h4>
     </div>
   `).join('');
 
@@ -677,20 +677,20 @@ function openToolsModal(categoryName) {
   const title = document.getElementById('solutionsModalTitle');
   const list = document.getElementById('solutionsListContainer');
 
-  title.innerHTML = `<i class="fa-solid fa-wrench"></i> Ferramentas: <strong>${categoryName}</strong>`;
+  title.innerHTML = `<i class="fa-solid fa-wrench" style="color: #c084fc; margin-right: 8px;"></i> Ferramentas: <strong>${categoryName}</strong>`;
   list.innerHTML = window.TECH_UNION_DATA.tools.map(tool => `
-    <div class="tech-card" style="margin-bottom: 14px;">
+    <div class="tech-card" style="margin-bottom: 14px; background: #190f30; border: 1px solid rgba(168, 85, 247, 0.25);">
       <div class="card-top">
-        <div class="card-brand-badge" style="background-color: #ffedd5; color: #ea580c;">
+        <div class="card-brand-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
           <i class="${tool.icon}"></i>
         </div>
         <div class="card-brand-info">
-          <h3>${tool.name} ${tool.badge ? `<span class="nav-badge-new">${tool.badge}</span>` : ''}</h3>
-          <p style="color: #64748b; font-size: 12px;">${tool.description}</p>
+          <h3 style="color: #ffffff;">${tool.name} ${tool.badge ? `<span class="nav-badge-new">${tool.badge}</span>` : ''}</h3>
+          <p style="color: #cbd5e1; font-size: 12px; margin-top: 4px;">${tool.description}</p>
         </div>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-        <span style="font-size: 11px; color: #94a3b8;">Versão: ${tool.version}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px solid rgba(168, 85, 247, 0.18); padding-top: 10px;">
+        <span style="font-size: 11.5px; color: #a78bfa;">Versão: <strong style="color: #ffffff;">${tool.version}</strong></span>
         <a href="${tool.downloadUrl}" target="_blank" class="btn-ticker-all" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
           <i class="fa-solid fa-download"></i> Baixar Ferramenta
         </a>

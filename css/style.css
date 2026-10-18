@@ -1012,6 +1012,32 @@ body {
   padding: 24px;
 }
 
+/* Cards dentro dos modais com alto contraste e tema Cyber */
+.modal-box .tech-card {
+  background: #190f30;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: var(--radius-md);
+  color: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.modal-box .tech-card:hover {
+  background: #221342;
+  border-color: #c084fc;
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.25);
+  transform: translateY(-2px);
+}
+
+.modal-box .tech-card h3,
+.modal-box .tech-card h4 {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.modal-box .tech-card p {
+  color: #cbd5e1;
+}
+
 .btn-primary-block {
   width: 100%;
   padding: 12px;
