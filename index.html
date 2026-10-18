@@ -340,6 +340,17 @@
                   <label>Badge / Selo (Opcional):</label>
                   <input type="text" id="newMenuBadge" placeholder="Ex: NOVO ou deixe vazio">
                 </div>
+                <div class="form-group">
+                  <label><i class="fa-solid fa-link" style="color: #38bdf8; margin-right: 6px;"></i> Link de Redirecionamento (Opcional):</label>
+                  <input type="url" id="newMenuLink" placeholder="https://www.serversmart.com.br">
+                </div>
+                <div class="form-group">
+                  <label>Como Abrir o Link:</label>
+                  <select id="newMenuTarget">
+                    <option value="_blank">Abrir em Nova Aba (_blank)</option>
+                    <option value="_self">Abrir na Mesma Aba (_self)</option>
+                  </select>
+                </div>
               </div>
               <button type="submit" class="btn-primary-block" style="width: auto; padding: 10px 22px; display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #16a34a, #15803d);">
                 <i class="fa-solid fa-plus"></i> Adicionar Opção ao Menu
@@ -786,6 +797,18 @@
           <div class="form-group" style="margin-bottom: 12px;">
             <label>Badge / Selo (ex: NOVO ou deixe vazio):</label>
             <input type="text" id="editMenuItemBadge" placeholder="NOVO">
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label><i class="fa-solid fa-link" style="color: #38bdf8; margin-right: 6px;"></i> Link de Destino / Redirecionamento (URL):</label>
+            <input type="url" id="editMenuItemLink" placeholder="https://exemplo.com ou https://www.serversmart.com.br">
+            <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Se preenchido, ao clicar nesta opção no menu, o usuário será direcionado diretamente para este link.</small>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Como abrir o link:</label>
+            <select id="editMenuItemTarget">
+              <option value="_blank">Abrir em Nova Aba (_blank) - Recomendado</option>
+              <option value="_self">Abrir na Mesma Aba (_self)</option>
+            </select>
           </div>
           <div class="form-group" style="margin-bottom: 16px;">
             <label>Visibilidade para Usuários:</label>

@@ -2244,8 +2244,20 @@ function renderSidebarMenu() {
         badgeHtml = `<i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>`;
       }
 
+      let hrefAttr = 'href="javascript:void(0)"';
+      let targetAttr = '';
       let onclickStr = '';
-      if (item.actionType === 'dashboard') {
+
+      // Se tiver link/URL configurado, redireciona diretamente ao clicar!
+      if (item.linkUrl && item.linkUrl.trim() !== '') {
+        const rawUrl = item.linkUrl.trim();
+        const safeUrl = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/') || rawUrl.startsWith('#'))
+          ? rawUrl
+          : 'https://' + rawUrl;
+        hrefAttr = `href="${escapeHtml(safeUrl)}"`;
+        const targetVal = item.linkTarget || '_blank';
+        targetAttr = `target="${targetVal}" rel="noopener noreferrer"`;
+      } else if (item.actionType === 'dashboard') {
         onclickStr = 'showDashboardView()';
       } else if (item.actionType === 'brand') {
         onclickStr = `openSolutionsForBrand('${item.brandId || 'samsung'}', '${escapeHtml(item.brandName || item.label)}')`;
@@ -2264,7 +2276,7 @@ function renderSidebarMenu() {
 
       return `
         <li>
-          <a class="nav-item ${activeClass}" ${linkId} onclick="${onclickStr}">
+          <a class="nav-item ${activeClass}" ${linkId} ${hrefAttr} ${targetAttr} ${onclickStr ? `onclick="${onclickStr}"` : ''}>
             <i class="${escapeHtml(item.icon || 'fa-solid fa-folder')}"></i>
             <span>${escapeHtml(item.label)}</span>
             ${badgeHtml}
@@ -2326,10 +2338,19 @@ function renderAdminMenuTable() {
         </td>
         <td>
           <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 28px; height: 28px; border-radius: 6px; background: #190f30; display: flex; align-items: center; justify-content: center; color: #c084fc; font-size: 14px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #190f30; display: flex; align-items: center; justify-content: center; color: #c084fc; font-size: 14px; flex-shrink: 0;">
               <i class="${escapeHtml(item.icon || 'fa-solid fa-folder')}"></i>
             </div>
-            <strong style="color: #ffffff; font-size: 13.5px;">${escapeHtml(item.label)}</strong>
+            <div>
+              <strong style="color: #ffffff; font-size: 13.5px;">${escapeHtml(item.label)}</strong>
+              ${item.linkUrl ? `
+                <div style="font-size: 11px; color: #38bdf8; margin-top: 2px;">
+                  <i class="fa-solid fa-link" style="margin-right: 4px;"></i>
+                  <a href="${escapeHtml(item.linkUrl)}" target="_blank" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(item.linkUrl)}</a>
+                  <span style="font-size: 9.5px; color: #94a3b8; margin-left: 4px;">(${item.linkTarget || '_blank'})</span>
+                </div>
+              ` : ''}
+            </div>
           </div>
         </td>
         <td>
@@ -2373,6 +2394,8 @@ async function handleAddMenuItem(e) {
   const section = document.getElementById('newMenuSection').value;
   const icon = document.getElementById('newMenuIcon').value.trim() || 'fa-solid fa-folder-open';
   const badge = document.getElementById('newMenuBadge').value.trim();
+  const linkUrl = document.getElementById('newMenuLink') ? document.getElementById('newMenuLink').value.trim() : '';
+  const linkTarget = document.getElementById('newMenuTarget') ? document.getElementById('newMenuTarget').value : '_blank';
 
   if (!label) {
     alert('Por favor, informe o nome da opção.');
@@ -2385,7 +2408,9 @@ async function handleAddMenuItem(e) {
     label: label,
     icon: icon,
     badge: badge,
-    actionType: 'tool_modal',
+    linkUrl: linkUrl,
+    linkTarget: linkTarget,
+    actionType: linkUrl ? 'external_link' : 'tool_modal',
     toolCategory: label,
     active: true
   };
@@ -2413,6 +2438,12 @@ function openEditMenuItemModal(id) {
   document.getElementById('editMenuItemBadge').value = item.badge || '';
   document.getElementById('editMenuItemActive').value = item.active !== false ? 'true' : 'false';
 
+  const linkInput = document.getElementById('editMenuItemLink');
+  if (linkInput) linkInput.value = item.linkUrl || '';
+
+  const targetSelect = document.getElementById('editMenuItemTarget');
+  if (targetSelect) targetSelect.value = item.linkTarget || '_blank';
+
   const modal = document.getElementById('editMenuItemModal');
   if (modal) modal.classList.add('active');
 }
@@ -2433,6 +2464,12 @@ async function handleSaveMenuItemEdit(e) {
   item.icon = document.getElementById('editMenuItemIcon').value.trim();
   item.badge = document.getElementById('editMenuItemBadge').value.trim();
   item.active = document.getElementById('editMenuItemActive').value === 'true';
+
+  const linkInput = document.getElementById('editMenuItemLink');
+  item.linkUrl = linkInput ? linkInput.value.trim() : '';
+
+  const targetSelect = document.getElementById('editMenuItemTarget');
+  item.linkTarget = targetSelect ? targetSelect.value : '_blank';
 
   localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
 
