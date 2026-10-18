@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncSystemConfigFromCloud();
   syncUsersFromCloud();
   syncCardsFromCloud();
+  syncTickerFromCloud();
 });
 
 function initStorage() {
@@ -852,6 +853,13 @@ function switchAdminTab(tabId) {
   }
   if (tabId === 'tab-cards') {
     renderAdminCardsTable();
+  }
+  if (tabId === 'tab-ticker') {
+    renderAdminTickerTable();
+    const dateInput = document.getElementById('newTickerDate');
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toLocaleDateString('pt-BR');
+    }
   }
   if (tabId === 'tab-config') {
     loadConfigForm();
@@ -1959,3 +1967,225 @@ window.simulatePaymentApproval = simulatePaymentApproval;
 window.showOrdersView = showOrdersView;
 window.renderOrdersList = renderOrdersList;
 window.syncCardsFromCloud = syncCardsFromCloud;
+
+// Funções de Gestão do Ticker de Notícias
+window.renderAdminTickerTable = renderAdminTickerTable;
+window.handleAddTicker = handleAddTicker;
+window.handleDeleteTicker = handleDeleteTicker;
+window.openEditTickerModal = openEditTickerModal;
+window.closeEditTickerModal = closeEditTickerModal;
+window.handleSaveTickerEdit = handleSaveTickerEdit;
+window.resetTickerToDefault = resetTickerToDefault;
+window.saveTickerToCloud = saveTickerToCloud;
+window.syncTickerFromCloud = syncTickerFromCloud;
+
+// ==========================================================================
+// GESTÃO DO TICKER DE NOTÍCIAS / AVISOS ROLANTE PELO ADMIN
+// ==========================================================================
+function renderAdminTickerTable() {
+  const tbody = document.getElementById('adminTickerTbody');
+  if (!tbody) return;
+
+  if (!AppState.tickerNews || AppState.tickerNews.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Nenhum aviso ou notícia cadastrado no momento. Adicione um novo item acima!
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = AppState.tickerNews.map((item) => {
+    const brandName = escapeHtml(item.brand || 'GERAL');
+    const badgeColor = '#c084fc';
+    const badgeBg = 'rgba(168, 85, 247, 0.15)';
+
+    return `
+      <tr>
+        <td>
+          <span class="badge-pill" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid rgba(168, 85, 247, 0.35); font-weight: 700; font-size: 11px;">
+            ${brandName}
+          </span>
+        </td>
+        <td>
+          <div style="font-weight: 600; color: #ffffff; font-size: 13px; line-height: 1.4;">
+            ${escapeHtml(item.text)}
+          </div>
+        </td>
+        <td>
+          <span style="font-size: 12px; color: #94a3b8; font-family: monospace;">
+            <i class="fa-regular fa-calendar-days" style="margin-right: 4px; color: #a78bfa;"></i>${escapeHtml(item.date || '')}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px;" onclick="openEditTickerModal('${item.id}')">
+              <i class="fa-solid fa-pen"></i> Editar
+            </button>
+            <button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" onclick="handleDeleteTicker('${item.id}')">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function handleAddTicker(e) {
+  e.preventDefault();
+  const textInput = document.getElementById('newTickerText');
+  const brandInput = document.getElementById('newTickerBrand');
+  const dateInput = document.getElementById('newTickerDate');
+
+  const text = textInput ? textInput.value.trim() : '';
+  const brand = brandInput ? brandInput.value.trim().toUpperCase() : 'GERAL';
+  const date = dateInput && dateInput.value.trim() ? dateInput.value.trim() : new Date().toLocaleDateString('pt-BR');
+
+  if (!text) {
+    alert('Por favor, informe o texto do aviso ou notícia.');
+    return;
+  }
+
+  const newItem = {
+    id: 'tick_' + Date.now(),
+    text: text,
+    brand: brand,
+    date: date
+  };
+
+  AppState.tickerNews.unshift(newItem);
+  localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+
+  renderTicker();
+  renderAdminTickerTable();
+
+  if (textInput) textInput.value = '';
+
+  await saveTickerToCloud();
+
+  alert('✅ Novo aviso adicionado com sucesso à barra rolante do site!');
+}
+
+async function handleDeleteTicker(id) {
+  const item = AppState.tickerNews.find(t => String(t.id) === String(id));
+  const desc = item ? item.text : 'este aviso';
+  if (!confirm(`Deseja realmente remover do ticker rolante o aviso:\n"${desc}"?`)) {
+    return;
+  }
+
+  AppState.tickerNews = AppState.tickerNews.filter(t => String(t.id) !== String(id));
+  localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+
+  renderTicker();
+  renderAdminTickerTable();
+
+  await saveTickerToCloud();
+}
+
+function openEditTickerModal(id) {
+  const item = AppState.tickerNews.find(t => String(t.id) === String(id));
+  if (!item) return;
+
+  document.getElementById('editTickerId').value = item.id;
+  document.getElementById('editTickerText').value = item.text || '';
+  document.getElementById('editTickerBrand').value = item.brand || 'GERAL';
+  document.getElementById('editTickerDate').value = item.date || new Date().toLocaleDateString('pt-BR');
+
+  const modal = document.getElementById('editTickerModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeEditTickerModal() {
+  const modal = document.getElementById('editTickerModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handleSaveTickerEdit(e) {
+  e.preventDefault();
+  const id = document.getElementById('editTickerId').value;
+  const text = document.getElementById('editTickerText').value.trim();
+  const brand = document.getElementById('editTickerBrand').value.trim().toUpperCase();
+  const date = document.getElementById('editTickerDate').value.trim();
+
+  const item = AppState.tickerNews.find(t => String(t.id) === String(id));
+  if (!item) return;
+
+  item.text = text;
+  item.brand = brand;
+  item.date = date;
+
+  localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+
+  renderTicker();
+  renderAdminTickerTable();
+  closeEditTickerModal();
+
+  await saveTickerToCloud();
+  alert('✅ Aviso do ticker atualizado com sucesso!');
+}
+
+async function resetTickerToDefault() {
+  if (confirm('Deseja realmente restaurar os avisos padrão do ticker?')) {
+    AppState.tickerNews = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.tickerNews));
+    localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+    renderTicker();
+    renderAdminTickerTable();
+    await saveTickerToCloud();
+    alert('Avisos do ticker restaurados com sucesso!');
+  }
+}
+
+async function saveTickerToCloud() {
+  try {
+    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'system_ticker_news',
+        name: 'Ticker News Configuration',
+        category: 'system_ticker',
+        status: 'active',
+        price_brl: 0,
+        cost_brl: 0,
+        description: JSON.stringify(AppState.tickerNews)
+      })
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar ticker na nuvem:', err);
+  }
+}
+
+async function syncTickerFromCloud() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_ticker_news`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.length > 0 && data[0].description) {
+      const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        AppState.tickerNews = parsed;
+        localStorage.setItem(STORAGE_KEYS.TICKER, JSON.stringify(AppState.tickerNews));
+        renderTicker();
+        if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
+          renderAdminTickerTable();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao sincronizar ticker da nuvem:', err);
+  }
+}
+
