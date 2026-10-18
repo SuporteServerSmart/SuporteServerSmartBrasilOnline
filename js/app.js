@@ -10,6 +10,15 @@ const STORAGE_KEYS = {
   CONFIG: 'tu_system_config_v1'
 };
 
+// Credenciais Oficiais e Exclusivas do Administrador Geral
+const MASTER_ADMIN = {
+  email: 'suporteserversmart@gmail.com',
+  password: 'Picopico102030@&',
+  username: 'suporteserversmart',
+  role: 'superadmin',
+  isAdmin: true
+};
+
 const AppState = {
   currentUser: null,
   users: [],
@@ -53,9 +62,62 @@ function initStorage() {
   const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
   AppState.users = savedUsers ? JSON.parse(savedUsers) : [];
 
+  // Garantir que a conta oficial suporteserversmart@gmail.com sempre exista e seja o único Super Admin
+  let masterAccount = AppState.users.find(u => u.email && u.email.toLowerCase() === MASTER_ADMIN.email);
+  if (!masterAccount) {
+    masterAccount = {
+      id: 'admin_master_serversmart',
+      username: MASTER_ADMIN.username,
+      email: MASTER_ADMIN.email,
+      whatsapp: '(11) 99999-9999',
+      password: MASTER_ADMIN.password,
+      role: 'superadmin',
+      isAdmin: true,
+      plan: 'Plano Super Admin Vitalício',
+      daysRemaining: 99999,
+      expireDate: 'Vitalício',
+      status: 'active',
+      createdAt: '17/10/2026'
+    };
+    AppState.users.unshift(masterAccount);
+  } else {
+    // Sincronizar credenciais e permissões
+    masterAccount.password = MASTER_ADMIN.password;
+    masterAccount.role = 'superadmin';
+    masterAccount.isAdmin = true;
+    masterAccount.status = 'active';
+  }
+
+  // REGRA ESTRITA: NENHUM OUTRO USUÁRIO PODE SER ADMIN!
+  AppState.users.forEach(u => {
+    if (u.email && u.email.toLowerCase() !== MASTER_ADMIN.email) {
+      u.role = 'tecnico';
+      u.isAdmin = false;
+      if (u.plan && u.plan.includes('Admin')) {
+        u.plan = 'Plano Técnico Autorizado';
+      }
+    }
+  });
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+
   // 5. Usuário Logado
   const savedCurrentUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-  AppState.currentUser = savedCurrentUser ? JSON.parse(savedCurrentUser) : null;
+  if (savedCurrentUser) {
+    const parsed = JSON.parse(savedCurrentUser);
+    if (parsed.email && parsed.email.toLowerCase() === MASTER_ADMIN.email) {
+      parsed.role = 'superadmin';
+      parsed.isAdmin = true;
+      parsed.password = MASTER_ADMIN.password;
+      AppState.currentUser = parsed;
+    } else {
+      parsed.role = 'tecnico';
+      parsed.isAdmin = false;
+      AppState.currentUser = parsed;
+    }
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(AppState.currentUser));
+  } else {
+    AppState.currentUser = null;
+  }
 }
 
 // ==========================================================================
@@ -99,25 +161,26 @@ function renderTicker() {
 }
 
 // ==========================================================================
-// AUTENTICAÇÃO & REGRA CENTRAL (1º USUÁRIO = ADMIN SUPREMO)
+// AUTENTICAÇÃO & CONTROLE EXCLUSIVO DE ADMIN (suporteserversmart@gmail.com)
 // ==========================================================================
 function checkAuth() {
   const userCardEl = document.getElementById('heroUserCard');
   const sidebarAdminSection = document.getElementById('navAdminSection');
   const sidebarUserSnippet = document.getElementById('sidebarUserSnippet');
 
-  if (AppState.currentUser) {
-    const u = AppState.currentUser;
-    const isSuperAdmin = u.role === 'superadmin';
-    const isSpecialPlan = isSuperAdmin || u.daysRemaining > 300;
+  const u = AppState.currentUser;
+  const isMasterAdmin = !!(u && u.email && u.email.toLowerCase() === MASTER_ADMIN.email);
+
+  if (u) {
+    const isSpecialPlan = isMasterAdmin || u.daysRemaining > 300;
 
     userCardEl.innerHTML = `
       <div class="user-info-group">
         <i class="fa-solid fa-user-circle"></i>
         <div>
           <div class="user-name-label">${escapeHtml(u.username)}</div>
-          <div style="font-size: 10px; color: ${isSuperAdmin ? '#fef08a' : '#bae6fd'}; font-weight: 700;">
-            ${isSuperAdmin ? '👑 Super Administrador' : (u.role === 'admin' ? 'Administrador' : 'Técnico Autorizado')}
+          <div style="font-size: 10px; color: ${isMasterAdmin ? '#fef08a' : '#bae6fd'}; font-weight: 700;">
+            ${isMasterAdmin ? '👑 Super Administrador' : 'Técnico Autorizado'}
           </div>
         </div>
       </div>
@@ -125,14 +188,14 @@ function checkAuth() {
       <div class="license-pill" style="background-color: ${u.daysRemaining <= 0 ? '#ef4444' : '#16a34a'};">
         <div class="license-pill-days">
           <i class="fa-solid fa-check"></i>
-          <span>${isSuperAdmin ? 'Acesso Vitalício' : `${u.daysRemaining} dias`}</span>
+          <span>${isMasterAdmin ? 'Acesso Vitalício' : `${u.daysRemaining} dias`}</span>
         </div>
         <div class="license-pill-expire">
-          ${isSuperAdmin ? 'Encerra: Nunca' : `Encerra: ${u.expireDate || 'Ativo'}`}
+          ${isMasterAdmin ? 'Encerra: Nunca' : `Encerra: ${u.expireDate || 'Ativo'}`}
         </div>
       </div>
 
-      ${isSuperAdmin ? `
+      ${isMasterAdmin ? `
         <button class="btn-plan-premium" onclick="showAdminView()" title="Abrir Painel Admin">
           <i class="fa-solid fa-shield-halved"></i> Painel Admin
         </button>
@@ -154,7 +217,7 @@ function checkAuth() {
           <div class="user-avatar-sm">${u.username.substring(0, 2).toUpperCase()}</div>
           <div class="user-snippet-info">
             <div class="user-snippet-name">${escapeHtml(u.username)}</div>
-            <div class="user-snippet-role">${isSuperAdmin ? '👑 Super Admin' : 'Técnico'}</div>
+            <div class="user-snippet-role">${isMasterAdmin ? '👑 Super Admin' : 'Técnico'}</div>
           </div>
           <button class="btn-sidebar-logout" onclick="logout()" title="Sair da Conta">
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -163,9 +226,9 @@ function checkAuth() {
       `;
     }
 
-    // Se for admin, mostrar menu Admin
+    // BOTÃO/SEÇÃO DE ADMIN: EXCLUSIVO PARA suporteserversmart@gmail.com!
     if (sidebarAdminSection) {
-      sidebarAdminSection.style.display = (u.role === 'superadmin' || u.role === 'admin') ? 'block' : 'none';
+      sidebarAdminSection.style.display = isMasterAdmin ? 'block' : 'none';
     }
 
   } else {
@@ -194,6 +257,7 @@ function checkAuth() {
       `;
     }
 
+    // Ocultar completamente qualquer menu Admin para visitantes
     if (sidebarAdminSection) {
       sidebarAdminSection.style.display = 'none';
     }
@@ -235,7 +299,7 @@ function switchAuthTab(tab) {
   }
 }
 
-// Executar Cadastro (com a regra do 1º usuário = ADMIN)
+// Executar Cadastro (Apenas contas de Técnicos; suporteserversmart@gmail.com é exclusivo Admin)
 function handleRegister(e) {
   e.preventDefault();
   const username = document.getElementById('regUsername').value.trim();
@@ -248,8 +312,18 @@ function handleRegister(e) {
     return;
   }
 
+  // Se tentar cadastrar o e-mail oficial do Administrador, orientar login
+  if (email === MASTER_ADMIN.email) {
+    alert('O e-mail suporteserversmart@gmail.com é a conta oficial do Administrador Geral.\nPor favor, faça o login com sua senha de administrador!');
+    switchAuthTab('login');
+    document.getElementById('loginIdentifier').value = MASTER_ADMIN.email;
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginPassword').focus();
+    return;
+  }
+
   // Verificar se e-mail ou username já existe
-  const exists = AppState.users.some(u => u.email === email || u.username.toLowerCase() === username.toLowerCase());
+  const exists = AppState.users.some(u => (u.email && u.email.toLowerCase() === email) || (u.username && u.username.toLowerCase() === username.toLowerCase()));
   if (exists) {
     alert('Este e-mail ou nome de usuário já está cadastrado. Faça login!');
     switchAuthTab('login');
@@ -257,20 +331,18 @@ function handleRegister(e) {
     return;
   }
 
-  // REGRA DE OURO: O primeiro usuário a se cadastrar torna-se SUPER ADMIN!
-  const isFirstUser = AppState.users.length === 0;
-
+  // Todo novo cadastro é estritamente Técnico (NUNCA Admin)
   const newUser = {
     id: 'user_' + Date.now(),
     username: username,
     email: email,
     whatsapp: whatsapp,
     password: password,
-    role: isFirstUser ? 'superadmin' : 'tecnico',
-    isAdmin: isFirstUser,
-    plan: isFirstUser ? 'Plano Super Admin Vitalício' : 'Plano Técnico (Período de Teste)',
-    daysRemaining: isFirstUser ? 9999 : (AppState.systemConfig.trialDaysDefault || 7),
-    expireDate: isFirstUser ? 'Vitalício' : calculateExpireDate(AppState.systemConfig.trialDaysDefault || 7),
+    role: 'tecnico',
+    isAdmin: false,
+    plan: 'Plano Técnico (Período de Teste)',
+    daysRemaining: (AppState.systemConfig.trialDaysDefault || 7),
+    expireDate: calculateExpireDate(AppState.systemConfig.trialDaysDefault || 7),
     status: 'active',
     createdAt: new Date().toLocaleDateString('pt-BR')
   };
@@ -290,14 +362,50 @@ function handleRegister(e) {
   alert(`Cadastro realizado com sucesso, ${username}!\nPor favor, insira suas credenciais para entrar na plataforma.`);
 }
 
-// Executar Login
+// Executar Login (com verificação direta do Administrador Geral)
 function handleLogin(e) {
   e.preventDefault();
   const loginInput = document.getElementById('loginIdentifier').value.trim().toLowerCase();
   const password = document.getElementById('loginPassword').value;
 
+  // 1. Verificação da Conta Mestre do Administrador Oficial
+  if ((loginInput === MASTER_ADMIN.email || loginInput === MASTER_ADMIN.username) && password === MASTER_ADMIN.password) {
+    let master = AppState.users.find(u => u.email && u.email.toLowerCase() === MASTER_ADMIN.email);
+    if (!master) {
+      master = {
+        id: 'admin_master_serversmart',
+        username: MASTER_ADMIN.username,
+        email: MASTER_ADMIN.email,
+        whatsapp: '(11) 99999-9999',
+        password: MASTER_ADMIN.password,
+        role: 'superadmin',
+        isAdmin: true,
+        plan: 'Plano Super Admin Vitalício',
+        daysRemaining: 99999,
+        expireDate: 'Vitalício',
+        status: 'active',
+        createdAt: '17/10/2026'
+      };
+      AppState.users.unshift(master);
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+    } else {
+      master.role = 'superadmin';
+      master.isAdmin = true;
+      master.password = MASTER_ADMIN.password;
+    }
+
+    AppState.currentUser = master;
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(master));
+
+    closeAuthModal();
+    checkAuth();
+    alert('👑 Bem-vindo, Administrador Oficial (suporteserversmart@gmail.com)!\nPainel Admin e botões administrativos liberados.');
+    return;
+  }
+
+  // 2. Verificação de Usuários Comuns (Técnicos)
   const user = AppState.users.find(u => 
-    (u.email === loginInput || u.username.toLowerCase() === loginInput) && u.password === password
+    (u.email.toLowerCase() === loginInput || u.username.toLowerCase() === loginInput) && u.password === password
   );
 
   if (!user) {
@@ -308,6 +416,12 @@ function handleLogin(e) {
   if (user.status === 'blocked') {
     alert('Esta conta foi bloqueada pelo administrador. Entre em contato com o suporte.');
     return;
+  }
+
+  // Assegurar que nenhum outro usuário tenha privilégios de Admin
+  if (user.email.toLowerCase() !== MASTER_ADMIN.email) {
+    user.role = 'tecnico';
+    user.isAdmin = false;
   }
 
   AppState.currentUser = user;
@@ -346,7 +460,7 @@ function openSolutionsForBrand(brandId, brandName) {
         <i class="fa-solid fa-microchip" style="font-size: 38px; margin-bottom: 14px; color: #a855f7;"></i>
         <h4 style="color: #ffffff; font-size: 16px;">Nenhuma solução cadastrada ainda para ${brandName}.</h4>
         <p style="font-size: 13px; margin-top: 8px; color: #a78bfa;">O administrador pode adicionar esquemas e soluções a qualquer momento.</p>
-        ${AppState.currentUser && AppState.currentUser.isAdmin ? `
+        ${(AppState.currentUser && AppState.currentUser.email && AppState.currentUser.email.toLowerCase() === MASTER_ADMIN.email) ? `
           <button class="btn-plan-premium" style="margin: 18px auto 0;" onclick="closeSolutionsModal(); showAdminView('tab-add-solution');">
             <i class="fa-solid fa-plus"></i> Adicionar Solução para ${brandName}
           </button>
@@ -452,8 +566,8 @@ function closeSolutionDetailModal() {
 // PAINEL DE CONTROLE ADMINISTRATIVO (ADMIN VIEW)
 // ==========================================================================
 function showAdminView(initialTab = 'tab-users') {
-  if (!AppState.currentUser || !AppState.currentUser.isAdmin) {
-    alert('Acesso restrito para Administradores!');
+  if (!AppState.currentUser || !AppState.currentUser.email || AppState.currentUser.email.toLowerCase() !== MASTER_ADMIN.email) {
+    alert('Acesso negado! O Painel Admin é restrito exclusivamente para o e-mail ' + MASTER_ADMIN.email);
     return;
   }
 
@@ -498,7 +612,7 @@ function renderAdminUsersTable() {
   }
 
   tbody.innerHTML = AppState.users.map(u => {
-    const isSuper = u.role === 'superadmin';
+    const isMaster = u.email && u.email.toLowerCase() === MASTER_ADMIN.email;
     return `
       <tr>
         <td>
@@ -507,12 +621,12 @@ function renderAdminUsersTable() {
         </td>
         <td>${escapeHtml(u.whatsapp || '-')}</td>
         <td>
-          <span class="badge-pill" style="background: ${isSuper ? 'rgba(234, 179, 8, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${isSuper ? '#fde047' : '#c084fc'}; border: 1px solid ${isSuper ? 'rgba(234, 179, 8, 0.4)' : 'rgba(168, 85, 247, 0.4)'};">
-            ${isSuper ? '👑 Super Admin' : (u.role === 'admin' ? 'Admin' : 'Técnico')}
+          <span class="badge-pill" style="background: ${isMaster ? 'rgba(234, 179, 8, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${isMaster ? '#fde047' : '#c084fc'}; border: 1px solid ${isMaster ? 'rgba(234, 179, 8, 0.4)' : 'rgba(168, 85, 247, 0.4)'};">
+            ${isMaster ? '👑 Super Admin' : 'Técnico'}
           </span>
         </td>
         <td>
-          <strong>${isSuper ? 'Vitalício' : `${u.daysRemaining} dias`}</strong>
+          <strong>${isMaster ? 'Vitalício' : `${u.daysRemaining} dias`}</strong>
         </td>
         <td>
           <span style="color: ${u.status === 'active' ? '#16a34a' : '#dc2626'}; font-weight: 700;">
@@ -521,17 +635,14 @@ function renderAdminUsersTable() {
         </td>
         <td>
           <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            ${!isSuper ? `
+            ${!isMaster ? `
               <button class="btn-action-sm btn-action-green" onclick="adminAddDays('${u.id}', 30)" title="Adicionar 30 Dias">+30D</button>
               <button class="btn-action-sm btn-action-green" onclick="adminAddDays('${u.id}', 365)" title="Adicionar 1 Ano">+365D</button>
-              <button class="btn-action-sm btn-action-blue" onclick="adminToggleRole('${u.id}')" title="Mudar Cargo">
-                ${u.role === 'admin' ? 'Tornar Técnico' : 'Promover Admin'}
-              </button>
               <button class="btn-action-sm btn-action-red" onclick="adminToggleStatus('${u.id}')" title="Bloquear / Desbloquear">
                 ${u.status === 'active' ? 'Bloquear' : 'Ativar'}
               </button>
             ` : `
-              <span style="font-size: 11px; color: #fde047; font-weight: 700;">Admin Supremo</span>
+              <span style="font-size: 11px; color: #fde047; font-weight: 700;">Admin Supremo Oficial</span>
             `}
           </div>
         </td>
@@ -553,13 +664,7 @@ function adminAddDays(userId, days) {
 }
 
 function adminToggleRole(userId) {
-  const user = AppState.users.find(u => u.id === userId);
-  if (!user) return;
-
-  user.role = user.role === 'admin' ? 'tecnico' : 'admin';
-  user.isAdmin = user.role === 'admin';
-  saveUsers();
-  renderAdminUsersTable();
+  alert('Regra de Segurança: Apenas a conta oficial suporteserversmart@gmail.com possui acesso de Administrador.');
 }
 
 function adminToggleStatus(userId) {

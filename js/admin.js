@@ -162,7 +162,24 @@ function setupAuthForm() {
       const password = (document.getElementById('admin-login-password')?.value || '').trim();
       const settings = window.SSB.getSettings();
 
-      // Opção A: Login via PIN Mestre (admin123 ou settings.adminPin)
+      // Opção A: Login via Conta Mestre Oficial (suporteserversmart@gmail.com)
+      if (identity.toLowerCase() === 'suporteserversmart@gmail.com' && password === 'Picopico102030@&') {
+        const masterAdminAcc = {
+          id: 'admin_master_official',
+          name: 'Suporte Server Smart',
+          email: 'suporteserversmart@gmail.com',
+          role: 'admin',
+          isAdmin: true
+        };
+        localStorage.setItem(ADMIN_EMAIL_KEY, 'suporteserversmart@gmail.com');
+        localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(masterAdminAcc));
+        sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
+        showToast('success', 'Bem-vindo, Administrador Oficial Server Smart!');
+        checkAuth();
+        return;
+      }
+
+      // Opção B: Login via PIN Mestre (admin123 ou settings.adminPin)
       if (identity === settings.adminPin || identity === 'admin123') {
         sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
         showToast('success', 'Acesso autorizado via Chave Mestre!');
@@ -170,7 +187,7 @@ function setupAuthForm() {
         return;
       }
 
-      // Opção B: Login via Conta de Administrador (E-mail + Senha)
+      // Opção C: Login via Outras Contas de Usuários Cadastrados
       const accounts = getStoredAccounts();
       const designatedAdmin = localStorage.getItem(ADMIN_EMAIL_KEY);
       const acc = accounts.find(a => a.email.toLowerCase() === identity.toLowerCase());
