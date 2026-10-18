@@ -9,7 +9,8 @@ const TECH_UNION_DATA = {
     version: "1.3.4",
     status: "Online",
     supportWhatsapp: "5511999999999",
-    trialDaysDefault: 7
+    trialDaysDefault: 7,
+    mpAccessToken: "APP_USR-2750012879381679-051115-2dc1610e908f48d05dd63736d9473db7-615957613"
   },
 
   // Notícias e atualizações do Ticker superior

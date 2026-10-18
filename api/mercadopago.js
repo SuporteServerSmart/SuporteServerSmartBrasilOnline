@@ -1,5 +1,8 @@
 const https = require('https');
 
+// Token Oficial de Produção do Mercado Pago da Conta Suporte Server Smart
+const DEFAULT_ACCESS_TOKEN = 'APP_USR-2750012879381679-051115-2dc1610e908f48d05dd63736d9473db7-615957613';
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -35,7 +38,7 @@ module.exports = async function handler(req, res) {
   // 1. Consultar Status do Pagamento
   if (action === 'check_payment' || action === 'check_status' || (query.payment_id && !action.includes('create'))) {
     const paymentId = body.payment_id || query.payment_id;
-    const accessToken = (body.accessToken || query.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
+    const accessToken = (body.accessToken || query.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || DEFAULT_ACCESS_TOKEN).trim();
 
     if (accessToken && accessToken.length > 15 && paymentId && !paymentId.startsWith('pay_')) {
       try {
@@ -76,7 +79,7 @@ module.exports = async function handler(req, res) {
 
   // 2. Criar Cobrança PIX via Mercado Pago API
   if (action === 'create_pix' || action === 'create_payment' || req.method === 'POST') {
-    const accessToken = (body.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
+    const accessToken = (body.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || DEFAULT_ACCESS_TOKEN).trim();
     const amount = parseFloat(body.amount) || 29.90;
     const title = body.title || 'Arquivo Técnico / Solução';
     const customerEmail = body.customerEmail || 'cliente@suporteserversmart.com';

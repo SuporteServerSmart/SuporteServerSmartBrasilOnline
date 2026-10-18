@@ -64,6 +64,10 @@ function initStorage() {
     ? { ...window.TECH_UNION_DATA.system, ...JSON.parse(savedConfig) }
     : { ...window.TECH_UNION_DATA.system };
 
+  if (!AppState.systemConfig.mpAccessToken || AppState.systemConfig.mpAccessToken.trim() === '') {
+    AppState.systemConfig.mpAccessToken = window.TECH_UNION_DATA.system.mpAccessToken;
+  }
+
   // 2. Notícias do Ticker
   const savedTicker = localStorage.getItem(STORAGE_KEYS.TICKER);
   AppState.tickerNews = savedTicker
