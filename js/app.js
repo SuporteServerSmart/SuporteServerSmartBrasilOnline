@@ -1701,26 +1701,9 @@ function openCheckoutModal(cardId) {
           Abra o app do seu banco e escaneie o <strong>QR Code PIX</strong> acima.
         </div>
 
-        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 10px; margin: 12px 0; text-align: left;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 11px; color: #a78bfa; font-weight: 700;">PIX Copia e Cola:</span>
-            <button class="btn-ticker-all" onclick="copyPixCode()" style="padding: 3px 10px; font-size: 11px;">
-              <i class="fa-regular fa-copy"></i> Copiar Código
-            </button>
-          </div>
-          <input type="text" id="pixCopiaColaInput" readonly style="width: 100%; background: #0f0720; border: 1px solid rgba(168, 85, 247, 0.2); color: #38bdf8; font-size: 11px; padding: 6px; border-radius: 4px; font-family: monospace;">
-        </div>
-
         <!-- Status de Aguardo em Tempo Real -->
-        <div id="pixPollingBadge" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 999px; color: #38bdf8; font-size: 12px; font-weight: 600;">
+        <div id="pixPollingBadge" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 999px; color: #38bdf8; font-size: 12.5px; font-weight: 600; margin-top: 6px;">
           <i class="fa-solid fa-spinner fa-spin"></i> Aguardando identificação do pagamento pelo Mercado Pago...
-        </div>
-
-        <!-- Botão de Teste / Simulação Imediata -->
-        <div style="margin-top: 14px;">
-          <button type="button" class="btn-ticker-all" onclick="simulatePaymentApproval('${card.id}')" style="background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #4ade80; padding: 6px 14px;">
-            <i class="fa-solid fa-bolt"></i> Simular Confirmação Imediata (Modo Teste)
-          </button>
         </div>
       </div>
 
@@ -1795,7 +1778,8 @@ async function processMercadoPagoPix(cardId) {
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qr_code || 'PIX_PAGAMENTO')}`;
       }
 
-      document.getElementById('pixCopiaColaInput').value = data.qr_code || '';
+      const copiaInput = document.getElementById('pixCopiaColaInput');
+      if (copiaInput) copiaInput.value = data.qr_code || '';
 
       // Iniciar polling para checar se o pagamento foi aprovado
       if (data.payment_id && !data.payment_id.startsWith('pay_')) {
@@ -1812,7 +1796,8 @@ async function processMercadoPagoPix(cardId) {
     document.getElementById('pixQrContainer').style.display = 'block';
     const fakeCode = `00020126580014br.gov.bcb.pix0136test520400005303986540${(card.price || 29.9).toFixed(2)}5802BR5925SUPORTE SERVER SMART6009SAO PAULO62070503***6304`;
     document.getElementById('pixQrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fakeCode)}`;
-    document.getElementById('pixCopiaColaInput').value = fakeCode;
+    const copiaInput = document.getElementById('pixCopiaColaInput');
+    if (copiaInput) copiaInput.value = fakeCode;
   }
 }
 
