@@ -847,6 +847,9 @@ function switchAdminTab(tabId) {
   if (btn) btn.classList.add('active');
   if (content) content.style.display = 'block';
 
+  if (tabId === 'tab-users') {
+    renderAdminUsersTable();
+  }
   if (tabId === 'tab-cards') {
     renderAdminCardsTable();
   }
