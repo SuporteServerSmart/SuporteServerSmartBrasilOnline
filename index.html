@@ -486,6 +486,20 @@
         </div>
       </div>
 
+      <!-- Footer Oficial ServerSmart -->
+      <footer style="margin-top: 40px; padding: 24px 10px; border-top: 1px solid rgba(168, 85, 247, 0.15); text-align: center; color: var(--text-muted); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+        <img src="assets/logo.png" alt="ServerSmart Logo" style="width: 52px; height: 52px; object-fit: contain; border-radius: 50%; box-shadow: 0 0 18px rgba(168, 85, 247, 0.4); border: 1.5px solid rgba(168, 85, 247, 0.5);">
+        <div style="font-weight: 700; color: #e2e8f0; font-size: 13px; letter-spacing: 0.5px;">
+          SERVER SMART &bull; SERVIDOR BRASILEIRO
+        </div>
+        <div style="color: #c084fc; font-size: 11.5px;">
+          <i class="fa-solid fa-globe" style="margin-right: 4px;"></i> www.serversmart.com.br
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+          &copy; 2026 Suporte Server Smart Brasil Online. Todos os direitos reservados.
+        </div>
+      </footer>
+
     </main>
 
   </div>
@@ -505,6 +519,11 @@
 
       <div class="modal-body">
         
+        <!-- Logotipo Oficial ServerSmart no Modal -->
+        <div style="text-align: center; margin-bottom: 14px;">
+          <img src="assets/logo.png" alt="ServerSmart Logo" style="width: 72px; height: 72px; object-fit: contain; border-radius: 50%; border: 2px solid rgba(168, 85, 247, 0.5); box-shadow: 0 0 20px rgba(168, 85, 247, 0.45); display: inline-block;">
+        </div>
+
         <!-- Alternador entre Login, Cadastro e Recuperar Senha -->
         <div class="admin-tabs" style="justify-content: center; margin-bottom: 16px; flex-wrap: wrap; gap: 6px;">
           <button class="admin-tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">
@@ -641,7 +660,10 @@
   <div class="modal-overlay" id="checkoutModal">
     <div class="modal-box modal-large">
       <div class="modal-header">
-        <h3 id="checkoutModalTitle"><i class="fa-solid fa-cart-shopping" style="color: #38bdf8; margin-right: 8px;"></i> Comprar Arquivo / Solução</h3>
+        <h3 id="checkoutModalTitle" style="display: flex; align-items: center; gap: 10px;">
+          <img src="assets/logo.png" alt="ServerSmart Logo" style="width: 26px; height: 26px; object-fit: contain; border-radius: 50%; border: 1px solid rgba(168, 85, 247, 0.5); box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);">
+          <span>Comprar Arquivo / Solução</span>
+        </h3>
         <button class="modal-close-btn" onclick="closeCheckoutModal()">&times;</button>
       </div>
       <div class="modal-body" id="checkoutModalBody">

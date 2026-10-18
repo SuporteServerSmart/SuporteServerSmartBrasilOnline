@@ -129,13 +129,19 @@ body {
 }
 
 .brand-logo-img {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
-  border-radius: 10px;
-  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.5);
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.5);
+  border: 1.5px solid rgba(168, 85, 247, 0.5);
   background: #000000;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brand-logo-img:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.75);
 }
 
 .brand-text h2 {
@@ -358,14 +364,20 @@ body {
 }
 
 .hero-logo-img {
-  width: 58px;
-  height: 58px;
+  width: 72px;
+  height: 72px;
   object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
-  border: 2px solid rgba(192, 132, 252, 0.4);
+  border-radius: 50%;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.55), 0 4px 16px rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(192, 132, 252, 0.6);
   background: #000000;
   flex-shrink: 0;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hero-logo-img:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 32px rgba(168, 85, 247, 0.8);
 }
 
 .hero-info h1 {
