@@ -315,8 +315,13 @@
 
         <!-- Conteúdo Aba: Usuários -->
         <div class="admin-tab-content" id="tab-users">
-          <div style="margin-bottom: 12px; font-size: 13px; color: var(--text-muted);">
-            Lista de técnicos cadastrados na plataforma. Acesso administrativo restrito e exclusivo para a conta oficial <strong>suporteserversmart@gmail.com</strong>.
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Lista de técnicos cadastrados na plataforma. Acesso administrativo restrito e exclusivo para a conta oficial <strong>suporteserversmart@gmail.com</strong>.
+            </div>
+            <button class="btn-ticker-all" onclick="refreshAdminUsers()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;">
+              <i class="fa-solid fa-arrows-rotate"></i> Atualizar Usuários da Nuvem
+            </button>
           </div>
           <div style="overflow-x: auto;">
             <table class="admin-table">

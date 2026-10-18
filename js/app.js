@@ -2,12 +2,19 @@
 // TECH UNION SOLUTIONS - APLICAÇÃO PRINCIPAL (APP.JS)
 // ==========================================================================
 
+const SUPABASE_CONFIG = {
+  url: 'https://vyiixpbgeuvenmpdbxyx.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5aWl4cGJnZXV2ZW5tcGRieHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMDY5MjAsImV4cCI6MjEwNzY4MjkyMH0.DRiFMA_Pwm8kYUc2WMZaXjszRyfep7K44YOBVFs9_pE'
+};
+
 const STORAGE_KEYS = {
   USERS: 'tu_users_db_v1',
   CURRENT_USER: 'tu_current_user_v1',
   SOLUTIONS: 'tu_custom_solutions_v1',
   TICKER: 'tu_custom_ticker_v1',
-  CONFIG: 'tu_system_config_v1'
+  CONFIG: 'tu_system_config_v1',
+  ACTIVE_VIEW: 'tu_active_view_v1',
+  ADMIN_TAB: 'tu_admin_tab_v1'
 };
 
 // Credenciais Oficiais e Exclusivas do Administrador Geral
@@ -38,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTicker();
   setupEventListeners();
   checkAuth();
+  // Sincronização em nuvem automática
+  syncSystemConfigFromCloud();
+  syncUsersFromCloud();
 });
 
 function initStorage() {
@@ -232,8 +242,27 @@ function checkAuth() {
       sidebarAdminSection.style.display = isMasterAdmin ? 'block' : 'none';
     }
 
+    // Se for o Master Admin e a view salva for adminView, restaurar sem sair do Painel Admin no F5!
+    if (isMasterAdmin) {
+      const savedView = localStorage.getItem(STORAGE_KEYS.ACTIVE_VIEW);
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ADMIN_TAB) || 'tab-users';
+      if (savedView === 'adminView') {
+        showAdminView(savedTab);
+      } else {
+        showDashboardView();
+      }
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_VIEW);
+      localStorage.removeItem(STORAGE_KEYS.ADMIN_TAB);
+      showDashboardView();
+    }
+
   } else {
     // Não logado: Exibir botão de login e cadastro no banner
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_VIEW);
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_TAB);
+    showDashboardView();
+
     userCardEl.innerHTML = `
       <div style="display: flex; align-items: center; gap: 10px;">
         <span style="font-size: 12px; opacity: 0.9;">Visitante Técnico</span>
@@ -351,6 +380,9 @@ function handleRegister(e) {
   AppState.users.push(newUser);
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
 
+  // Salvar novo usuário imediatamente no banco de dados na nuvem Supabase
+  saveUserToCloud(newUser);
+
   // Resetar formulário de cadastro
   document.getElementById('registerForm').reset();
 
@@ -363,8 +395,8 @@ function handleRegister(e) {
   alert(`Cadastro realizado com sucesso, ${username}!\nPor favor, insira suas credenciais para entrar na plataforma.`);
 }
 
-// Executar Login (com verificação direta do Administrador Geral)
-function handleLogin(e) {
+// Executar Login (com verificação direta do Administrador Geral e consulta à nuvem)
+async function handleLogin(e) {
   e.preventDefault();
   const loginInput = document.getElementById('loginIdentifier').value.trim().toLowerCase();
   const password = document.getElementById('loginPassword').value;
@@ -404,10 +436,52 @@ function handleLogin(e) {
     return;
   }
 
-  // 2. Verificação de Usuários Comuns (Técnicos)
-  const user = AppState.users.find(u => 
+  // 2. Verificação de Usuários Comuns (Técnicos) no cache local
+  let user = AppState.users.find(u => 
     (u.email.toLowerCase() === loginInput || u.username.toLowerCase() === loginInput) && u.password === password
   );
+
+  // Se não encontrou no cache local, tentar sincronizar da nuvem Supabase em tempo real
+  if (!user) {
+    try {
+      const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/resellers?or=(email.eq.${encodeURIComponent(loginInput)},name.eq.${encodeURIComponent(loginInput)})`, {
+        headers: {
+          'apikey': SUPABASE_CONFIG.key,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+        }
+      });
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData && cloudData.length > 0) {
+          const cu = cloudData[0];
+          let meta = {};
+          if (cu.role && (cu.role.startsWith('{') || cu.role.startsWith('['))) {
+            try { meta = JSON.parse(cu.role); } catch(e){}
+          }
+          if (meta.password === password) {
+            user = {
+              id: cu.id,
+              username: cu.name,
+              email: cu.email.toLowerCase(),
+              whatsapp: meta.whatsapp || '',
+              password: meta.password,
+              role: 'tecnico',
+              isAdmin: false,
+              plan: meta.plan || 'Plano Técnico Autorizado',
+              daysRemaining: meta.daysRemaining !== undefined ? meta.daysRemaining : 7,
+              expireDate: meta.expireDate || calculateExpireDate(meta.daysRemaining || 7),
+              status: meta.status || 'active',
+              createdAt: cu.created_at ? new Date(cu.created_at).toLocaleDateString('pt-BR') : '18/10/2026'
+            };
+            AppState.users.push(user);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+          }
+        }
+      }
+    } catch(err) {
+      console.warn('Erro ao consultar usuário na nuvem:', err);
+    }
+  }
 
   if (!user) {
     alert('Credenciais incorretas! Verifique o e-mail/usuário e a senha.');
@@ -569,8 +643,13 @@ function closeSolutionDetailModal() {
 function showAdminView(initialTab = 'tab-users') {
   if (!AppState.currentUser || !AppState.currentUser.email || AppState.currentUser.email.toLowerCase() !== MASTER_ADMIN.email) {
     alert('Acesso negado! O Painel Admin é restrito exclusivamente para o e-mail ' + MASTER_ADMIN.email);
+    showDashboardView();
     return;
   }
+
+  // Persistir que o Admin está no painel para não sair ao atualizar a página (F5)
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'adminView');
+  localStorage.setItem(STORAGE_KEYS.ADMIN_TAB, initialTab);
 
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('adminView').style.display = 'block';
@@ -582,9 +661,13 @@ function showAdminView(initialTab = 'tab-users') {
 
   renderAdminUsersTable();
   switchAdminTab(initialTab);
+
+  // Sincronizar usuários da nuvem em tempo real
+  syncUsersFromCloud();
 }
 
 function showDashboardView() {
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'dashboardView');
   document.getElementById('dashboardView').style.display = 'block';
   document.getElementById('adminView').style.display = 'none';
 
@@ -594,6 +677,9 @@ function showDashboardView() {
 }
 
 function switchAdminTab(tabId) {
+  // Salvar aba ativa para restaurar no F5
+  localStorage.setItem(STORAGE_KEYS.ADMIN_TAB, tabId);
+
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
 
@@ -664,6 +750,7 @@ function adminAddDays(userId, days) {
   user.daysRemaining = (parseInt(user.daysRemaining) || 0) + days;
   user.expireDate = calculateExpireDate(user.daysRemaining);
   saveUsers();
+  saveUserToCloud(user);
   renderAdminUsersTable();
   alert(`Foram adicionados +${days} dias para ${user.username}. Total: ${user.daysRemaining} dias.`);
 }
@@ -678,6 +765,7 @@ function adminToggleStatus(userId) {
 
   user.status = user.status === 'active' ? 'blocked' : 'active';
   saveUsers();
+  saveUserToCloud(user);
   renderAdminUsersTable();
 }
 
@@ -863,9 +951,179 @@ function saveSystemConfig(e) {
   // Atualizar visualmente o selo de versão no topo
   updateVersionDisplay();
 
-  alert(`✅ Configurações salvas com sucesso!\nA versão foi alterada para: Versão ${newVersion}`);
+  // Salvar no Supabase para que TODOS os clientes em qualquer aparelho vejam a nova versão instantaneamente!
+  fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_CONFIG.key,
+      'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({
+      id: 'system_version_config',
+      name: newVersion,
+      category: 'system_config',
+      status: 'active',
+      price_brl: 0,
+      cost_brl: 0,
+      description: JSON.stringify(AppState.systemConfig)
+    })
+  }).then(() => {
+    console.log('Versão sincronizada na nuvem com sucesso!');
+  }).catch(err => {
+    console.warn('Erro ao sincronizar versão na nuvem:', err);
+  });
+
+  alert(`✅ Configurações salvas com sucesso!\nA versão foi alterada para: Versão ${newVersion} e já foi publicada para todos os clientes!`);
+}
+
+// ==========================================================================
+// SINCRONIZAÇÃO EM NUVEM (SUPABASE)
+// ==========================================================================
+
+async function syncSystemConfigFromCloud() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_version_config`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const item = data[0];
+      let configData = {};
+      if (item.description) {
+        try {
+          configData = typeof item.description === 'string' ? JSON.parse(item.description) : item.description;
+        } catch (e) {
+          console.warn('Erro ao ler config da nuvem:', e);
+        }
+      }
+      AppState.systemConfig = {
+        ...AppState.systemConfig,
+        ...configData,
+        version: item.name || configData.version || AppState.systemConfig.version || '1.3.4'
+      };
+      localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
+      updateVersionDisplay();
+      if (typeof loadConfigForm === 'function' && document.getElementById('cfgVersion')) {
+        loadConfigForm();
+      }
+    }
+  } catch (err) {
+    console.warn('Falha na sincronização de configurações:', err);
+  }
+}
+
+async function syncUsersFromCloud() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/resellers?select=*&order=created_at.desc`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+      }
+    });
+    if (!res.ok) return;
+    const cloudUsers = await res.json();
+    if (!Array.isArray(cloudUsers)) return;
+
+    let hasChanges = false;
+    cloudUsers.forEach(cu => {
+      if (!cu.email) return;
+      const emailLower = cu.email.toLowerCase();
+      if (emailLower === MASTER_ADMIN.email) return;
+
+      let meta = {};
+      if (cu.role && (cu.role.startsWith('{') || cu.role.startsWith('['))) {
+        try {
+          meta = JSON.parse(cu.role);
+        } catch (e) {}
+      }
+
+      const existingIndex = AppState.users.findIndex(u => u.email && u.email.toLowerCase() === emailLower);
+      const userObj = {
+        id: cu.id || ('usr_' + Date.now()),
+        username: cu.name || meta.username || emailLower.split('@')[0],
+        email: emailLower,
+        whatsapp: meta.whatsapp || '',
+        password: meta.password || '123456',
+        role: 'tecnico',
+        isAdmin: false,
+        plan: meta.plan || 'Plano Técnico Autorizado',
+        daysRemaining: meta.daysRemaining !== undefined ? meta.daysRemaining : 7,
+        expireDate: meta.expireDate || calculateExpireDate(meta.daysRemaining || 7),
+        status: meta.status || 'active',
+        createdAt: cu.created_at ? new Date(cu.created_at).toLocaleDateString('pt-BR') : '18/10/2026'
+      };
+
+      if (existingIndex >= 0) {
+        AppState.users[existingIndex] = { ...AppState.users[existingIndex], ...userObj };
+      } else {
+        AppState.users.push(userObj);
+      }
+      hasChanges = true;
+    });
+
+    if (hasChanges) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
+      if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
+        renderAdminUsersTable();
+      }
+    }
+  } catch (err) {
+    console.warn('Falha na sincronização de usuários da nuvem:', err);
+  }
+}
+
+async function saveUserToCloud(user) {
+  if (!user || (user.email && user.email.toLowerCase() === MASTER_ADMIN.email)) return;
+  try {
+    const payload = {
+      id: user.id || ('usr_' + Date.now()),
+      name: user.username,
+      email: user.email.toLowerCase(),
+      role: JSON.stringify({
+        role: 'tecnico',
+        whatsapp: user.whatsapp || '',
+        password: user.password || '',
+        daysRemaining: user.daysRemaining !== undefined ? user.daysRemaining : 7,
+        expireDate: user.expireDate || '',
+        status: user.status || 'active',
+        plan: user.plan || 'Plano Técnico'
+      }),
+      balance_brl: 0
+    };
+
+    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/resellers`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar usuário na nuvem:', err);
+  }
+}
+
+async function refreshAdminUsers() {
+  const tbody = document.getElementById('adminUsersTbody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #a78bfa;"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando usuários cadastrados na nuvem...</td></tr>';
+  }
+  await syncUsersFromCloud();
+  renderAdminUsersTable();
 }
 
 window.saveSystemConfig = saveSystemConfig;
 window.updateVersionDisplay = updateVersionDisplay;
 window.loadConfigForm = loadConfigForm;
+window.refreshAdminUsers = refreshAdminUsers;
+window.syncUsersFromCloud = syncUsersFromCloud;
+window.syncSystemConfigFromCloud = syncSystemConfigFromCloud;
