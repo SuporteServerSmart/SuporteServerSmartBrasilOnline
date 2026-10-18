@@ -257,20 +257,28 @@ function checkAuth() {
       showDashboardView();
     }
 
-  } else {
-    // Não logado: Exibir botão de login e cadastro no banner
+    // Não logado: Exibir botão de login e cadastro no banner com os dias de teste dinâmicos
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_VIEW);
     localStorage.removeItem(STORAGE_KEYS.ADMIN_TAB);
     showDashboardView();
 
+    const trialDays = (AppState.systemConfig && AppState.systemConfig.trialDaysDefault !== undefined) 
+      ? parseInt(AppState.systemConfig.trialDaysDefault) 
+      : 7;
+
     userCardEl.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 12px; opacity: 0.9;">Visitante Técnico</span>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+          <span style="font-size: 12px; font-weight: 700; color: #ffffff;">Visitante Técnico</span>
+          <span style="font-size: 11px; color: #4ade80; font-weight: 700;">
+            <i class="fa-solid fa-gift"></i> <span class="trial-days-val">${trialDays}</span> Dias Grátis
+          </span>
+        </div>
         <button class="btn-login-cta" onclick="openAuthModal('login')">
           <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
         </button>
         <button class="btn-plan-premium" onclick="openAuthModal('register')">
-          <i class="fa-solid fa-user-plus"></i> Cadastre-se
+          <i class="fa-solid fa-user-plus"></i> Cadastre-se (<span class="trial-days-val">${trialDays}</span>D Grátis)
         </button>
       </div>
     `;
@@ -1021,12 +1029,44 @@ function openToolsModal(categoryName) {
 // ==========================================================================
 // CONTROLE DINÂMICO DE VERSÃO & CONFIGURAÇÕES PELO PAINEL ADMIN
 // ==========================================================================
-function updateVersionDisplay() {
-  const version = (AppState.systemConfig && AppState.systemConfig.version) || '1.3.4';
+function updateAllConfigDisplays() {
+  const cfg = AppState.systemConfig || {};
+  const version = cfg.version || '1.3.4';
+  const trialDays = cfg.trialDaysDefault !== undefined ? parseInt(cfg.trialDaysDefault) : 7;
+
+  // 1. Selo de Versão no topo
   const heroVersionText = document.getElementById('heroVersionText');
   if (heroVersionText) {
     heroVersionText.innerText = version;
   }
+
+  // 2. Selo de Dias de Teste no Topo
+  const heroTrialDaysText = document.getElementById('heroTrialDaysText');
+  if (heroTrialDaysText) {
+    heroTrialDaysText.innerText = trialDays;
+  }
+
+  // 3. Todos os elementos com a classe .trial-days-val na página
+  document.querySelectorAll('.trial-days-val').forEach(el => {
+    el.innerText = trialDays;
+  });
+
+  // 4. Preencher formulário de configuração do admin se estiver aberto
+  const cfgTrialDays = document.getElementById('cfgTrialDays');
+  if (cfgTrialDays && document.activeElement !== cfgTrialDays) {
+    cfgTrialDays.value = trialDays;
+  }
+  const cfgVersion = document.getElementById('cfgVersion');
+  if (cfgVersion && document.activeElement !== cfgVersion) {
+    cfgVersion.value = version;
+  }
+
+  // 5. Atualizar o card do usuário na barra superior (para visitantes e logados)
+  checkAuth();
+}
+
+function updateVersionDisplay() {
+  updateAllConfigDisplays();
 }
 
 function loadConfigForm() {
@@ -1037,7 +1077,7 @@ function loadConfigForm() {
 
   if (cfgVersion) cfgVersion.value = cfg.version || '1.3.4';
   if (cfgWhatsapp) cfgWhatsapp.value = cfg.supportWhatsapp || '';
-  if (cfgTrialDays) cfgTrialDays.value = cfg.trialDaysDefault || 7;
+  if (cfgTrialDays) cfgTrialDays.value = cfg.trialDaysDefault !== undefined ? cfg.trialDaysDefault : 7;
 }
 
 function saveSystemConfig(e) {
@@ -1067,10 +1107,31 @@ function saveSystemConfig(e) {
 
   localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
 
-  // Atualizar visualmente o selo de versão no topo
-  updateVersionDisplay();
+  // 1. Atualizar todos os usuários que estão no período de teste para os novos dias
+  AppState.users.forEach(u => {
+    if (u.email && u.email.toLowerCase() !== MASTER_ADMIN.email) {
+      if (!u.plan || u.plan.includes('Teste') || u.daysRemaining <= 30) {
+        u.daysRemaining = newTrialDays;
+        u.expireDate = calculateExpireDate(newTrialDays);
+        saveUserToCloud(u);
+      }
+    }
+  });
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(AppState.users));
 
-  // Salvar no Supabase para que TODOS os clientes em qualquer aparelho vejam a nova versão instantaneamente!
+  if (AppState.currentUser && AppState.currentUser.email && AppState.currentUser.email.toLowerCase() !== MASTER_ADMIN.email) {
+    AppState.currentUser.daysRemaining = newTrialDays;
+    AppState.currentUser.expireDate = calculateExpireDate(newTrialDays);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(AppState.currentUser));
+  }
+
+  // 2. Atualizar todos os selos, botões e formulários do site
+  updateAllConfigDisplays();
+
+  // 3. Atualizar a tabela de gestão de usuários do admin
+  renderAdminUsersTable();
+
+  // 4. Salvar no Supabase para que TODOS os clientes em qualquer aparelho vejam instantaneamente!
   fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
     method: 'POST',
     headers: {
@@ -1089,12 +1150,12 @@ function saveSystemConfig(e) {
       description: JSON.stringify(AppState.systemConfig)
     })
   }).then(() => {
-    console.log('Versão sincronizada na nuvem com sucesso!');
+    console.log('Versão e dias de teste sincronizados na nuvem com sucesso!');
   }).catch(err => {
     console.warn('Erro ao sincronizar versão na nuvem:', err);
   });
 
-  alert(`✅ Configurações salvas com sucesso!\nA versão foi alterada para: Versão ${newVersion} e já foi publicada para todos os clientes!`);
+  alert(`✅ Configurações salvas com sucesso!\n• Versão: Versão ${newVersion}\n• Dias de Acesso Teste: ${newTrialDays} dias\nTodos os usuários do site público e cadastrados já foram atualizados!`);
 }
 
 // ==========================================================================
@@ -1124,13 +1185,21 @@ async function syncSystemConfigFromCloud() {
       AppState.systemConfig = {
         ...AppState.systemConfig,
         ...configData,
-        version: item.name || configData.version || AppState.systemConfig.version || '1.3.4'
+        version: item.name || configData.version || AppState.systemConfig.version || '1.3.4',
+        trialDaysDefault: configData.trialDaysDefault !== undefined ? parseInt(configData.trialDaysDefault) : (AppState.systemConfig.trialDaysDefault || 7)
       };
       localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
-      updateVersionDisplay();
-      if (typeof loadConfigForm === 'function' && document.getElementById('cfgVersion')) {
-        loadConfigForm();
+
+      // Se houver usuário técnico comum logado em teste, atualizar para os dias configurados
+      if (AppState.currentUser && AppState.currentUser.email && AppState.currentUser.email.toLowerCase() !== MASTER_ADMIN.email) {
+        if (!AppState.currentUser.plan || AppState.currentUser.plan.includes('Teste') || AppState.currentUser.daysRemaining <= 30) {
+          AppState.currentUser.daysRemaining = AppState.systemConfig.trialDaysDefault;
+          AppState.currentUser.expireDate = calculateExpireDate(AppState.systemConfig.trialDaysDefault);
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(AppState.currentUser));
+        }
       }
+
+      updateAllConfigDisplays();
     }
   } catch (err) {
     console.warn('Falha na sincronização de configurações:', err);
