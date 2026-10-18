@@ -37,170 +37,9 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: PRINCIPAL -->
-      <div class="nav-section">
-        <div class="nav-section-title">Principal</div>
-        <ul class="nav-list">
-          <li>
-            <a class="nav-item active" id="navDashboardLink" onclick="showDashboardView()">
-              <i class="fa-solid fa-gauge-high"></i>
-              <span>Dashboard</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('samsung', 'Samsung')">
-              <i class="fa-solid fa-layer-group"></i>
-              <span>Soluções</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('samsung', 'Samsung')">
-              <i class="fa-brands fa-android"></i>
-              <span>Samsung</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('apple', 'Apple')">
-              <i class="fa-brands fa-apple"></i>
-              <span>Apple</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('motorola', 'Motorola')">
-              <i class="fa-solid fa-mobile-screen"></i>
-              <span>Motorola</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('xiaomi', 'Xiaomi')">
-              <i class="fa-solid fa-bolt"></i>
-              <span>Xiaomi</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openAllNewsModal()">
-              <i class="fa-solid fa-diagram-project"></i>
-              <span>Esquemas Elétricos</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openSolutionsForBrand('realme', 'Outras Marcas')">
-              <i class="fa-solid fa-mobile-retro"></i>
-              <span>Outras Marcas</span>
-              <i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="showDashboardView()">
-              <i class="fa-solid fa-tags"></i>
-              <span>Categorias</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      <!-- SEÇÃO: FERRAMENTAS -->
-      <div class="nav-section">
-        <div class="nav-section-title">Ferramentas</div>
-        <ul class="nav-list">
-          <li>
-            <a class="nav-item" onclick="openToolsModal('MTK Tools')">
-              <i class="fa-solid fa-microchip"></i>
-              <span>MTK Tools</span>
-              <span class="nav-badge-new">NOVO</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Qcom EDL')">
-              <i class="fa-solid fa-bolt-lightning"></i>
-              <span>Qcom EDL</span>
-              <span class="nav-badge-new">NOVO</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('FRP Tools')">
-              <i class="fa-solid fa-unlock-keyhole"></i>
-              <span>FRP Tools</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Tira Vírus')">
-              <i class="fa-solid fa-shield-virus"></i>
-              <span>Tira Vírus</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Monitor UART')">
-              <i class="fa-solid fa-terminal"></i>
-              <span>Monitor UART</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Películas')">
-              <i class="fa-solid fa-file-shield"></i>
-              <span>Películas</span>
-              <span class="nav-badge-new">NOVO</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Tools')">
-              <i class="fa-solid fa-screwdriver-wrench"></i>
-              <span>Tools</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Ferramentas')">
-              <i class="fa-solid fa-toolbox"></i>
-              <span>Ferramentas</span>
-              <i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      <!-- SEÇÃO: SISTEMA -->
-      <div class="nav-section">
-        <div class="nav-section-title">Sistema</div>
-        <ul class="nav-list">
-          <li>
-            <a class="nav-item" onclick="openToolsModal('OS Manager')">
-              <i class="fa-solid fa-desktop"></i>
-              <span>OS Manager</span>
-              <span class="nav-badge-new">NOVO</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Server GSM')">
-              <i class="fa-solid fa-server"></i>
-              <span>Server GSM</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Sistema O.S.')">
-              <i class="fa-solid fa-clipboard-list"></i>
-              <span>Sistema O.S.</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="openToolsModal('Downloads')">
-              <i class="fa-solid fa-download"></i>
-              <span>Downloads</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" onclick="showDashboardView()">
-              <i class="fa-solid fa-bookmark"></i>
-              <span>Minhas Soluções</span>
-            </a>
-          </li>
-          <li>
-            <a class="nav-item" id="navOrdersLink" onclick="showOrdersView()">
-              <i class="fa-solid fa-box-open" style="color: #38bdf8;"></i>
-              <span>Meus Pedidos</span>
-              <span class="nav-badge-new" id="sidebarOrdersBadge" style="display: none; background: #0284c7;">0</span>
-            </a>
-          </li>
-        </ul>
+      <!-- Container Dinâmico das Seções da Sidebar (Principal, Ferramentas, Sistema) -->
+      <div id="sidebarNavContainer">
+        <!-- Renderizado dinamicamente via renderSidebarMenu() -->
       </div>
 
       <!-- SEÇÃO: PAINEL ADMIN (Visível apenas para Administrador) -->
@@ -320,6 +159,9 @@
           </button>
           <button class="admin-tab-btn" id="btn-tab-ticker" onclick="switchAdminTab('tab-ticker')">
             <i class="fa-solid fa-bullhorn"></i> Notícias & Ticker Rolante
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-menu" onclick="switchAdminTab('tab-menu')">
+            <i class="fa-solid fa-bars"></i> Menu Lateral / Opções
           </button>
           <button class="admin-tab-btn" id="btn-tab-add-solution" onclick="switchAdminTab('tab-add-solution')">
             <i class="fa-solid fa-plus-circle"></i> Publicar Nova Solução
@@ -452,6 +294,72 @@
                 </tr>
               </thead>
               <tbody id="adminTickerTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conteúdo Aba: Menu Lateral / Opções (Ativar / Desativar / Editar / Excluir) -->
+        <div class="admin-tab-content" id="tab-menu" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Ative, desative, edite ou exclua qualquer opção da barra lateral. Itens desativados são <strong>ocultados imediatamente</strong> para os clientes no site.
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-ticker-all" onclick="resetSidebarMenuToDefault()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                <i class="fa-solid fa-rotate-left"></i> Restaurar Menu Original
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulário: Adicionar Nova Opção ao Menu Lateral -->
+          <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-plus-circle" style="color: #4ade80;"></i> Adicionar Nova Opção ao Menu Lateral
+            </h4>
+            <form id="formAddMenuItem" onsubmit="handleAddMenuItem(event)">
+              <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label>Nome / Rótulo da Opção:</label>
+                  <input type="text" id="newMenuLabel" placeholder="Ex: FRP Xiaomi ou Desbloqueio" required>
+                </div>
+                <div class="form-group">
+                  <label>Seção do Menu:</label>
+                  <select id="newMenuSection" required>
+                    <option value="Principal">Principal</option>
+                    <option value="Ferramentas" selected>Ferramentas</option>
+                    <option value="Sistema">Sistema</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Ícone FontAwesome:</label>
+                  <input type="text" id="newMenuIcon" placeholder="Ex: fa-solid fa-bolt" value="fa-solid fa-folder-open" required>
+                </div>
+                <div class="form-group">
+                  <label>Badge / Selo (Opcional):</label>
+                  <input type="text" id="newMenuBadge" placeholder="Ex: NOVO ou deixe vazio">
+                </div>
+              </div>
+              <button type="submit" class="btn-primary-block" style="width: auto; padding: 10px 22px; display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #16a34a, #15803d);">
+                <i class="fa-solid fa-plus"></i> Adicionar Opção ao Menu
+              </button>
+            </form>
+          </div>
+
+          <!-- Tabela de Gestão de Opções do Menu -->
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 130px;">Seção</th>
+                  <th>Opção no Menu Lateral</th>
+                  <th style="width: 90px;">Badge</th>
+                  <th style="width: 170px;">Status no Site</th>
+                  <th style="width: 220px;">Ações Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="adminMenuTbody">
                 <!-- Preenchido via app.js -->
               </tbody>
             </table>
@@ -820,6 +728,52 @@
           </div>
           <button type="submit" class="btn-primary-block">
             <i class="fa-solid fa-floppy-disk"></i> Salvar Alteração
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Editar Opção do Menu Lateral (Admin) -->
+  <div class="modal-overlay" id="editMenuItemModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-pen-to-square" style="color: #c084fc; margin-right: 8px;"></i> Editar Opção do Menu Lateral</h3>
+        <button class="modal-close-btn" onclick="closeEditMenuItemModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formEditMenuItem" onsubmit="handleSaveMenuItemEdit(event)">
+          <input type="hidden" id="editMenuItemId">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Nome / Rótulo da Opção:</label>
+            <input type="text" id="editMenuItemLabel" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Seção do Menu Lateral:</label>
+            <select id="editMenuItemSection" required>
+              <option value="Principal">Principal</option>
+              <option value="Ferramentas">Ferramentas</option>
+              <option value="Sistema">Sistema</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Ícone FontAwesome (classe CSS):</label>
+            <input type="text" id="editMenuItemIcon" required>
+            <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Exemplos: fa-brands fa-android, fa-brands fa-apple, fa-solid fa-bolt, fa-solid fa-toolbox</small>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Badge / Selo (ex: NOVO ou deixe vazio):</label>
+            <input type="text" id="editMenuItemBadge" placeholder="NOVO">
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label>Visibilidade para Usuários:</label>
+            <select id="editMenuItemActive" required>
+              <option value="true">● ATIVO (Visível no Menu para Todos)</option>
+              <option value="false">○ DESATIVADO (Oculto no Menu do Site)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary-block">
+            <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações
           </button>
         </form>
       </div>

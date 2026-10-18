@@ -16,7 +16,8 @@ const STORAGE_KEYS = {
   ACTIVE_VIEW: 'tu_active_view_v1',
   ADMIN_TAB: 'tu_admin_tab_v1',
   CARDS: 'tu_custom_cards_v1',
-  ORDERS: 'tu_user_orders_v1'
+  ORDERS: 'tu_user_orders_v1',
+  MENU: 'tu_custom_menu_v1'
 };
 
 // Credenciais Oficiais e Exclusivas do Administrador Geral
@@ -35,6 +36,7 @@ const AppState = {
   tickerNews: [],
   cards: [],
   orders: [],
+  sidebarMenu: [],
   systemConfig: {},
   activeView: 'dashboard'
 };
@@ -46,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initStorage();
   updateVersionDisplay();
   renderBrandCards();
+  renderSidebarMenu();
   renderTicker();
   setupEventListeners();
   checkAuth();
@@ -55,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncUsersFromCloud();
   syncCardsFromCloud();
   syncTickerFromCloud();
+  syncMenuFromCloud();
 });
 
 function initStorage() {
@@ -80,7 +84,13 @@ function initStorage() {
     ? JSON.parse(savedSolutions)
     : [...window.TECH_UNION_DATA.solutions];
 
-  // 4. Usuários
+  // 4. Menu Lateral (Sidebar)
+  const savedMenu = localStorage.getItem(STORAGE_KEYS.MENU);
+  AppState.sidebarMenu = savedMenu
+    ? JSON.parse(savedMenu)
+    : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.sidebarMenu || []));
+
+  // 5. Usuários
   const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
   AppState.users = savedUsers ? JSON.parse(savedUsers) : [];
 
@@ -864,6 +874,9 @@ function switchAdminTab(tabId) {
     if (dateInput && !dateInput.value) {
       dateInput.value = new Date().toLocaleDateString('pt-BR');
     }
+  }
+  if (tabId === 'tab-menu') {
+    renderAdminMenuTable();
   }
   if (tabId === 'tab-config') {
     loadConfigForm();
@@ -1983,6 +1996,19 @@ window.resetTickerToDefault = resetTickerToDefault;
 window.saveTickerToCloud = saveTickerToCloud;
 window.syncTickerFromCloud = syncTickerFromCloud;
 
+// Funções de Gestão do Menu Lateral (Sidebar)
+window.renderSidebarMenu = renderSidebarMenu;
+window.renderAdminMenuTable = renderAdminMenuTable;
+window.toggleMenuItemActive = toggleMenuItemActive;
+window.handleAddMenuItem = handleAddMenuItem;
+window.openEditMenuItemModal = openEditMenuItemModal;
+window.closeEditMenuItemModal = closeEditMenuItemModal;
+window.handleSaveMenuItemEdit = handleSaveMenuItemEdit;
+window.handleDeleteMenuItem = handleDeleteMenuItem;
+window.resetSidebarMenuToDefault = resetSidebarMenuToDefault;
+window.saveMenuToCloud = saveMenuToCloud;
+window.syncMenuFromCloud = syncMenuFromCloud;
+
 // ==========================================================================
 // GESTÃO DO TICKER DE NOTÍCIAS / AVISOS ROLANTE PELO ADMIN
 // ==========================================================================
@@ -2190,6 +2216,309 @@ async function syncTickerFromCloud() {
     }
   } catch (err) {
     console.warn('Erro ao sincronizar ticker da nuvem:', err);
+  }
+}
+
+// ==========================================================================
+// GESTÃO DINÂMICA DO MENU LATERAL (SIDEBAR) & CONTROLE DE VISIBILIDADE
+// ==========================================================================
+function renderSidebarMenu() {
+  const container = document.getElementById('sidebarNavContainer');
+  if (!container) return;
+
+  const sections = ['Principal', 'Ferramentas', 'Sistema'];
+
+  container.innerHTML = sections.map(secName => {
+    // Filtrar estritamente apenas itens ATIVOS para exibir aos usuários!
+    const items = (AppState.sidebarMenu || []).filter(item => item.section === secName && item.active !== false);
+    if (items.length === 0) return '';
+
+    const listHtml = items.map(item => {
+      let badgeHtml = '';
+      if (item.isOrders) {
+        const count = AppState.orders ? AppState.orders.length : 0;
+        badgeHtml = `<span class="nav-badge-new" id="sidebarOrdersBadge" style="display: ${count > 0 ? 'inline-block' : 'none'}; background: #0284c7;">${count}</span>`;
+      } else if (item.badge && item.badge.trim() !== '') {
+        badgeHtml = `<span class="nav-badge-new">${escapeHtml(item.badge)}</span>`;
+      } else if (item.hasArrow) {
+        badgeHtml = `<i class="fa-solid fa-angle-right" style="margin-left: auto; font-size: 10px;"></i>`;
+      }
+
+      let onclickStr = '';
+      if (item.actionType === 'dashboard') {
+        onclickStr = 'showDashboardView()';
+      } else if (item.actionType === 'brand') {
+        onclickStr = `openSolutionsForBrand('${item.brandId || 'samsung'}', '${escapeHtml(item.brandName || item.label)}')`;
+      } else if (item.actionType === 'all_news') {
+        onclickStr = 'openAllNewsModal()';
+      } else if (item.actionType === 'tool_modal') {
+        onclickStr = `openToolsModal('${escapeHtml(item.toolCategory || item.label)}')`;
+      } else if (item.actionType === 'orders') {
+        onclickStr = 'showOrdersView()';
+      } else {
+        onclickStr = 'showDashboardView()';
+      }
+
+      const linkId = item.id === 'nav_dashboard' ? 'id="navDashboardLink"' : (item.id === 'nav_orders' ? 'id="navOrdersLink"' : '');
+      const activeClass = (item.id === 'nav_dashboard' && AppState.activeView === 'dashboard') ? 'active' : '';
+
+      return `
+        <li>
+          <a class="nav-item ${activeClass}" ${linkId} onclick="${onclickStr}">
+            <i class="${escapeHtml(item.icon || 'fa-solid fa-folder')}"></i>
+            <span>${escapeHtml(item.label)}</span>
+            ${badgeHtml}
+          </a>
+        </li>
+      `;
+    }).join('');
+
+    return `
+      <div class="nav-section">
+        <div class="nav-section-title">${escapeHtml(secName)}</div>
+        <ul class="nav-list">
+          ${listHtml}
+        </ul>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAdminMenuTable() {
+  const tbody = document.getElementById('adminMenuTbody');
+  if (!tbody) return;
+
+  if (!AppState.sidebarMenu || AppState.sidebarMenu.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Nenhuma opção no menu lateral cadastrada. Clique em Restaurar Menu Original acima!
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = AppState.sidebarMenu.map(item => {
+    const isAct = item.active !== false;
+    const statusHtml = isAct
+      ? `<span class="badge-pill" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700;">
+           <i class="fa-solid fa-circle-check" style="margin-right: 4px;"></i> ATIVO (Visível)
+         </span>`
+      : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 11px; font-weight: 700;">
+           <i class="fa-solid fa-circle-xmark" style="margin-right: 4px;"></i> DESATIVADO (Oculto)
+         </span>`;
+
+    const toggleBtn = isAct
+      ? `<button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); color: #fca5a5;" onclick="toggleMenuItemActive('${item.id}')" title="Ocultar esta opção do site">
+           <i class="fa-solid fa-eye-slash"></i> Desativar
+         </button>`
+      : `<button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.35); color: #86efac;" onclick="toggleMenuItemActive('${item.id}')" title="Exibir esta opção no site">
+           <i class="fa-solid fa-eye"></i> Ativar
+         </button>`;
+
+    return `
+      <tr style="${!isAct ? 'opacity: 0.65;' : ''}">
+        <td>
+          <span class="badge-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); font-weight: 700; font-size: 11px;">
+            ${escapeHtml(item.section)}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #190f30; display: flex; align-items: center; justify-content: center; color: #c084fc; font-size: 14px;">
+              <i class="${escapeHtml(item.icon || 'fa-solid fa-folder')}"></i>
+            </div>
+            <strong style="color: #ffffff; font-size: 13.5px;">${escapeHtml(item.label)}</strong>
+          </div>
+        </td>
+        <td>
+          ${item.badge ? `<span class="nav-badge-new" style="font-size: 10px;">${escapeHtml(item.badge)}</span>` : '<span style="color: var(--text-muted); font-size: 11px;">-</span>'}
+        </td>
+        <td>
+          ${statusHtml}
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${toggleBtn}
+            <button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px;" onclick="openEditMenuItemModal('${item.id}')">
+              <i class="fa-solid fa-pen"></i> Editar
+            </button>
+            <button type="button" class="btn-ticker-all" style="padding: 4px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" onclick="handleDeleteMenuItem('${item.id}')" title="Excluir opção permanentemente">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function toggleMenuItemActive(id) {
+  const item = AppState.sidebarMenu.find(m => m.id === id);
+  if (!item) return;
+
+  item.active = !item.active;
+  localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+
+  renderSidebarMenu();
+  renderAdminMenuTable();
+
+  await saveMenuToCloud();
+}
+
+async function handleAddMenuItem(e) {
+  e.preventDefault();
+  const label = document.getElementById('newMenuLabel').value.trim();
+  const section = document.getElementById('newMenuSection').value;
+  const icon = document.getElementById('newMenuIcon').value.trim() || 'fa-solid fa-folder-open';
+  const badge = document.getElementById('newMenuBadge').value.trim();
+
+  if (!label) {
+    alert('Por favor, informe o nome da opção.');
+    return;
+  }
+
+  const newItem = {
+    id: 'nav_custom_' + Date.now(),
+    section: section,
+    label: label,
+    icon: icon,
+    badge: badge,
+    actionType: 'tool_modal',
+    toolCategory: label,
+    active: true
+  };
+
+  AppState.sidebarMenu.push(newItem);
+  localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+
+  renderSidebarMenu();
+  renderAdminMenuTable();
+
+  document.getElementById('formAddMenuItem').reset();
+  await saveMenuToCloud();
+
+  alert(`✅ Opção "${label}" adicionada ao menu lateral com sucesso!`);
+}
+
+function openEditMenuItemModal(id) {
+  const item = AppState.sidebarMenu.find(m => m.id === id);
+  if (!item) return;
+
+  document.getElementById('editMenuItemId').value = item.id;
+  document.getElementById('editMenuItemLabel').value = item.label || '';
+  document.getElementById('editMenuItemSection').value = item.section || 'Principal';
+  document.getElementById('editMenuItemIcon').value = item.icon || 'fa-solid fa-folder';
+  document.getElementById('editMenuItemBadge').value = item.badge || '';
+  document.getElementById('editMenuItemActive').value = item.active !== false ? 'true' : 'false';
+
+  const modal = document.getElementById('editMenuItemModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeEditMenuItemModal() {
+  const modal = document.getElementById('editMenuItemModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handleSaveMenuItemEdit(e) {
+  e.preventDefault();
+  const id = document.getElementById('editMenuItemId').value;
+  const item = AppState.sidebarMenu.find(m => m.id === id);
+  if (!item) return;
+
+  item.label = document.getElementById('editMenuItemLabel').value.trim();
+  item.section = document.getElementById('editMenuItemSection').value;
+  item.icon = document.getElementById('editMenuItemIcon').value.trim();
+  item.badge = document.getElementById('editMenuItemBadge').value.trim();
+  item.active = document.getElementById('editMenuItemActive').value === 'true';
+
+  localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+
+  renderSidebarMenu();
+  renderAdminMenuTable();
+  closeEditMenuItemModal();
+
+  await saveMenuToCloud();
+  alert(`✅ Opção "${item.label}" atualizada com sucesso!\nO menu lateral já foi atualizado no site.`);
+}
+
+async function handleDeleteMenuItem(id) {
+  const item = AppState.sidebarMenu.find(m => m.id === id);
+  const name = item ? item.label : 'esta opção';
+  if (!confirm(`Deseja realmente excluir a opção "${name}" do menu lateral?`)) {
+    return;
+  }
+
+  AppState.sidebarMenu = AppState.sidebarMenu.filter(m => m.id !== id);
+  localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+
+  renderSidebarMenu();
+  renderAdminMenuTable();
+
+  await saveMenuToCloud();
+}
+
+async function resetSidebarMenuToDefault() {
+  if (confirm('Deseja realmente restaurar todas as opções do menu lateral para as originais de fábrica?')) {
+    AppState.sidebarMenu = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.sidebarMenu));
+    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+    renderSidebarMenu();
+    renderAdminMenuTable();
+    await saveMenuToCloud();
+    alert('Menu lateral restaurado com sucesso para os padrões originais!');
+  }
+}
+
+async function saveMenuToCloud() {
+  try {
+    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'system_sidebar_menu',
+        name: 'Sidebar Menu Configuration',
+        category: 'system_menu',
+        status: 'active',
+        price_brl: 0,
+        cost_brl: 0,
+        description: JSON.stringify(AppState.sidebarMenu)
+      })
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar menu lateral na nuvem:', err);
+  }
+}
+
+async function syncMenuFromCloud() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_sidebar_menu`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.length > 0 && data[0].description) {
+      const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        AppState.sidebarMenu = parsed;
+        localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+        renderSidebarMenu();
+        if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
+          renderAdminMenuTable();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao sincronizar menu lateral da nuvem:', err);
   }
 }
 

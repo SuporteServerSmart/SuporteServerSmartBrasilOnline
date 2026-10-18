@@ -23,6 +23,38 @@ const TECH_UNION_DATA = {
     { id: 6, text: "IPHONE 13 PRO MAX - TELA BRANCA / VERDE JUMPER FLEX CLK", brand: "APPLE", date: "10/07/2026" }
   ],
 
+  // Menu Lateral Completo (Sidebar) com controle de exibição / desativação
+  sidebarMenu: [
+    // Seção Principal
+    { id: "nav_dashboard", section: "Principal", label: "Dashboard", icon: "fa-solid fa-gauge-high", actionType: "dashboard", active: true },
+    { id: "nav_solutions", section: "Principal", label: "Soluções", icon: "fa-solid fa-layer-group", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
+    { id: "nav_samsung", section: "Principal", label: "Samsung", icon: "fa-brands fa-android", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
+    { id: "nav_apple", section: "Principal", label: "Apple", icon: "fa-brands fa-apple", actionType: "brand", brandId: "apple", brandName: "Apple", active: true },
+    { id: "nav_motorola", section: "Principal", label: "Motorola", icon: "fa-solid fa-mobile-screen", actionType: "brand", brandId: "motorola", brandName: "Motorola", active: true },
+    { id: "nav_xiaomi", section: "Principal", label: "Xiaomi", icon: "fa-solid fa-bolt", actionType: "brand", brandId: "xiaomi", brandName: "Xiaomi", active: true },
+    { id: "nav_schematics", section: "Principal", label: "Esquemas Elétricos", icon: "fa-solid fa-diagram-project", actionType: "all_news", active: true },
+    { id: "nav_other_brands", section: "Principal", label: "Outras Marcas", icon: "fa-solid fa-mobile-retro", actionType: "brand", brandId: "realme", brandName: "Outras Marcas", hasArrow: true, active: true },
+    { id: "nav_categories", section: "Principal", label: "Categorias", icon: "fa-solid fa-tags", actionType: "dashboard", active: true },
+
+    // Seção Ferramentas
+    { id: "nav_mtk_tools", section: "Ferramentas", label: "MTK Tools", icon: "fa-solid fa-microchip", actionType: "tool_modal", toolCategory: "MTK Tools", badge: "NOVO", active: true },
+    { id: "nav_qcom_edl", section: "Ferramentas", label: "Qcom EDL", icon: "fa-solid fa-bolt-lightning", actionType: "tool_modal", toolCategory: "Qcom EDL", badge: "NOVO", active: true },
+    { id: "nav_frp_tools", section: "Ferramentas", label: "FRP Tools", icon: "fa-solid fa-unlock-keyhole", actionType: "tool_modal", toolCategory: "FRP Tools", active: true },
+    { id: "nav_virus_cleaner", section: "Ferramentas", label: "Tira Vírus", icon: "fa-solid fa-shield-virus", actionType: "tool_modal", toolCategory: "Tira Vírus", active: true },
+    { id: "nav_uart_monitor", section: "Ferramentas", label: "Monitor UART", icon: "fa-solid fa-terminal", actionType: "tool_modal", toolCategory: "Monitor UART", active: true },
+    { id: "nav_screen_protector", section: "Ferramentas", label: "Películas", icon: "fa-solid fa-file-shield", actionType: "tool_modal", toolCategory: "Películas", badge: "NOVO", active: true },
+    { id: "nav_tools", section: "Ferramentas", label: "Tools", icon: "fa-solid fa-screwdriver-wrench", actionType: "tool_modal", toolCategory: "Tools", active: true },
+    { id: "nav_tools_generic", section: "Ferramentas", label: "Ferramentas", icon: "fa-solid fa-toolbox", actionType: "tool_modal", toolCategory: "Ferramentas", hasArrow: true, active: true },
+
+    // Seção Sistema
+    { id: "nav_os_manager", section: "Sistema", label: "OS Manager", icon: "fa-solid fa-desktop", actionType: "tool_modal", toolCategory: "OS Manager", badge: "NOVO", active: true },
+    { id: "nav_server_gsm", section: "Sistema", label: "Server GSM", icon: "fa-solid fa-server", actionType: "tool_modal", toolCategory: "Server GSM", active: true },
+    { id: "nav_sistema_os", section: "Sistema", label: "Sistema O.S.", icon: "fa-solid fa-clipboard-list", actionType: "tool_modal", toolCategory: "Sistema O.S.", active: true },
+    { id: "nav_downloads", section: "Sistema", label: "Downloads", icon: "fa-solid fa-download", actionType: "tool_modal", toolCategory: "Downloads", active: true },
+    { id: "nav_my_solutions", section: "Sistema", label: "Minhas Soluções", icon: "fa-solid fa-bookmark", actionType: "dashboard", active: true },
+    { id: "nav_orders", section: "Sistema", label: "Meus Pedidos", icon: "fa-solid fa-box-open", actionType: "orders", isOrders: true, active: true }
+  ],
+
   // 16 Categorias e Marcas Principais do Grid (como na foto)
   cards: [
     {
