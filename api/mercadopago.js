@@ -30,10 +30,52 @@ module.exports = async function handler(req, res) {
   }
 
   const query = req.query || (req.url && req.url.includes('?') ? Object.fromEntries(new URLSearchParams(req.url.split('?')[1])) : {});
-  const action = body.action || query.action;
+  const action = (body.action || query.action || '').toLowerCase();
 
-  // 1. Criar Cobrança PIX via Mercado Pago API
-  if (action === 'create_pix' || req.method === 'POST') {
+  // 1. Consultar Status do Pagamento
+  if (action === 'check_payment' || action === 'check_status' || (query.payment_id && !action.includes('create'))) {
+    const paymentId = body.payment_id || query.payment_id;
+    const accessToken = (body.accessToken || query.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
+
+    if (accessToken && accessToken.length > 15 && paymentId && !paymentId.startsWith('pay_')) {
+      try {
+        const mpRes = await new Promise((resolve, reject) => {
+          const mpReq = https.request(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }, (r) => {
+            let data = '';
+            r.on('data', chunk => data += chunk);
+            r.on('end', () => resolve({ status: r.statusCode, data }));
+          });
+          mpReq.on('error', reject);
+          mpReq.end();
+        });
+
+        const mpJson = JSON.parse(mpRes.data);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          success: true,
+          status: mpJson.status,
+          approved: mpJson.status === 'approved'
+        }));
+      } catch (err) {
+        console.warn('Erro ao verificar status no Mercado Pago:', err);
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      success: true,
+      status: 'pending',
+      approved: false
+    }));
+  }
+
+  // 2. Criar Cobrança PIX via Mercado Pago API
+  if (action === 'create_pix' || action === 'create_payment' || req.method === 'POST') {
     const accessToken = (body.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
     const amount = parseFloat(body.amount) || 29.90;
     const title = body.title || 'Arquivo Técnico / Solução';
@@ -106,48 +148,6 @@ module.exports = async function handler(req, res) {
       qr_code: pixCopyPaste,
       qr_code_url: qrImageUrl,
       notice: accessToken ? 'Token em processamento ou não homologado. QR Code gerado para conferência.' : 'Para pagamentos reais em sua conta, insira o seu Access Token do Mercado Pago no Painel Admin.'
-    }));
-  }
-
-  // 2. Consultar Status do Pagamento
-  if (action === 'check_payment' || query.payment_id) {
-    const paymentId = body.payment_id || query.payment_id;
-    const accessToken = (body.accessToken || query.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
-
-    if (accessToken && accessToken.length > 15 && paymentId && !paymentId.startsWith('pay_')) {
-      try {
-        const mpRes = await new Promise((resolve, reject) => {
-          const mpReq = https.request(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          }, (r) => {
-            let data = '';
-            r.on('data', chunk => data += chunk);
-            r.on('end', () => resolve({ status: r.statusCode, data }));
-          });
-          mpReq.on('error', reject);
-          mpReq.end();
-        });
-
-        const mpJson = JSON.parse(mpRes.data);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({
-          success: true,
-          status: mpJson.status,
-          approved: mpJson.status === 'approved'
-        }));
-      } catch (err) {
-        console.warn('Erro ao verificar status no Mercado Pago:', err);
-      }
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({
-      success: true,
-      status: 'pending',
-      approved: false
     }));
   }
 
