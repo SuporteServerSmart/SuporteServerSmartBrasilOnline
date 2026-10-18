@@ -193,6 +193,13 @@
               <span>Minhas Soluções</span>
             </a>
           </li>
+          <li>
+            <a class="nav-item" id="navOrdersLink" onclick="showOrdersView()">
+              <i class="fa-solid fa-box-open" style="color: #38bdf8;"></i>
+              <span>Meus Pedidos</span>
+              <span class="nav-badge-new" id="sidebarOrdersBadge" style="display: none; background: #0284c7;">0</span>
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -308,6 +315,9 @@
           <button class="admin-tab-btn active" id="btn-tab-users" onclick="switchAdminTab('tab-users')">
             <i class="fa-solid fa-users"></i> Gestão de Usuários
           </button>
+          <button class="admin-tab-btn" id="btn-tab-cards" onclick="switchAdminTab('tab-cards')">
+            <i class="fa-solid fa-boxes-stacked"></i> Gestão dos Cards / Produtos
+          </button>
           <button class="admin-tab-btn" id="btn-tab-add-solution" onclick="switchAdminTab('tab-add-solution')">
             <i class="fa-solid fa-plus-circle"></i> Publicar Nova Solução
           </button>
@@ -339,6 +349,34 @@
                 </tr>
               </thead>
               <tbody id="adminUsersTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+        </div>
+
+        <!-- Conteúdo Aba: Gestão dos Cards / Produtos -->
+        <div class="admin-tab-content" id="tab-cards" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Altere o título, a descrição, a imagem por URL (tamanho exato 44x44px), o valor (R$) e o link do arquivo para download liberado após o pagamento PIX.
+            </div>
+            <button class="btn-ticker-all" onclick="resetCardsToDefault()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+              <i class="fa-solid fa-rotate-left"></i> Restaurar Cards Padrão
+            </button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">Imagem</th>
+                  <th>Título do Card</th>
+                  <th>Descrição</th>
+                  <th>Preço (R$)</th>
+                  <th>Arquivo Download (PIX)</th>
+                  <th style="width: 100px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="adminCardsTbody">
                 <!-- Preenchido via app.js -->
               </tbody>
             </table>
@@ -428,12 +466,41 @@
               <label>Dias de Acesso Teste para Novos Usuários:</label>
               <input type="number" id="cfgTrialDays" value="7">
             </div>
+            <div class="form-group full-width">
+              <label><i class="fa-solid fa-credit-card" style="color: #009ee3; margin-right: 6px;"></i> Mercado Pago Access Token (Para Receber PIX):</label>
+              <input type="text" id="cfgMpAccessToken" placeholder="APP_USR-..." value="">
+              <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Cole aqui seu Access Token de Produção ou Teste do Mercado Pago para gerar e receber os pagamentos PIX dos arquivos automaticamente.</small>
+            </div>
           </div>
           <button type="button" class="btn-primary-block" style="width: auto; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;" onclick="saveSystemConfig(event)">
             <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
           </button>
         </div>
 
+      </div>
+
+      <!-- ================================================================
+           MEUS PEDIDOS & ARQUIVOS COMPRADOS VIEW
+           ================================================================ -->
+      <div id="ordersView" class="admin-view-container" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <i class="fa-solid fa-box-open" style="color: #38bdf8;"></i>
+            <div>
+              <h2>Meus Pedidos & Arquivos Comprados</h2>
+              <p style="font-size: 12px; color: var(--text-muted);">
+                Acesse e baixe os arquivos das suas compras confirmadas a qualquer momento.
+              </p>
+            </div>
+          </div>
+          <button class="btn-ticker-all" onclick="showDashboardView()">
+            <i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard
+          </button>
+        </div>
+
+        <div id="ordersListContainer" style="margin-top: 16px;">
+          <!-- Renderizado dinamicamente via app.js -->
+        </div>
       </div>
 
     </main>
@@ -583,6 +650,59 @@
       </div>
       <div class="modal-body" id="profileModalBody">
         <!-- Preenchido via openProfileModal() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Comprar Arquivo / Pagamento PIX Mercado Pago -->
+  <div class="modal-overlay" id="checkoutModal">
+    <div class="modal-box modal-large">
+      <div class="modal-header">
+        <h3 id="checkoutModalTitle"><i class="fa-solid fa-cart-shopping" style="color: #38bdf8; margin-right: 8px;"></i> Comprar Arquivo / Solução</h3>
+        <button class="modal-close-btn" onclick="closeCheckoutModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="checkoutModalBody">
+        <!-- Preenchido via openCheckoutModal() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: Editar Card (Admin) -->
+  <div class="modal-overlay" id="editCardModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-pen-to-square" style="color: #c084fc; margin-right: 8px;"></i> Editar Card / Produto</h3>
+        <button class="modal-close-btn" onclick="closeEditCardModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formEditCard" onsubmit="handleSaveCardEdit(event)">
+          <input type="hidden" id="editCardId">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Título / Nome do Card:</label>
+            <input type="text" id="editCardName" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Descrição do Card:</label>
+            <textarea id="editCardDescription" rows="2" required></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Nova Imagem do Card (URL):</label>
+            <input type="url" id="editCardImageUrl" placeholder="https://exemplo.com/imagem.png (deixe vazio para manter ícone padrão)">
+            <small style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Ficará no tamanho exato do card (44x44px), sem distorcer o layout.</small>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Preço do Produto (R$):</label>
+            <input type="number" id="editCardPrice" step="0.01" min="0" placeholder="29.90" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label>URL do Arquivo para Download (Liberado no Pagamento):</label>
+            <input type="url" id="editCardFileUrl" placeholder="https://mega.nz/... ou https://drive.google.com/..." required>
+            <small style="font-size: 11px; color: #4ade80; display: block; margin-top: 4px;">Este link só será liberado na tela para o cliente após a confirmação do pagamento PIX.</small>
+          </div>
+          <button type="submit" class="btn-primary-block">
+            <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações do Card
+          </button>
+        </form>
       </div>
     </div>
   </div>

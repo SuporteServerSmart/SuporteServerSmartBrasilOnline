@@ -26,6 +26,16 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  if (urlPath === '/api/mercadopago' || urlPath === '/api/mercadopago.js') {
+    try {
+      const handler = require('./api/mercadopago.js');
+      return handler(req, res);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+  }
+
   if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
   
   const safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');

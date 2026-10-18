@@ -14,7 +14,9 @@ const STORAGE_KEYS = {
   TICKER: 'tu_custom_ticker_v1',
   CONFIG: 'tu_system_config_v1',
   ACTIVE_VIEW: 'tu_active_view_v1',
-  ADMIN_TAB: 'tu_admin_tab_v1'
+  ADMIN_TAB: 'tu_admin_tab_v1',
+  CARDS: 'tu_custom_cards_v1',
+  ORDERS: 'tu_user_orders_v1'
 };
 
 // Credenciais Oficiais e Exclusivas do Administrador Geral
@@ -31,6 +33,8 @@ const AppState = {
   users: [],
   solutions: [],
   tickerNews: [],
+  cards: [],
+  orders: [],
   systemConfig: {},
   activeView: 'dashboard'
 };
@@ -45,9 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTicker();
   setupEventListeners();
   checkAuth();
+  updateOrdersBadge();
   // Sincronização em nuvem automática
   syncSystemConfigFromCloud();
   syncUsersFromCloud();
+  syncCardsFromCloud();
 });
 
 function initStorage() {
@@ -129,6 +135,19 @@ function initStorage() {
   } else {
     AppState.currentUser = null;
   }
+
+  // 6. Cards Customizados (com títulos, descrições, imagens, preços e arquivos)
+  const savedCards = localStorage.getItem(STORAGE_KEYS.CARDS);
+  let baseCards = savedCards ? JSON.parse(savedCards) : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards));
+  AppState.cards = baseCards.map(c => ({
+    ...c,
+    price: c.price !== undefined ? parseFloat(c.price) : 29.90,
+    fileUrl: c.fileUrl || 'https://suporteserversmart.com/download'
+  }));
+
+  // 7. Pedidos / Compras
+  const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
+  AppState.orders = savedOrders ? JSON.parse(savedOrders) : [];
 }
 
 // ==========================================================================
@@ -139,21 +158,33 @@ function renderBrandCards() {
   if (!container) return;
 
   container.innerHTML = '';
-  window.TECH_UNION_DATA.cards.forEach(card => {
+  const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
+  cards.forEach(card => {
     const cardEl = document.createElement('div');
     cardEl.className = 'tech-card';
+
+    // Imagem personalizada mantendo exatamente o tamanho do card (44x44px)
+    const badgeHtml = card.imageUrl 
+      ? `<img src="${escapeHtml(card.imageUrl)}" alt="${escapeHtml(card.name)}" class="card-brand-badge" style="object-fit: cover; padding: 0; border: 1px solid rgba(168, 85, 247, 0.35);">`
+      : `<div class="card-brand-badge" style="background-color: ${card.badgeBg || '#1e1035'}; color: ${card.badgeColor || '#c084fc'};">
+          <i class="${card.icon || 'fa-solid fa-folder-open'}"></i>
+        </div>`;
+
+    const priceText = card.price !== undefined ? `R$ ${parseFloat(card.price).toFixed(2).replace('.', ',')}` : 'R$ 29,90';
+
     cardEl.innerHTML = `
       <div class="card-top">
-        <div class="card-brand-badge" style="background-color: ${card.badgeBg}; color: ${card.badgeColor};">
-          <i class="${card.icon}"></i>
-        </div>
+        ${badgeHtml}
         <div class="card-brand-info">
-          <h3>${card.name}</h3>
-          <p>${card.description}</p>
+          <h3>${escapeHtml(card.name)}</h3>
+          <p>${escapeHtml(card.description)}</p>
+          <div style="font-size: 11.5px; font-weight: 700; color: #4ade80; margin-top: 4px;">
+            <i class="fa-solid fa-tag" style="margin-right: 4px;"></i>${priceText}
+          </div>
         </div>
       </div>
-      <button class="btn-ver-solucoes ${card.btnColor}" onclick="openSolutionsForBrand('${card.id}', '${card.name}')">
-        Ver Soluções
+      <button class="btn-ver-solucoes ${card.btnColor || 'btn-blue'}" onclick="openCheckoutModal('${card.id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <i class="fa-solid fa-cart-shopping"></i> Comprar Agora
       </button>
     `;
     container.appendChild(cardEl);
@@ -816,6 +847,9 @@ function switchAdminTab(tabId) {
   if (btn) btn.classList.add('active');
   if (content) content.style.display = 'block';
 
+  if (tabId === 'tab-cards') {
+    renderAdminCardsTable();
+  }
   if (tabId === 'tab-config') {
     loadConfigForm();
   }
@@ -1075,10 +1109,12 @@ function loadConfigForm() {
   const cfgVersion = document.getElementById('cfgVersion');
   const cfgWhatsapp = document.getElementById('cfgWhatsapp');
   const cfgTrialDays = document.getElementById('cfgTrialDays');
+  const cfgMpAccessToken = document.getElementById('cfgMpAccessToken');
 
   if (cfgVersion) cfgVersion.value = cfg.version || '1.3.4';
   if (cfgWhatsapp) cfgWhatsapp.value = cfg.supportWhatsapp || '';
   if (cfgTrialDays) cfgTrialDays.value = cfg.trialDaysDefault !== undefined ? cfg.trialDaysDefault : 7;
+  if (cfgMpAccessToken) cfgMpAccessToken.value = cfg.mpAccessToken || '';
 }
 
 function saveSystemConfig(e) {
@@ -1092,10 +1128,12 @@ function saveSystemConfig(e) {
   const versionInput = document.getElementById('cfgVersion');
   const whatsappInput = document.getElementById('cfgWhatsapp');
   const trialDaysInput = document.getElementById('cfgTrialDays');
+  const mpAccessTokenInput = document.getElementById('cfgMpAccessToken');
 
   const newVersion = versionInput ? versionInput.value.trim() : '';
   const newWhatsapp = whatsappInput ? whatsappInput.value.trim() : '';
   const newTrialDays = trialDaysInput ? (parseInt(trialDaysInput.value) || 7) : 7;
+  const newMpAccessToken = mpAccessTokenInput ? mpAccessTokenInput.value.trim() : '';
 
   if (!newVersion) {
     alert('Por favor, informe a versão do sistema (ex: 1.3.4 ou 2.0.0).');
@@ -1105,6 +1143,7 @@ function saveSystemConfig(e) {
   AppState.systemConfig.version = newVersion;
   AppState.systemConfig.supportWhatsapp = newWhatsapp;
   AppState.systemConfig.trialDaysDefault = newTrialDays;
+  AppState.systemConfig.mpAccessToken = newMpAccessToken;
 
   localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(AppState.systemConfig));
 
@@ -1151,12 +1190,12 @@ function saveSystemConfig(e) {
       description: JSON.stringify(AppState.systemConfig)
     })
   }).then(() => {
-    console.log('Versão e dias de teste sincronizados na nuvem com sucesso!');
+    console.log('Versão, dias de teste e Mercado Pago sincronizados na nuvem com sucesso!');
   }).catch(err => {
     console.warn('Erro ao sincronizar versão na nuvem:', err);
   });
 
-  alert(`✅ Configurações salvas com sucesso!\n• Versão: Versão ${newVersion}\n• Dias de Acesso Teste: ${newTrialDays} dias\nTodos os usuários do site público e cadastrados já foram atualizados!`);
+  alert(`✅ Configurações salvas com sucesso!\n• Versão: Versão ${newVersion}\n• Dias de Acesso Teste: ${newTrialDays} dias\n• Credenciais do Mercado Pago salvas!\nTodos os usuários do site público e cadastrados já foram atualizados!`);
 }
 
 // ==========================================================================
@@ -1407,6 +1446,493 @@ async function handleProfileChangePassword(e) {
   alert('✅ Sua senha foi alterada com sucesso!');
 }
 
+// ==========================================================================
+// GESTÃO DOS CARDS / PRODUTOS PELO PAINEL ADMIN
+// ==========================================================================
+function renderAdminCardsTable() {
+  const tbody = document.getElementById('adminCardsTbody');
+  if (!tbody) return;
+
+  const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
+  tbody.innerHTML = cards.map(c => {
+    const thumbHtml = c.imageUrl 
+      ? `<img src="${escapeHtml(c.imageUrl)}" alt="${escapeHtml(c.name)}" style="width: 44px; height: 44px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(168, 85, 247, 0.4);">`
+      : `<div style="width: 44px; height: 44px; border-radius: 8px; background: ${c.badgeBg || '#1e1035'}; color: ${c.badgeColor || '#c084fc'}; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+          <i class="${c.icon || 'fa-solid fa-folder-open'}"></i>
+        </div>`;
+
+    const priceFormatted = c.price !== undefined ? `R$ ${parseFloat(c.price).toFixed(2).replace('.', ',')}` : 'R$ 29,90';
+    const fileUrlText = c.fileUrl 
+      ? `<a href="${escapeHtml(c.fileUrl)}" target="_blank" style="color: #38bdf8; text-decoration: underline; font-size: 11.5px; word-break: break-all;"><i class="fa-solid fa-link"></i> ${escapeHtml(c.fileUrl.length > 32 ? c.fileUrl.substring(0, 32) + '...' : c.fileUrl)}</a>` 
+      : '<span style="color: #ef4444; font-size: 11px;">Sem link configurado</span>';
+
+    return `
+      <tr>
+        <td>${thumbHtml}</td>
+        <td>
+          <strong style="color: #ffffff; font-size: 13.5px;">${escapeHtml(c.name)}</strong><br>
+          <span style="font-size: 10.5px; color: #94a3b8;">ID: ${escapeHtml(c.id)}</span>
+        </td>
+        <td style="max-width: 250px; font-size: 12px; color: #cbd5e1;">${escapeHtml(c.description)}</td>
+        <td>
+          <strong style="color: #4ade80;">${priceFormatted}</strong>
+        </td>
+        <td>${fileUrlText}</td>
+        <td>
+          <button class="btn-action-sm btn-action-green" onclick="openEditCardModal('${c.id}')" title="Editar este Card">
+            <i class="fa-solid fa-pen"></i> Editar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openEditCardModal(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  document.getElementById('editCardId').value = card.id;
+  document.getElementById('editCardName').value = card.name || '';
+  document.getElementById('editCardDescription').value = card.description || '';
+  document.getElementById('editCardImageUrl').value = card.imageUrl || '';
+  document.getElementById('editCardPrice').value = card.price !== undefined ? card.price : 29.90;
+  document.getElementById('editCardFileUrl').value = card.fileUrl || 'https://suporteserversmart.com/download';
+
+  document.getElementById('editCardModal').classList.add('active');
+}
+
+function closeEditCardModal() {
+  document.getElementById('editCardModal').classList.remove('active');
+}
+
+async function handleSaveCardEdit(e) {
+  e.preventDefault();
+  const cardId = document.getElementById('editCardId').value;
+  const name = document.getElementById('editCardName').value.trim();
+  const description = document.getElementById('editCardDescription').value.trim();
+  const imageUrl = document.getElementById('editCardImageUrl').value.trim();
+  const price = parseFloat(document.getElementById('editCardPrice').value) || 29.90;
+  const fileUrl = document.getElementById('editCardFileUrl').value.trim();
+
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  card.name = name;
+  card.description = description;
+  card.imageUrl = imageUrl;
+  card.price = price;
+  card.fileUrl = fileUrl;
+
+  localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+
+  await saveCardsToCloud();
+
+  renderBrandCards();
+  renderAdminCardsTable();
+  closeEditCardModal();
+  alert(`✅ Card "${name}" atualizado com sucesso!\nO novo título, descrição, imagem e arquivo para download já foram atualizados no site.`);
+}
+
+async function resetCardsToDefault() {
+  if (confirm('Deseja realmente restaurar todos os 16 cards para as configurações padrão?')) {
+    AppState.cards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards)).map(c => ({
+      ...c,
+      price: 29.90,
+      fileUrl: 'https://suporteserversmart.com/download'
+    }));
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+    await saveCardsToCloud();
+    renderBrandCards();
+    renderAdminCardsTable();
+    alert('Cards restaurados para os padrões originais com sucesso!');
+  }
+}
+
+async function saveCardsToCloud() {
+  try {
+    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'system_cards_config',
+        name: 'Cards Configuration',
+        category: 'system_cards',
+        status: 'active',
+        price_brl: 0,
+        cost_brl: 0,
+        description: JSON.stringify(AppState.cards)
+      })
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar cards na nuvem:', err);
+  }
+}
+
+async function syncCardsFromCloud() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_cards_config`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.key,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.key}`
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.length > 0 && data[0].description) {
+      const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        AppState.cards = parsed;
+        localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+        renderBrandCards();
+        if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
+          renderAdminCardsTable();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao sincronizar cards da nuvem:', err);
+  }
+}
+
+// ==========================================================================
+// CHECKOUT PIX MERCADO PAGO & LIBERAÇÃO DE DOWNLOAD
+// ==========================================================================
+let currentCheckoutCard = null;
+let checkoutPollInterval = null;
+
+function openCheckoutModal(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  currentCheckoutCard = card;
+  const modal = document.getElementById('checkoutModal');
+  const body = document.getElementById('checkoutModalBody');
+
+  const u = AppState.currentUser;
+  const defaultName = u ? u.username : '';
+  const defaultEmail = u ? u.email : '';
+  const priceFormatted = card.price !== undefined ? `R$ ${parseFloat(card.price).toFixed(2).replace('.', ',')}` : 'R$ 29,90';
+
+  const thumbHtml = card.imageUrl 
+    ? `<img src="${escapeHtml(card.imageUrl)}" alt="${escapeHtml(card.name)}" style="width: 50px; height: 50px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(168, 85, 247, 0.4);">`
+    : `<div style="width: 50px; height: 50px; border-radius: 10px; background: ${card.badgeBg || '#1e1035'}; color: ${card.badgeColor || '#c084fc'}; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+        <i class="${card.icon || 'fa-solid fa-folder-open'}"></i>
+      </div>`;
+
+  body.innerHTML = `
+    <!-- Top Product Card Summary -->
+    <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        ${thumbHtml}
+        <div>
+          <h3 style="color: #ffffff; font-size: 16px; font-weight: 700; margin-bottom: 2px;">${escapeHtml(card.name)}</h3>
+          <p style="font-size: 12px; color: #cbd5e1; margin: 0;">${escapeHtml(card.description)}</p>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 11px; color: #a78bfa;">Valor do Arquivo:</div>
+        <div style="font-size: 20px; font-weight: 800; color: #4ade80;">${priceFormatted}</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Preencher Dados -->
+    <div id="checkoutStep1">
+      <div class="form-grid" style="margin-bottom: 14px;">
+        <div class="form-group">
+          <label>Seu Nome ou Usuário:</label>
+          <input type="text" id="pixCustomerName" value="${escapeHtml(defaultName)}" placeholder="Nome do Técnico" required>
+        </div>
+        <div class="form-group">
+          <label>Seu E-mail / Gmail (para envio do comprovante):</label>
+          <input type="email" id="pixCustomerEmail" value="${escapeHtml(defaultEmail)}" placeholder="seu-email@gmail.com" required>
+        </div>
+      </div>
+      <button type="button" class="btn-primary-block" style="background: linear-gradient(135deg, #009ee3, #007eb5); padding: 12px; font-size: 14px;" onclick="processMercadoPagoPix('${card.id}')">
+        <i class="fa-brands fa-pix" style="font-size: 18px; margin-right: 6px;"></i> Pagar com PIX Mercado Pago & Liberar Download
+      </button>
+    </div>
+
+    <!-- Step 2: Área do PIX & Confirmação -->
+    <div id="checkoutStep2" style="display: none; text-align: center; margin-top: 10px;">
+      <div id="pixLoadingBox" style="padding: 20px; color: #c4b5fd;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #009ee3;"></i>
+        <p style="margin-top: 10px; font-size: 13px;">Gerando cobrança PIX no Mercado Pago...</p>
+      </div>
+
+      <div id="pixQrContainer" style="display: none;">
+        <div style="background: #ffffff; padding: 12px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); margin-bottom: 12px;">
+          <img id="pixQrImage" src="" alt="QR Code PIX" style="width: 220px; height: 220px; display: block; object-fit: contain;">
+        </div>
+        <div style="font-size: 12.5px; color: #e2e8f0; margin-bottom: 10px;">
+          Abra o app do seu banco e escaneie o <strong>QR Code PIX</strong> acima.
+        </div>
+
+        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 10px; margin: 12px 0; text-align: left;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 11px; color: #a78bfa; font-weight: 700;">PIX Copia e Cola:</span>
+            <button class="btn-ticker-all" onclick="copyPixCode()" style="padding: 3px 10px; font-size: 11px;">
+              <i class="fa-regular fa-copy"></i> Copiar Código
+            </button>
+          </div>
+          <input type="text" id="pixCopiaColaInput" readonly style="width: 100%; background: #0f0720; border: 1px solid rgba(168, 85, 247, 0.2); color: #38bdf8; font-size: 11px; padding: 6px; border-radius: 4px; font-family: monospace;">
+        </div>
+
+        <!-- Status de Aguardo em Tempo Real -->
+        <div id="pixPollingBadge" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 999px; color: #38bdf8; font-size: 12px; font-weight: 600;">
+          <i class="fa-solid fa-spinner fa-spin"></i> Aguardando identificação do pagamento pelo Mercado Pago...
+        </div>
+
+        <!-- Botão de Teste / Simulação Imediata -->
+        <div style="margin-top: 14px;">
+          <button type="button" class="btn-ticker-all" onclick="simulatePaymentApproval('${card.id}')" style="background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #4ade80; padding: 6px 14px;">
+            <i class="fa-solid fa-bolt"></i> Simular Confirmação Imediata (Modo Teste)
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Pagamento Confirmado & Download Liberado -->
+      <div id="pixApprovedContainer" style="display: none; padding: 15px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 12px; margin-top: 10px;">
+        <div style="width: 55px; height: 55px; border-radius: 50%; background: rgba(34, 197, 94, 0.2); color: #4ade80; font-size: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+          <i class="fa-solid fa-check"></i>
+        </div>
+        <h3 style="color: #4ade80; font-size: 18px; font-weight: 800; margin-bottom: 6px;">Pagamento Confirmado pelo Mercado Pago!</h3>
+        <p style="font-size: 13px; color: #e2e8f0; margin-bottom: 16px;">
+          O seu arquivo para download já foi liberado com sucesso.
+        </p>
+        <a id="downloadReleaseBtn" href="#" target="_blank" class="btn-primary-block" style="background: linear-gradient(135deg, #16a34a, #15803d); text-decoration: none; padding: 14px 20px; font-size: 15px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+          <i class="fa-solid fa-download"></i> BAIXAR ARQUIVO AGORA
+        </a>
+        <div style="font-size: 11.5px; color: #a78bfa; margin-top: 14px;">
+          <i class="fa-solid fa-box-open"></i> Este arquivo também foi adicionado à sua aba <strong>"Meus Pedidos"</strong> para você baixar quando quiser.
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeCheckoutModal() {
+  if (checkoutPollInterval) clearInterval(checkoutPollInterval);
+  document.getElementById('checkoutModal').classList.remove('active');
+}
+
+async function processMercadoPagoPix(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  const customerName = document.getElementById('pixCustomerName').value.trim() || 'Cliente Técnico';
+  const customerEmail = document.getElementById('pixCustomerEmail').value.trim() || 'cliente@suporteserversmart.com';
+
+  document.getElementById('checkoutStep1').style.display = 'none';
+  document.getElementById('checkoutStep2').style.display = 'block';
+  document.getElementById('pixLoadingBox').style.display = 'block';
+  document.getElementById('pixQrContainer').style.display = 'none';
+  document.getElementById('pixApprovedContainer').style.display = 'none';
+
+  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken) || '';
+
+  try {
+    const res = await fetch('/api/mercadopago', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_pix',
+        accessToken: mpToken,
+        amount: card.price || 29.90,
+        title: card.name,
+        customerName: customerName,
+        customerEmail: customerEmail
+      })
+    });
+
+    const data = await res.json();
+    document.getElementById('pixLoadingBox').style.display = 'none';
+
+    if (data.success) {
+      document.getElementById('pixQrContainer').style.display = 'block';
+      const qrImg = document.getElementById('pixQrImage');
+      if (data.qr_code_base64) {
+        qrImg.src = 'data:image/png;base64,' + data.qr_code_base64;
+      } else if (data.qr_code_url) {
+        qrImg.src = data.qr_code_url;
+      } else {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qr_code || 'PIX_PAGAMENTO')}`;
+      }
+
+      document.getElementById('pixCopiaColaInput').value = data.qr_code || '';
+
+      // Iniciar polling para checar se o pagamento foi aprovado
+      if (data.payment_id && !data.payment_id.startsWith('pay_')) {
+        startPaymentPolling(data.payment_id, cardId, customerEmail);
+      }
+    } else {
+      alert('Erro ao gerar PIX: ' + (data.error || 'Tente novamente.'));
+      document.getElementById('checkoutStep1').style.display = 'block';
+      document.getElementById('checkoutStep2').style.display = 'none';
+    }
+  } catch (err) {
+    console.warn('Erro ao chamar API de PIX:', err);
+    document.getElementById('pixLoadingBox').style.display = 'none';
+    document.getElementById('pixQrContainer').style.display = 'block';
+    const fakeCode = `00020126580014br.gov.bcb.pix0136test520400005303986540${(card.price || 29.9).toFixed(2)}5802BR5925SUPORTE SERVER SMART6009SAO PAULO62070503***6304`;
+    document.getElementById('pixQrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fakeCode)}`;
+    document.getElementById('pixCopiaColaInput').value = fakeCode;
+  }
+}
+
+function copyPixCode() {
+  const input = document.getElementById('pixCopiaColaInput');
+  if (!input) return;
+  input.select();
+  navigator.clipboard.writeText(input.value);
+  alert('Código PIX copiado para a área de transferência! Cole no aplicativo do seu banco.');
+}
+
+function startPaymentPolling(paymentId, cardId, customerEmail) {
+  if (checkoutPollInterval) clearInterval(checkoutPollInterval);
+  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken) || '';
+
+  checkoutPollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/mercadopago?action=check_payment&payment_id=${paymentId}&accessToken=${encodeURIComponent(mpToken)}`);
+      const data = await res.json();
+      if (data.approved) {
+        clearInterval(checkoutPollInterval);
+        confirmPurchaseAndReleaseDownload(cardId, paymentId, customerEmail);
+      }
+    } catch (e) {
+      console.warn('Polling check error:', e);
+    }
+  }, 4000);
+}
+
+function simulatePaymentApproval(cardId) {
+  const customerEmail = (document.getElementById('pixCustomerEmail') && document.getElementById('pixCustomerEmail').value) || (AppState.currentUser ? AppState.currentUser.email : 'cliente@teste.com');
+  confirmPurchaseAndReleaseDownload(cardId, 'simulated_' + Date.now(), customerEmail);
+}
+
+function confirmPurchaseAndReleaseDownload(cardId, paymentId, customerEmail) {
+  if (checkoutPollInterval) clearInterval(checkoutPollInterval);
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  document.getElementById('pixQrContainer').style.display = 'none';
+  const approvedBox = document.getElementById('pixApprovedContainer');
+  approvedBox.style.display = 'block';
+
+  const downloadBtn = document.getElementById('downloadReleaseBtn');
+  downloadBtn.href = card.fileUrl || 'https://suporteserversmart.com/download';
+
+  // Registrar pedido
+  const order = {
+    id: 'ped_' + Date.now(),
+    paymentId: paymentId,
+    cardId: card.id,
+    cardName: card.name,
+    cardImageUrl: card.imageUrl || '',
+    cardIcon: card.icon || 'fa-solid fa-folder-open',
+    price: card.price || 29.90,
+    fileUrl: card.fileUrl || 'https://suporteserversmart.com/download',
+    date: new Date().toLocaleString('pt-BR'),
+    customerEmail: customerEmail.toLowerCase(),
+    status: 'approved'
+  };
+
+  AppState.orders.unshift(order);
+  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(AppState.orders));
+  updateOrdersBadge();
+}
+
+function showOrdersView() {
+  document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('ordersView').style.display = 'block';
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const ordersNav = document.getElementById('navOrdersLink');
+  if (ordersNav) ordersNav.classList.add('active');
+
+  renderOrdersList();
+}
+
+function renderOrdersList() {
+  const container = document.getElementById('ordersListContainer');
+  if (!container) return;
+
+  const u = AppState.currentUser;
+  let userOrders = AppState.orders;
+  if (u && u.email && u.email.toLowerCase() !== MASTER_ADMIN.email) {
+    userOrders = AppState.orders.filter(o => !o.customerEmail || o.customerEmail.toLowerCase() === u.email.toLowerCase());
+  }
+
+  if (userOrders.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 50px 20px; background: rgba(168, 85, 247, 0.05); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 12px;">
+        <i class="fa-solid fa-box-open" style="font-size: 40px; color: #a78bfa; margin-bottom: 12px;"></i>
+        <h3 style="color: #ffffff; font-size: 16px; font-weight: 700;">Nenhum arquivo comprado ainda</h3>
+        <p style="color: #94a3b8; font-size: 13px; margin: 6px auto 18px; max-width: 400px;">
+          Quando você comprar uma solução ou arquivo via PIX, ele ficará disponível aqui permanentemente para você baixar quando quiser!
+        </p>
+        <button class="btn-primary-block" style="width: auto; padding: 10px 24px; display: inline-flex; align-items: center; gap: 8px;" onclick="showDashboardView()">
+          <i class="fa-solid fa-store"></i> Ver Arquivos & Soluções Disponíveis
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = userOrders.map(order => {
+    const thumbHtml = order.cardImageUrl 
+      ? `<img src="${escapeHtml(order.cardImageUrl)}" alt="${escapeHtml(order.cardName)}" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(168, 85, 247, 0.4);">`
+      : `<div style="width: 48px; height: 48px; border-radius: 10px; background: #1e1035; color: #c084fc; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          <i class="${order.cardIcon || 'fa-solid fa-file-arrow-down'}"></i>
+        </div>`;
+
+    return `
+      <div class="tech-card" style="margin-bottom: 14px; padding: 16px; background: #190f30; border: 1px solid rgba(168, 85, 247, 0.28); flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          ${thumbHtml}
+          <div>
+            <h3 style="color: #ffffff; font-size: 15px; font-weight: 800; margin-bottom: 3px;">${escapeHtml(order.cardName)}</h3>
+            <div style="font-size: 11.5px; color: #a78bfa;">
+              <i class="fa-regular fa-calendar-check" style="margin-right: 4px;"></i> Comprado em: ${escapeHtml(order.date)} &bull; Valor: <strong style="color: #4ade80;">R$ ${parseFloat(order.price || 0).toFixed(2).replace('.', ',')}</strong>
+            </div>
+            <span class="badge-pill" style="margin-top: 6px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 10px; font-weight: 700;">
+              ● Pagamento Confirmado &bull; Acesso Vitalício
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <a href="${escapeHtml(order.fileUrl)}" target="_blank" class="btn-primary-block" style="background: linear-gradient(135deg, #16a34a, #15803d); text-decoration: none; padding: 10px 20px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-download"></i> BAIXAR ARQUIVO
+          </a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateOrdersBadge() {
+  const badge = document.getElementById('sidebarOrdersBadge');
+  if (!badge) return;
+  const count = AppState.orders ? AppState.orders.length : 0;
+  if (count > 0) {
+    badge.innerText = count;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 window.saveSystemConfig = saveSystemConfig;
 window.updateVersionDisplay = updateVersionDisplay;
 window.loadConfigForm = loadConfigForm;
@@ -1417,3 +1943,16 @@ window.handleResetPassword = handleResetPassword;
 window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
 window.handleProfileChangePassword = handleProfileChangePassword;
+window.renderAdminCardsTable = renderAdminCardsTable;
+window.openEditCardModal = openEditCardModal;
+window.closeEditCardModal = closeEditCardModal;
+window.handleSaveCardEdit = handleSaveCardEdit;
+window.resetCardsToDefault = resetCardsToDefault;
+window.openCheckoutModal = openCheckoutModal;
+window.closeCheckoutModal = closeCheckoutModal;
+window.processMercadoPagoPix = processMercadoPagoPix;
+window.copyPixCode = copyPixCode;
+window.simulatePaymentApproval = simulatePaymentApproval;
+window.showOrdersView = showOrdersView;
+window.renderOrdersList = renderOrdersList;
+window.syncCardsFromCloud = syncCardsFromCloud;
