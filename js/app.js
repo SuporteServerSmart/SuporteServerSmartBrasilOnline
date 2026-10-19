@@ -2957,8 +2957,11 @@ function sendPortLinkOrderWhatsApp() {
   const targetPhone = '5541996378029';
   const whatsappUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(message)}`;
 
-  // Abrir o WhatsApp para envio imediato
-  window.open(whatsappUrl, '_blank');
+  // Atualizar link manual na tela
+  const manualBtn = document.getElementById('portLinkManualWaBtn');
+  if (manualBtn) {
+    manualBtn.href = whatsappUrl;
+  }
 
   // Exibir a mensagem na tela conforme solicitado pelo usuário:
   // "AO TER ENVIADO APAREÇA UMA MENSAGEN NA TELA PEDIDO ENVIADO A NOSSA EQUIPE DE SUPORTE AGUARDE ENTRAREMOS EM CONTATO"
@@ -2968,8 +2971,23 @@ function sendPortLinkOrderWhatsApp() {
     alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // Notificação amigável na tela
-  alert('PEDIDO ENVIADO A NOSSA EQUIPE DE SUPORTE! AGUARDE, ENTRAREMOS EM CONTATO.');
+  // Disparar abertura imediata do WhatsApp (via link simulado)
+  try {
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.warn('Falha no link clique:', e);
+  }
+
+  // Redirecionamento direto garantido para o WhatsApp (sem bloqueio de pop-up no navegador/celular)
+  setTimeout(() => {
+    window.location.href = whatsappUrl;
+  }, 400);
 }
 
 window.openPortLinkModal = openPortLinkModal;
