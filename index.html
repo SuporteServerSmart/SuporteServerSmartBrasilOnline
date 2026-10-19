@@ -887,6 +887,123 @@
         </form>
       </div>
     </div>
+  <!-- Modal 9: Port Link - Serviço de Acesso USB Remoto -->
+  <div class="modal-overlay" id="portLinkModal">
+    <div class="modal-box portlink-modal-box">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="modal-header" style="border-bottom: 1px solid rgba(245, 158, 11, 0.3);">
+        <div class="portlink-header-title">
+          <div style="width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; color: #000; font-size: 20px; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); flex-shrink: 0;">
+            <i class="fa-solid fa-network-wired"></i>
+          </div>
+          <div>
+            <h2>PORT LINK</h2>
+            <div style="font-size: 11.5px; font-weight: 700; color: #fde68a; letter-spacing: 0.5px; text-transform: uppercase;">
+              Serviço de Acesso USB Remoto
+            </div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closePortLinkModal()" title="Fechar Modal">&times;</button>
+      </div>
+
+      <!-- Corpo do Modal -->
+      <div class="modal-body" style="padding: 20px 24px;">
+        
+        <!-- Tagline / Destaque -->
+        <div class="portlink-tagline-bar">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-bolt-lightning" style="color: #fbbf24; font-size: 16px;"></i>
+            <strong style="color: #ffffff; font-size: 13px;">CONECTE SEM VPN E SEM COMPLICAÇÃO!</strong>
+          </div>
+          <span style="font-size: 12px; color: #fef08a; font-weight: 600;">PORT LINK – Conectou, tá pronto!</span>
+        </div>
+
+        <!-- Banner / Imagem Oficial Port Link -->
+        <div class="portlink-banner-wrapper">
+          <img src="assets/portlink-banner.jpg" alt="Port Link - Serviço de Acesso USB Remoto" class="portlink-banner-img" id="portlinkBannerImg">
+        </div>
+
+        <!-- Destaques e Vantagens (Baseados no Flyer) -->
+        <div class="portlink-highlights">
+          <span class="portlink-pill"><i class="fa-solid fa-check" style="color: #4ade80;"></i> Sem VPN</span>
+          <span class="portlink-pill"><i class="fa-solid fa-check" style="color: #4ade80;"></i> Sem Radmin</span>
+          <span class="portlink-pill"><i class="fa-solid fa-check" style="color: #4ade80;"></i> Sem IP Fixo</span>
+          <span class="portlink-pill"><i class="fa-solid fa-check" style="color: #4ade80;"></i> Sem rota nem complicação</span>
+          <span class="portlink-pill"><i class="fa-solid fa-plug" style="color: #38bdf8;"></i> USB Redirector 1.9.7</span>
+          <span class="portlink-pill"><i class="fa-solid fa-lock" style="color: #facc15;"></i> 100% Seguro & Criptografado</span>
+          <span class="portlink-pill"><i class="fa-solid fa-headset" style="color: #c084fc;"></i> Suporte Rápido e Humano</span>
+        </div>
+
+        <!-- Alerta de Sucesso após envio (Exibido na tela conforme solicitado pelo usuário) -->
+        <div class="portlink-success-alert" id="portLinkSuccessAlert">
+          <div style="display: flex; align-items: flex-start; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: #22c55e; color: #000; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; box-shadow: 0 0 16px rgba(34, 197, 94, 0.6);">
+              <i class="fa-solid fa-check"></i>
+            </div>
+            <div>
+              <h4 style="color: #ffffff; font-size: 15px; font-weight: 900; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                PEDIDO ENVIADO A NOSSA EQUIPE DE SUPORTE!
+              </h4>
+              <p style="color: #dcfce7; font-size: 13.5px; font-weight: 600; line-height: 1.4;">
+                AGUARDE, ENTRAREMOS EM CONTATO!
+              </p>
+              <div style="margin-top: 8px; font-size: 12px; color: #bbf7d0;">
+                Sua conversa no WhatsApp foi aberta para envio dos dados ao técnico responsável (41 99637-8029).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Seleção de Planos -->
+        <div class="portlink-section-title">
+          <i class="fa-solid fa-tag" style="color: #f59e0b;"></i>
+          <span>Escolha o seu Plano Port Link:</span>
+        </div>
+
+        <div class="portlink-plans-grid" id="portLinkPlansContainer">
+          <!-- Renderizado dinamicamente via app.js -->
+        </div>
+
+        <!-- Formulário de Pedido / Solicitação -->
+        <div class="portlink-order-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 14px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-cart-shopping" style="color: #c084fc;"></i>
+              <span>Finalizar Solicitação do Plano</span>
+            </div>
+            <div id="portLinkSelectedSummary" style="font-size: 12.5px; color: #fbbf24; font-weight: 700; background: rgba(245, 158, 11, 0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">
+              Plano Selecionado: <span id="portLinkSummaryPlan">Nenhum</span>
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-bottom: 14px;">
+            <div class="form-group">
+              <label for="portLinkCustomerName">
+                <i class="fa-solid fa-user" style="color: #38bdf8; margin-right: 4px;"></i> Seu Nome / Assistência Técnica:
+              </label>
+              <input type="text" id="portLinkCustomerName" placeholder="Ex: Ramon - Assistência Smart" required>
+            </div>
+            <div class="form-group">
+              <label for="portLinkCustomerWhatsapp">
+                <i class="fa-brands fa-whatsapp" style="color: #4ade80; margin-right: 4px;"></i> Seu WhatsApp com DDD:
+              </label>
+              <input type="tel" id="portLinkCustomerWhatsapp" placeholder="(41) 99999-9999" required>
+            </div>
+          </div>
+
+          <!-- Botão de Envio WhatsApp -->
+          <button type="button" class="btn-primary-block" onclick="sendPortLinkOrderWhatsApp()" style="background: linear-gradient(135deg, #16a34a, #22c55e); border-color: #4ade80; font-size: 15px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.45); cursor: pointer;">
+            <i class="fa-brands fa-whatsapp" style="font-size: 22px;"></i>
+            <span>ENVIAR PEDIDO PARA O SUPORTE (41 99637-8029)</span>
+          </button>
+          <small style="font-size: 11px; color: var(--text-muted); display: block; text-align: center; margin-top: 8px;">
+            Ao clicar, seu pedido será direcionado diretamente ao WhatsApp do suporte para liberação imediata.
+          </small>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <!-- Scripts -->

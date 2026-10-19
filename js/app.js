@@ -90,6 +90,25 @@ function initStorage() {
     ? JSON.parse(savedMenu)
     : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.sidebarMenu || []));
 
+  // Sincronizar itens oficiais da sidebar caso não existam no localStorage (ex: Port Link)
+  if (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu)) {
+    window.TECH_UNION_DATA.sidebarMenu.forEach(defItem => {
+      const exists = AppState.sidebarMenu.some(item => item.id === defItem.id);
+      if (!exists) {
+        if (defItem.id === 'nav_port_link') {
+          const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
+          if (sysIdx >= 0) {
+            AppState.sidebarMenu.splice(sysIdx, 0, JSON.parse(JSON.stringify(defItem)));
+          } else {
+            AppState.sidebarMenu.push(JSON.parse(JSON.stringify(defItem)));
+          }
+        } else {
+          AppState.sidebarMenu.push(JSON.parse(JSON.stringify(defItem)));
+        }
+      }
+    });
+  }
+
   // 5. Usuários
   const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
   AppState.users = savedUsers ? JSON.parse(savedUsers) : [];
@@ -2476,6 +2495,8 @@ function renderSidebarMenu() {
         onclickStr = 'openAllNewsModal()';
       } else if (item.actionType === 'tool_modal') {
         onclickStr = `openToolsModal('${escapeHtml(item.toolCategory || item.label)}')`;
+      } else if (item.actionType === 'port_link' || item.id === 'nav_port_link') {
+        onclickStr = 'openPortLinkModal()';
       } else if (item.actionType === 'orders') {
         onclickStr = 'showOrdersView()';
       } else {
@@ -2758,6 +2779,17 @@ async function syncMenuFromCloud() {
       const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
       if (Array.isArray(parsed) && parsed.length > 0) {
         AppState.sidebarMenu = parsed;
+        if (!AppState.sidebarMenu.some(m => m.id === 'nav_port_link')) {
+          const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
+          const portLinkDef = (window.TECH_UNION_DATA.sidebarMenu || []).find(m => m.id === 'nav_port_link') || {
+            id: 'nav_port_link', section: 'Sistema', label: 'Port Link', icon: 'fa-solid fa-network-wired', actionType: 'port_link', badge: 'NOVO', active: true
+          };
+          if (sysIdx >= 0) {
+            AppState.sidebarMenu.splice(sysIdx, 0, portLinkDef);
+          } else {
+            AppState.sidebarMenu.push(portLinkDef);
+          }
+        }
         localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
         renderSidebarMenu();
         if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
@@ -2769,4 +2801,168 @@ async function syncMenuFromCloud() {
     console.warn('Erro ao sincronizar menu lateral da nuvem:', err);
   }
 }
+
+// ==========================================================================
+// PORT LINK - SERVIÇO DE ACESSO USB REMOTO (MODAL, PLANOS & WHATSAPP)
+// ==========================================================================
+let currentSelectedPortLinkPlan = null;
+
+function renderPortLinkPlans() {
+  const container = document.getElementById('portLinkPlansContainer');
+  if (!container) return;
+
+  const plans = (window.TECH_UNION_DATA && window.TECH_UNION_DATA.portLinkPlans) || [
+    { id: "portlink_1h", name: "Aluguel de 1 Hora", duration: "1 Hora", price: 35.00, badge: "EXPRESS", popular: false, desc: "Acesso rápido e direto sem VPN para um reparo imediato." },
+    { id: "portlink_24h", name: "Aluguel de 24 Horas", duration: "24 Horas", price: 45.00, badge: "DIÁRIO", popular: false, desc: "Acesso de 24h para múltiplos procedimentos no dia." },
+    { id: "portlink_1m", name: "Plano de 1 Mês", duration: "30 Dias", price: 100.00, badge: "POPULAR", popular: true, desc: "Perfeito para assistência técnica com fluxo frequente." },
+    { id: "portlink_3m", name: "Plano de 3 Meses", duration: "90 Dias", price: 200.00, badge: "TRIMESTRAL", popular: false, desc: "Economia e estabilidade por 3 meses contínuos." },
+    { id: "portlink_6m", name: "Plano de 6 Meses", duration: "180 Dias", price: 150.00, badge: "SEMESTRAL", popular: false, desc: "Super promoção especial de 6 meses." },
+    { id: "portlink_1y", name: "Plano de 1 Ano", duration: "365 Dias", price: 200.00, badge: "ANUAL VIP", popular: false, desc: "Acesso ilimitado de 1 ano completo com suporte prioritário." }
+  ];
+
+  if (!currentSelectedPortLinkPlan) {
+    currentSelectedPortLinkPlan = plans.find(p => p.popular) || plans[0];
+  }
+
+  container.innerHTML = plans.map(plan => {
+    const isSel = currentSelectedPortLinkPlan && currentSelectedPortLinkPlan.id === plan.id;
+    return `
+      <div class="portlink-plan-card ${isSel ? 'active' : ''}" onclick="selectPortLinkPlan('${plan.id}')">
+        <div>
+          <div class="portlink-plan-header">
+            <span class="portlink-plan-badge">${escapeHtml(plan.badge)}</span>
+            <div class="portlink-plan-radio">
+              <i class="fa-solid fa-check"></i>
+            </div>
+          </div>
+          <div class="portlink-plan-title">${escapeHtml(plan.name)}</div>
+          <div style="font-size: 11.5px; color: #cbd5e1; line-height: 1.35; margin-bottom: 8px;">
+            ${escapeHtml(plan.desc || '')}
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 10.5px; color: #a78bfa; text-transform: uppercase; font-weight: 700;">
+            ${escapeHtml(plan.duration)}
+          </div>
+          <div class="portlink-plan-price">
+            <span style="font-size: 13px; font-weight: 700; color: #f8fafc;">R$</span>
+            <span>${plan.price.toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  updatePortLinkSummary();
+}
+
+function selectPortLinkPlan(planId) {
+  const plans = (window.TECH_UNION_DATA && window.TECH_UNION_DATA.portLinkPlans) || [];
+  const found = plans.find(p => p.id === planId);
+  if (found) {
+    currentSelectedPortLinkPlan = found;
+    renderPortLinkPlans();
+  }
+}
+
+function updatePortLinkSummary() {
+  const sumEl = document.getElementById('portLinkSummaryPlan');
+  if (sumEl && currentSelectedPortLinkPlan) {
+    sumEl.innerHTML = `<strong>${escapeHtml(currentSelectedPortLinkPlan.name)}</strong> (R$ ${currentSelectedPortLinkPlan.price.toFixed(2).replace('.', ',')})`;
+  }
+}
+
+function openPortLinkModal() {
+  const modal = document.getElementById('portLinkModal');
+  if (!modal) return;
+
+  // Esconder alerta de sucesso caso estivesse aberto
+  const alertEl = document.getElementById('portLinkSuccessAlert');
+  if (alertEl) alertEl.style.display = 'none';
+
+  // Se o usuário logado tiver dados, preenche automaticamente
+  const u = AppState.currentUser;
+  const nameInput = document.getElementById('portLinkCustomerName');
+  const waInput = document.getElementById('portLinkCustomerWhatsapp');
+  if (nameInput && !nameInput.value.trim() && u) {
+    nameInput.value = u.username || '';
+  }
+  if (waInput && !waInput.value.trim() && u) {
+    waInput.value = u.whatsapp || '';
+  }
+
+  renderPortLinkPlans();
+  modal.classList.add('active');
+}
+
+function closePortLinkModal() {
+  const modal = document.getElementById('portLinkModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function sendPortLinkOrderWhatsApp() {
+  if (!currentSelectedPortLinkPlan) {
+    alert('Por favor, selecione um dos planos do Port Link para prosseguir.');
+    return;
+  }
+
+  const nameInput = document.getElementById('portLinkCustomerName');
+  const waInput = document.getElementById('portLinkCustomerWhatsapp');
+
+  const customerName = nameInput ? nameInput.value.trim() : '';
+  const customerWa = waInput ? waInput.value.trim() : '';
+
+  if (!customerName) {
+    alert('Por favor, informe seu nome ou nome da sua assistência técnica.');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  if (!customerWa) {
+    alert('Por favor, informe seu número de WhatsApp com DDD para contato.');
+    if (waInput) waInput.focus();
+    return;
+  }
+
+  const planName = currentSelectedPortLinkPlan.name;
+  const planPrice = `R$ ${currentSelectedPortLinkPlan.price.toFixed(2).replace('.', ',')}`;
+  const planDuration = currentSelectedPortLinkPlan.duration;
+
+  // Montar mensagem para o WhatsApp do suporte oficial 41996378029
+  const message = 
+    `🚀 *NOVO PEDIDO - PORT LINK USB REMOTO*\n` +
+    `--------------------------------------\n` +
+    `🔌 *Serviço:* PORT LINK (Serviço de Acesso USB Remoto)\n` +
+    `📦 *Plano Escolhido:* ${planName}\n` +
+    `💰 *Valor:* ${planPrice}\n` +
+    `⏳ *Duração:* ${planDuration}\n` +
+    `--------------------------------------\n` +
+    `👤 *Cliente:* ${customerName}\n` +
+    `📱 *WhatsApp:* ${customerWa}\n` +
+    `--------------------------------------\n` +
+    `Olá Suporte Server Smart! Acabei de solicitar a contratação do Port Link pelo site. Aguardo instruções para ativação do meu acesso!`;
+
+  const targetPhone = '5541996378029';
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(message)}`;
+
+  // Abrir o WhatsApp para envio imediato
+  window.open(whatsappUrl, '_blank');
+
+  // Exibir a mensagem na tela conforme solicitado pelo usuário:
+  // "AO TER ENVIADO APAREÇA UMA MENSAGEN NA TELA PEDIDO ENVIADO A NOSSA EQUIPE DE SUPORTE AGUARDE ENTRAREMOS EM CONTATO"
+  const alertEl = document.getElementById('portLinkSuccessAlert');
+  if (alertEl) {
+    alertEl.style.display = 'block';
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Notificação amigável na tela
+  alert('PEDIDO ENVIADO A NOSSA EQUIPE DE SUPORTE! AGUARDE, ENTRAREMOS EM CONTATO.');
+}
+
+window.openPortLinkModal = openPortLinkModal;
+window.closePortLinkModal = closePortLinkModal;
+window.selectPortLinkPlan = selectPortLinkPlan;
+window.sendPortLinkOrderWhatsApp = sendPortLinkOrderWhatsApp;
+
 

@@ -1200,3 +1200,237 @@ body {
     grid-column: span 1;
   }
 }
+
+/* ==========================================================================
+   PORT LINK - SERVIÇO DE ACESSO USB REMOTO (MODAL & PLANOS)
+   ========================================================================== */
+.portlink-modal-box {
+  max-width: 920px;
+  background: #0f0a1c;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 35px rgba(245, 158, 11, 0.2);
+}
+
+.portlink-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portlink-header-title h2 {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #fef08a, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portlink-tagline-bar {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.1), rgba(147, 51, 234, 0.15));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.portlink-banner-wrapper {
+  background: #05020a;
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  position: relative;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.portlink-banner-wrapper:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 12px 35px rgba(245, 158, 11, 0.3);
+}
+
+.portlink-banner-img {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  background: #000;
+  transition: transform 0.25s ease;
+}
+
+.portlink-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.portlink-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+}
+
+.portlink-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.portlink-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 850px) {
+  .portlink-plans-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .portlink-plans-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.portlink-plan-card {
+  background: #150e26;
+  border: 1.5px solid rgba(245, 158, 11, 0.22);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.portlink-plan-card:hover {
+  background: #20133a;
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.2);
+}
+
+.portlink-plan-card.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(147, 51, 234, 0.25));
+  border-color: #fbbf24;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 0 10px rgba(245, 158, 11, 0.15);
+}
+
+.portlink-plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.portlink-plan-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  text-transform: uppercase;
+}
+
+.portlink-plan-card.active .portlink-plan-badge {
+  background: #f59e0b;
+  color: #000;
+  font-weight: 900;
+}
+
+.portlink-plan-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(245, 158, 11, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.portlink-plan-card.active .portlink-plan-radio {
+  border-color: #fbbf24;
+  background: #fbbf24;
+}
+
+.portlink-plan-radio i {
+  display: none;
+  font-size: 10px;
+  color: #000;
+}
+
+.portlink-plan-card.active .portlink-plan-radio i {
+  display: block;
+}
+
+.portlink-plan-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.portlink-plan-price {
+  font-size: 18px;
+  font-weight: 900;
+  color: #4ade80;
+  margin-top: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.portlink-order-box {
+  background: #18102b;
+  border: 1.5px solid rgba(168, 85, 247, 0.3);
+  border-radius: var(--radius-md);
+  padding: 18px;
+}
+
+.portlink-success-alert {
+  display: none;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(21, 128, 61, 0.3));
+  border: 2px solid #22c55e;
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.35);
+  animation: portlinkFadeIn 0.3s ease;
+}
+
+@keyframes portlinkFadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

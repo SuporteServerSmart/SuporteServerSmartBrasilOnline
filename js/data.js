@@ -47,6 +47,7 @@ const TECH_UNION_DATA = {
     { id: "nav_tools_generic", section: "Ferramentas", label: "Ferramentas", icon: "fa-solid fa-toolbox", actionType: "tool_modal", toolCategory: "Ferramentas", hasArrow: true, active: true },
 
     // Seção Sistema
+    { id: "nav_port_link", section: "Sistema", label: "Port Link", icon: "fa-solid fa-network-wired", actionType: "port_link", badge: "NOVO", active: true },
     { id: "nav_os_manager", section: "Sistema", label: "OS Manager", icon: "fa-solid fa-desktop", actionType: "tool_modal", toolCategory: "OS Manager", badge: "NOVO", active: true },
     { id: "nav_server_gsm", section: "Sistema", label: "Server GSM", icon: "fa-solid fa-server", actionType: "tool_modal", toolCategory: "Server GSM", active: true },
     { id: "nav_sistema_os", section: "Sistema", label: "Sistema O.S.", icon: "fa-solid fa-clipboard-list", actionType: "tool_modal", toolCategory: "Sistema O.S.", active: true },
@@ -422,6 +423,16 @@ const TECH_UNION_DATA = {
       downloadUrl: "#",
       icon: "fa-solid fa-terminal"
     }
+  ],
+
+  // Planos Oficiais do Port Link (Serviço de Acesso USB Remoto)
+  portLinkPlans: [
+    { id: "portlink_1h", name: "Aluguel de 1 Hora", duration: "1 Hora", price: 35.00, badge: "EXPRESS", popular: false, desc: "Acesso rápido e direto sem VPN para um reparo imediato." },
+    { id: "portlink_24h", name: "Aluguel de 24 Horas", duration: "24 Horas", price: 45.00, badge: "DIÁRIO", popular: false, desc: "Acesso de 24h para múltiplos procedimentos no dia." },
+    { id: "portlink_1m", name: "Plano de 1 Mês", duration: "30 Dias", price: 100.00, badge: "POPULAR", popular: true, desc: "Perfeito para assistência técnica com fluxo frequente." },
+    { id: "portlink_3m", name: "Plano de 3 Meses", duration: "90 Dias", price: 200.00, badge: "TRIMESTRAL", popular: false, desc: "Economia e estabilidade por 3 meses contínuos." },
+    { id: "portlink_6m", name: "Plano de 6 Meses", duration: "180 Dias", price: 150.00, badge: "SEMESTRAL", popular: false, desc: "Super promoção especial de 6 meses." },
+    { id: "portlink_1y", name: "Plano de 1 Ano", duration: "365 Dias", price: 200.00, badge: "ANUAL VIP", popular: false, desc: "Acesso ilimitado de 1 ano completo com suporte prioritário." }
   ]
 };
 
