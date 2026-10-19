@@ -90,23 +90,35 @@ function initStorage() {
     ? JSON.parse(savedMenu)
     : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.sidebarMenu || []));
 
-  // Sincronizar itens oficiais da sidebar caso não existam no localStorage (ex: Port Link)
-  if (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu)) {
-    window.TECH_UNION_DATA.sidebarMenu.forEach(defItem => {
-      const exists = AppState.sidebarMenu.some(item => item.id === defItem.id);
-      if (!exists) {
-        if (defItem.id === 'nav_port_link') {
-          const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
-          if (sysIdx >= 0) {
-            AppState.sidebarMenu.splice(sysIdx, 0, JSON.parse(JSON.stringify(defItem)));
-          } else {
-            AppState.sidebarMenu.push(JSON.parse(JSON.stringify(defItem)));
-          }
-        } else {
-          AppState.sidebarMenu.push(JSON.parse(JSON.stringify(defItem)));
-        }
-      }
-    });
+  // Adiciona a nova aba Port Link apenas se não estiver presente na lista (sem recriar itens apagados pelo admin)
+  if (!AppState.sidebarMenu.some(item => item.id === 'nav_port_link')) {
+    const portLinkDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+      ? (window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_port_link') || {
+          id: 'nav_port_link',
+          section: 'Sistema',
+          label: 'Port Link',
+          icon: 'fa-solid fa-network-wired',
+          actionType: 'port_link',
+          badge: 'NOVO',
+          active: true
+        })
+      : {
+          id: 'nav_port_link',
+          section: 'Sistema',
+          label: 'Port Link',
+          icon: 'fa-solid fa-network-wired',
+          actionType: 'port_link',
+          badge: 'NOVO',
+          active: true
+        };
+
+    const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
+    if (sysIdx >= 0) {
+      AppState.sidebarMenu.splice(sysIdx, 0, JSON.parse(JSON.stringify(portLinkDef)));
+    } else {
+      AppState.sidebarMenu.push(JSON.parse(JSON.stringify(portLinkDef)));
+    }
+    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
   }
 
   // 5. Usuários
