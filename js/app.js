@@ -42,6 +42,51 @@ const AppState = {
 };
 
 // ==========================================================================
+// CAIXA DE ALERTA PERSONALIZADA (Substitui o alerta nativo feio do navegador)
+// Exibe sempre o cabeçalho oficial "SuporteServerSmart-Brasil Online"
+// e elimina o aviso do navegador com traços "suporte-server-smart-brasil-online.vercel.app diz"
+// ==========================================================================
+window.alert = function(message) {
+  let overlay = document.getElementById('customAlertOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'customAlertOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.style.zIndex = '999999';
+    overlay.innerHTML = `
+      <div class="modal-box" style="max-width: 440px; border: 1.5px solid rgba(168, 85, 247, 0.45); box-shadow: 0 10px 40px rgba(0,0,0,0.85), 0 0 30px rgba(168, 85, 247, 0.35); border-radius: 12px; background: #120a22; overflow: hidden; animation: portlinkFadeIn 0.25s ease;">
+        <div class="modal-header" style="background: linear-gradient(135deg, rgba(147, 51, 234, 0.25), rgba(91, 26, 141, 0.4)); padding: 12px 16px; border-bottom: 1px solid rgba(168, 85, 247, 0.3); display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/logo.png" alt="Logo" style="width: 24px; height: 24px; object-fit: contain; border-radius: 50%; border: 1px solid rgba(168, 85, 247, 0.5);">
+            <span style="font-weight: 800; font-size: 13.5px; color: #ffffff; letter-spacing: 0.3px;">SuporteServerSmart-Brasil Online</span>
+          </div>
+          <button type="button" id="customAlertCloseBtn" style="background: transparent; border: none; color: #c4b5fd; font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px; font-size: 13px; color: #f1f5f9; line-height: 1.55; white-space: pre-line;" id="customAlertMessage">
+        </div>
+        <div style="padding: 10px 18px 14px; display: flex; justify-content: flex-end; background: #0c0617; border-top: 1px solid rgba(168, 85, 247, 0.15);">
+          <button id="customAlertOkBtn" type="button" class="btn-primary-block" style="width: auto; min-width: 90px; padding: 7px 22px; margin: 0; font-size: 13px; font-weight: 700; border-radius: 6px; background: linear-gradient(135deg, #7c3aed, #9333ea); cursor: pointer;">
+            OK
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeAlert = () => overlay.classList.remove('active');
+    overlay.querySelector('#customAlertCloseBtn').addEventListener('click', closeAlert);
+    overlay.querySelector('#customAlertOkBtn').addEventListener('click', closeAlert);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeAlert();
+    });
+  }
+
+  const msgBox = overlay.querySelector('#customAlertMessage');
+  if (msgBox) msgBox.textContent = String(message || '');
+  overlay.classList.add('active');
+};
+
+// ==========================================================================
 // INICIALIZAÇÃO
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {

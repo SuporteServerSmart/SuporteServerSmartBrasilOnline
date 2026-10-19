@@ -3,7 +3,7 @@
 
 const TECH_UNION_DATA = {
   system: {
-    name: "SuporteServerSmartBrasil-online",
+    name: "SuporteServerSmart-Brasil Online",
     subtitle: "Feita de técnico para técnicos!",
     tagline: "A plataforma Nº1 em soluções para técnicos de smartphones.",
     version: "1.3.4",
