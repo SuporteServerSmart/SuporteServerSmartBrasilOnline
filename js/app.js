@@ -166,6 +166,42 @@ function initStorage() {
     localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
   }
 
+  // Adiciona a nova aba FRP MTK Motorola apenas se não estiver presente na lista
+  if (!AppState.sidebarMenu.some(item => item.id === 'nav_frp_mtk_moto')) {
+    const frpMtkDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+      ? (window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_frp_mtk_moto') || {
+          id: 'nav_frp_mtk_moto',
+          section: 'Sistema',
+          label: 'FRP MTK Motorola',
+          icon: 'fa-solid fa-mobile-screen-button',
+          actionType: 'frp_mtk_moto',
+          badge: 'NOVO',
+          active: true
+        })
+      : {
+          id: 'nav_frp_mtk_moto',
+          section: 'Sistema',
+          label: 'FRP MTK Motorola',
+          icon: 'fa-solid fa-mobile-screen-button',
+          actionType: 'frp_mtk_moto',
+          badge: 'NOVO',
+          active: true
+        };
+
+    const portLinkIdx = AppState.sidebarMenu.findIndex(item => item.id === 'nav_port_link');
+    if (portLinkIdx >= 0) {
+      AppState.sidebarMenu.splice(portLinkIdx + 1, 0, JSON.parse(JSON.stringify(frpMtkDef)));
+    } else {
+      const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
+      if (sysIdx >= 0) {
+        AppState.sidebarMenu.splice(sysIdx, 0, JSON.parse(JSON.stringify(frpMtkDef)));
+      } else {
+        AppState.sidebarMenu.push(JSON.parse(JSON.stringify(frpMtkDef)));
+      }
+    }
+    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+  }
+
   // 5. Usuários
   const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
   AppState.users = savedUsers ? JSON.parse(savedUsers) : [];
@@ -2554,6 +2590,8 @@ function renderSidebarMenu() {
         onclickStr = `openToolsModal('${escapeHtml(item.toolCategory || item.label)}')`;
       } else if (item.actionType === 'port_link' || item.id === 'nav_port_link') {
         onclickStr = 'openPortLinkModal()';
+      } else if (item.actionType === 'frp_mtk_moto' || item.id === 'nav_frp_mtk_moto') {
+        onclickStr = 'openFrpMtkMotorolaModal()';
       } else if (item.actionType === 'orders') {
         onclickStr = 'showOrdersView()';
       } else {
@@ -2847,6 +2885,22 @@ async function syncMenuFromCloud() {
             AppState.sidebarMenu.push(portLinkDef);
           }
         }
+        if (!AppState.sidebarMenu.some(m => m.id === 'nav_frp_mtk_moto')) {
+          const portLinkIdx = AppState.sidebarMenu.findIndex(item => item.id === 'nav_port_link');
+          const frpMtkDef = (window.TECH_UNION_DATA.sidebarMenu || []).find(m => m.id === 'nav_frp_mtk_moto') || {
+            id: 'nav_frp_mtk_moto', section: 'Sistema', label: 'FRP MTK Motorola', icon: 'fa-solid fa-mobile-screen-button', actionType: 'frp_mtk_moto', badge: 'NOVO', active: true
+          };
+          if (portLinkIdx >= 0) {
+            AppState.sidebarMenu.splice(portLinkIdx + 1, 0, frpMtkDef);
+          } else {
+            const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
+            if (sysIdx >= 0) {
+              AppState.sidebarMenu.splice(sysIdx, 0, frpMtkDef);
+            } else {
+              AppState.sidebarMenu.push(frpMtkDef);
+            }
+          }
+        }
         localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
         renderSidebarMenu();
         if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
@@ -3031,5 +3085,303 @@ window.openPortLinkModal = openPortLinkModal;
 window.closePortLinkModal = closePortLinkModal;
 window.selectPortLinkPlan = selectPortLinkPlan;
 window.sendPortLinkOrderWhatsApp = sendPortLinkOrderWhatsApp;
+
+// ==========================================================================
+// FRP MTK MOTOROLA - CONTA GOOGLE VIA FASTBOOT
+// ==========================================================================
+let currentFrpMotorolaCategory = 'all';
+let currentFrpMotorolaSearch = '';
+let currentSelectedMotorolaModel = null;
+let currentSelectedFrpService = 'frp'; // 'frp' | 'payjoy' | 'frp_payjoy'
+
+function openFrpMtkMotorolaModal() {
+  const modal = document.getElementById('frpMtkMotorolaModal');
+  if (!modal) return;
+
+  // Esconder mensagem de sucesso anterior
+  const alertEl = document.getElementById('frpMtkSuccessAlert');
+  if (alertEl) alertEl.style.display = 'none';
+
+  // Se o usuário logado tiver dados, preenche automaticamente
+  const u = AppState.currentUser;
+  const nameInput = document.getElementById('frpCustomerName');
+  const waInput = document.getElementById('frpCustomerWhatsapp');
+  if (nameInput && !nameInput.value.trim() && u) {
+    nameInput.value = u.username || '';
+  }
+  if (waInput && !waInput.value.trim() && u) {
+    waInput.value = u.whatsapp || '';
+  }
+
+  // Resetar busca e selecionar primeiro modelo por padrão se nenhum estiver selecionado
+  const searchInput = document.getElementById('frpMtkSearchInput');
+  if (searchInput) searchInput.value = '';
+  currentFrpMotorolaSearch = '';
+  currentFrpMotorolaCategory = 'all';
+
+  const models = window.TECH_UNION_DATA.motorolaMtkModels || [];
+  if (!currentSelectedMotorolaModel && models.length > 0) {
+    currentSelectedMotorolaModel = models[0];
+  }
+
+  // Atualizar botões de abas de categoria
+  document.querySelectorAll('.frp-cat-tab').forEach(tab => {
+    if (tab.dataset.category === 'all') {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+
+  selectFrpServiceType(currentSelectedFrpService || 'frp');
+  renderMotorolaModels();
+  updateFrpSelectedSummary();
+
+  modal.classList.add('active');
+}
+
+function closeFrpMtkMotorolaModal() {
+  const modal = document.getElementById('frpMtkMotorolaModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function filterFrpMotorolaCategory(category) {
+  currentFrpMotorolaCategory = category;
+
+  document.querySelectorAll('.frp-cat-tab').forEach(tab => {
+    if (tab.dataset.category === category) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+
+  renderMotorolaModels();
+}
+
+function filterFrpMotorolaSearch(query) {
+  currentFrpMotorolaSearch = (query || '').trim().toLowerCase();
+  renderMotorolaModels();
+}
+
+function renderMotorolaModels() {
+  const container = document.getElementById('frpMotorolaModelsGrid');
+  if (!container) return;
+
+  const allModels = window.TECH_UNION_DATA.motorolaMtkModels || [];
+  let filtered = allModels;
+
+  // Filtro por categoria
+  if (currentFrpMotorolaCategory && currentFrpMotorolaCategory !== 'all') {
+    filtered = filtered.filter(m => m.category === currentFrpMotorolaCategory);
+  }
+
+  // Filtro por busca de texto (código ou nome)
+  if (currentFrpMotorolaSearch) {
+    filtered = filtered.filter(m => 
+      m.code.toLowerCase().includes(currentFrpMotorolaSearch) || 
+      m.name.toLowerCase().includes(currentFrpMotorolaSearch) ||
+      m.categoryLabel.toLowerCase().includes(currentFrpMotorolaSearch)
+    );
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 24px 10px; color: var(--text-muted); font-size: 12px;">
+        <i class="fa-solid fa-mobile-screen" style="font-size: 24px; color: #94a3b8; margin-bottom: 6px; display: block;"></i>
+        Nenhum modelo encontrado para a busca "${escapeHtml(currentFrpMotorolaSearch)}".
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(model => {
+    const isSelected = currentSelectedMotorolaModel && currentSelectedMotorolaModel.id === model.id;
+    return `
+      <div class="frp-model-card ${isSelected ? 'selected' : ''}" onclick="selectMotorolaModel('${model.id}')" title="Clique para selecionar ${escapeHtml(model.name)}">
+        <div class="frp-model-card-header">
+          <span class="frp-model-code">${escapeHtml(model.code)}</span>
+          <span class="frp-model-chip"><i class="fa-solid fa-microchip"></i> ${escapeHtml(model.chip)}</span>
+        </div>
+        <div class="frp-model-name">${escapeHtml(model.name)}</div>
+        <div class="frp-model-footer">
+          <span class="frp-model-mode"><i class="fa-solid fa-bolt"></i> ${escapeHtml(model.mode)}</span>
+          <span class="frp-model-check">
+            <i class="fa-solid ${isSelected ? 'fa-circle-check' : 'fa-circle'}"></i>
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectMotorolaModel(modelId) {
+  const allModels = window.TECH_UNION_DATA.motorolaMtkModels || [];
+  const found = allModels.find(m => m.id === modelId);
+  if (found) {
+    currentSelectedMotorolaModel = found;
+    renderMotorolaModels();
+    updateFrpSelectedSummary();
+  }
+}
+
+function selectFrpServiceType(serviceType) {
+  currentSelectedFrpService = serviceType;
+
+  // Atualizar visual dos botões/cards de serviço
+  document.querySelectorAll('.frp-service-card').forEach(card => {
+    if (card.dataset.service === serviceType) {
+      card.classList.add('selected');
+    } else {
+      card.classList.remove('selected');
+    }
+  });
+
+  // Atualizar aviso de formatação
+  const noticeText = document.getElementById('frpFormattingNoticeText');
+  if (noticeText) {
+    if (serviceType === 'frp') {
+      noticeText.innerHTML = '<strong>⚠️ ATENÇÃO OBRIGATÓRIA (FRP):</strong> Como o serviço é <strong>Conta Google (FRP)</strong>, já deixe o aparelho <strong>FORMATADO DE FÁBRICA</strong> e ligado na tela de início (ou já em modo Fastboot) antes de chamar!';
+    } else if (serviceType === 'frp_payjoy') {
+      noticeText.innerHTML = '<strong>⚠️ ATENÇÃO OBRIGATÓRIA (FRP + PAYJOY):</strong> Como o serviço inclui <strong>FRP Conta Google</strong>, já deixe o aparelho <strong>FORMATADO DE FÁBRICA</strong> e no modo Fastboot para remoção completa!';
+    } else {
+      noticeText.innerHTML = '<strong>ℹ️ ATENÇÃO (PAYJOY):</strong> Para o desbloqueio <strong>PayJoy</strong>, conecte o aparelho via cabo USB no modo Fastboot e mantenha o AnyDesk aberto!';
+    }
+  }
+
+  updateFrpSelectedSummary();
+}
+
+function updateFrpSelectedSummary() {
+  const modelEl = document.getElementById('frpSummaryModelName');
+  const serviceEl = document.getElementById('frpSummaryServiceName');
+
+  if (modelEl) {
+    if (currentSelectedMotorolaModel) {
+      modelEl.innerHTML = `<strong style="color: #60a5fa;">${escapeHtml(currentSelectedMotorolaModel.code)}</strong> - ${escapeHtml(currentSelectedMotorolaModel.name)}`;
+    } else {
+      modelEl.textContent = 'Nenhum selecionado';
+    }
+  }
+
+  if (serviceEl) {
+    if (currentSelectedFrpService === 'frp') {
+      serviceEl.textContent = 'Conta Google (FRP)';
+    } else if (currentSelectedFrpService === 'payjoy') {
+      serviceEl.textContent = 'Bloqueio PayJoy';
+    } else if (currentSelectedFrpService === 'frp_payjoy') {
+      serviceEl.textContent = 'FRP + PAYJOY (Combo Completo)';
+    }
+  }
+}
+
+function sendFrpMotorolaOrderWhatsApp() {
+  if (!currentSelectedMotorolaModel) {
+    alert('Por favor, selecione um dos modelos Motorola na lista acima.');
+    return;
+  }
+
+  const nameInput = document.getElementById('frpCustomerName');
+  const waInput = document.getElementById('frpCustomerWhatsapp');
+  const anydeskInput = document.getElementById('frpCustomerAnydesk');
+
+  const customerName = nameInput ? nameInput.value.trim() : '';
+  const customerWa = waInput ? waInput.value.trim() : '';
+  const anydeskId = anydeskInput ? anydeskInput.value.trim() : '';
+
+  if (!customerName) {
+    alert('Por favor, informe seu Nome ou nome da sua Assistência Técnica.');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  if (!customerWa) {
+    alert('Por favor, informe seu WhatsApp com DDD para contato.');
+    if (waInput) waInput.focus();
+    return;
+  }
+
+  if (!anydeskId) {
+    alert('Por favor, informe o seu código do AnyDesk para que possamos realizar o acesso remoto.');
+    if (anydeskInput) anydeskInput.focus();
+    return;
+  }
+
+  let serviceLabel = 'FRP (Conta Google)';
+  let formatadoStatus = 'Formatado de fábrica e ligado em modo Fastboot';
+  if (currentSelectedFrpService === 'payjoy') {
+    serviceLabel = 'PAYJOY (Bloqueio PayJoy)';
+    formatadoStatus = 'Conectado em modo Fastboot';
+  } else if (currentSelectedFrpService === 'frp_payjoy') {
+    serviceLabel = 'FRP + PAYJOY (Combo Completo)';
+    formatadoStatus = 'Formatado de fábrica e ligado em modo Fastboot';
+  }
+
+  const modelCode = currentSelectedMotorolaModel.code;
+  const modelName = currentSelectedMotorolaModel.name;
+  const modelCategory = currentSelectedMotorolaModel.categoryLabel;
+
+  // Montar mensagem para o WhatsApp do suporte oficial 41996378029
+  const message = 
+    `🚀 *NOVO PEDIDO - FRP MTK MOTOROLA (FASTBOOT)*\n` +
+    `--------------------------------------\n` +
+    `📱 *Modelo:* ${modelName}\n` +
+    `🏷️ *Código:* ${modelCode}\n` +
+    `📂 *Linha:* ${modelCategory}\n` +
+    `⚡ *Processador/Modo:* MediaTek (MTK) / Fastboot\n` +
+    `🛠️ *Serviço Escolhido:* ${serviceLabel}\n` +
+    `--------------------------------------\n` +
+    `👤 *Cliente / Assistência:* ${customerName}\n` +
+    `📱 *WhatsApp:* ${customerWa}\n` +
+    `💻 *Código AnyDesk:* ${anydeskId}\n` +
+    `--------------------------------------\n` +
+    `⚠️ *Status do Aparelho:* ${formatadoStatus}\n` +
+    `--------------------------------------\n` +
+    `Olá Suporte Server Smart! Acabei de enviar meu pedido pelo site. Já estou com o AnyDesk aberto aguardando o acesso da equipe!`;
+
+  const targetPhone = '5541996378029';
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(message)}`;
+
+  // Atualizar link manual na tela
+  const manualBtn = document.getElementById('frpManualWaBtn');
+  if (manualBtn) {
+    manualBtn.href = whatsappUrl;
+  }
+
+  // Exibir a mensagem na tela conforme solicitado pelo usuário:
+  // "E TENHA UMA MENSAGEN AGUARDE COM ANYDESK ABERTO QUE NOSSA EQUIPE ACESSARA OBGD"
+  const alertEl = document.getElementById('frpMtkSuccessAlert');
+  if (alertEl) {
+    alertEl.style.display = 'block';
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Disparar abertura imediata do WhatsApp via link simulado
+  try {
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.warn('Falha no link clique WhatsApp:', e);
+  }
+
+  // Redirecionamento direto garantido para o WhatsApp (sem bloqueio de pop-up no navegador/celular)
+  setTimeout(() => {
+    window.location.href = whatsappUrl;
+  }, 400);
+}
+
+window.openFrpMtkMotorolaModal = openFrpMtkMotorolaModal;
+window.closeFrpMtkMotorolaModal = closeFrpMtkMotorolaModal;
+window.filterFrpMotorolaCategory = filterFrpMotorolaCategory;
+window.filterFrpMotorolaSearch = filterFrpMotorolaSearch;
+window.selectMotorolaModel = selectMotorolaModel;
+window.selectFrpServiceType = selectFrpServiceType;
+window.sendFrpMotorolaOrderWhatsApp = sendFrpMotorolaOrderWhatsApp;
+
 
 

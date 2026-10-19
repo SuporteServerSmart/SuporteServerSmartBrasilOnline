@@ -48,6 +48,7 @@ const TECH_UNION_DATA = {
 
     // Seção Sistema
     { id: "nav_port_link", section: "Sistema", label: "Port Link", icon: "fa-solid fa-network-wired", actionType: "port_link", badge: "NOVO", active: true },
+    { id: "nav_frp_mtk_moto", section: "Sistema", label: "FRP MTK Motorola", icon: "fa-solid fa-mobile-screen-button", actionType: "frp_mtk_moto", badge: "NOVO", active: true },
     { id: "nav_os_manager", section: "Sistema", label: "OS Manager", icon: "fa-solid fa-desktop", actionType: "tool_modal", toolCategory: "OS Manager", badge: "NOVO", active: true },
     { id: "nav_server_gsm", section: "Sistema", label: "Server GSM", icon: "fa-solid fa-server", actionType: "tool_modal", toolCategory: "Server GSM", active: true },
     { id: "nav_sistema_os", section: "Sistema", label: "Sistema O.S.", icon: "fa-solid fa-clipboard-list", actionType: "tool_modal", toolCategory: "Sistema O.S.", active: true },
@@ -433,6 +434,46 @@ const TECH_UNION_DATA = {
     { id: "portlink_3m", name: "Plano de 3 Meses", duration: "90 Dias", price: 200.00, badge: "TRIMESTRAL", popular: false, desc: "Economia e estabilidade por 3 meses contínuos." },
     { id: "portlink_6m", name: "Plano de 6 Meses", duration: "180 Dias", price: 150.00, badge: "SEMESTRAL", popular: false, desc: "Super promoção especial de 6 meses." },
     { id: "portlink_1y", name: "Plano de 1 Ano", duration: "365 Dias", price: 200.00, badge: "ANUAL VIP", popular: false, desc: "Acesso ilimitado de 1 ano completo com suporte prioritário." }
+  ],
+
+  // Lista Oficial de Dispositivos FRP MTK Motorola via Fastboot
+  motorolaMtkModels: [
+    // Dispositivos Moto Edge
+    { id: "edge_xt2205_3", category: "edge", categoryLabel: "Moto Edge", code: "XT2205-3", name: "Moto Edge (2022)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2303_2", category: "edge", categoryLabel: "Moto Edge", code: "XT2303-2", name: "Moto Edge 40 (2023)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2307_1", category: "edge", categoryLabel: "Moto Edge", code: "XT2307-1", name: "Moto Edge 40 Neo 5G (2023)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2409_2", category: "edge", categoryLabel: "Moto Edge", code: "XT2409-2", name: "Moto Edge 50 Neo 5G (2024)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2519_1", category: "edge", categoryLabel: "Moto Edge", code: "XT2519-1", name: "Moto Edge (2025)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2505_3", category: "edge", categoryLabel: "Moto Edge", code: "XT2505-3", name: "Moto Edge 60", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2503_1", category: "edge", categoryLabel: "Moto Edge", code: "XT2503-1", name: "Moto Edge 60 Fusion", chip: "MTK", mode: "FASTBOOT" },
+    { id: "edge_xt2507_1", category: "edge", categoryLabel: "Moto Edge", code: "XT2507-1", name: "Moto Edge 60 Pro", chip: "MTK", mode: "FASTBOOT" },
+
+    // Dispositivos Moto G
+    { id: "g_xt2163_1", category: "g", categoryLabel: "Moto G", code: "XT2163-1", name: "Moto G Pure", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2613_1", category: "g", categoryLabel: "Moto G", code: "XT2613-1", name: "Moto G (2026)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2513_1", category: "g", categoryLabel: "Moto G", code: "XT2513-1", name: "Moto G 5G (2025)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2167_1", category: "g", categoryLabel: "Moto G", code: "XT2167-1", name: "Moto G41", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2625_5", category: "g", categoryLabel: "Moto G", code: "XT2625-5", name: "Moto G47 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2149_1", category: "g", categoryLabel: "Moto G", code: "XT2149-1", name: "Moto G50 5G (2021)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2343_1", category: "g", categoryLabel: "Moto G", code: "XT2343-1", name: "Moto G54 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2435_1", category: "g", categoryLabel: "Moto G", code: "XT2435-1", name: "Moto G55 5G (2024)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2529_1", category: "g", categoryLabel: "Moto G", code: "XT2529-1", name: "Moto G56 5G (2025)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2621_3_67", category: "g", categoryLabel: "Moto G", code: "XT2621-3", name: "Moto G67 (2026)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2621_3_77", category: "g", categoryLabel: "Moto G", code: "XT2621-3", name: "Moto G77 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2527_2", category: "g", categoryLabel: "Moto G", code: "XT2527-2", name: "Moto G86 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2527_1", category: "g", categoryLabel: "Moto G", code: "XT2527-1", name: "Moto G86 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2527_6", category: "g", categoryLabel: "Moto G", code: "XT2527-6", name: "Moto G86 Power 5G", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2271_5", category: "g", categoryLabel: "Moto G", code: "XT2271-5", name: "Moto G Play (2023)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2615_1", category: "g", categoryLabel: "Moto G", code: "XT2615-1", name: "Moto G Play (2026)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2415_5", category: "g", categoryLabel: "Moto G", code: "XT2415-5", name: "Moto G Power 5G (2024)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2515_2", category: "g", categoryLabel: "Moto G", code: "XT2515-2", name: "Moto G Power (2025)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "g_xt2317dl", category: "g", categoryLabel: "Moto G", code: "XT2317DL", name: "Moto G Stylus (2023)", chip: "MTK", mode: "FASTBOOT" },
+
+    // Dispositivos Moto Razr
+    { id: "razr_xt2453_1_50", category: "razr", categoryLabel: "Moto Razr", code: "XT2453-1", name: "Moto Razr 50", chip: "MTK", mode: "FASTBOOT" },
+    { id: "razr_xt2453_1_24", category: "razr", categoryLabel: "Moto Razr", code: "XT2453-1", name: "Moto Razr (2024)", chip: "MTK", mode: "FASTBOOT" },
+    { id: "razr_xt2553_1_60", category: "razr", categoryLabel: "Moto Razr", code: "XT2553-1", name: "Moto Razr 60", chip: "MTK", mode: "FASTBOOT" },
+    { id: "razr_xt2553_1_25", category: "razr", categoryLabel: "Moto Razr", code: "XT2553-1", name: "Moto Razr (2025)", chip: "MTK", mode: "FASTBOOT" }
   ]
 };
 
