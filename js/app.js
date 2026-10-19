@@ -2840,25 +2840,17 @@ function renderPortLinkPlans() {
     const isSel = currentSelectedPortLinkPlan && currentSelectedPortLinkPlan.id === plan.id;
     return `
       <div class="portlink-plan-card ${isSel ? 'active' : ''}" onclick="selectPortLinkPlan('${plan.id}')">
-        <div>
-          <div class="portlink-plan-header">
-            <span class="portlink-plan-badge">${escapeHtml(plan.badge)}</span>
-            <div class="portlink-plan-radio">
-              <i class="fa-solid fa-check"></i>
-            </div>
-          </div>
-          <div class="portlink-plan-title">${escapeHtml(plan.name)}</div>
-          <div style="font-size: 11.5px; color: #cbd5e1; line-height: 1.35; margin-bottom: 8px;">
-            ${escapeHtml(plan.desc || '')}
+        <div class="portlink-plan-header">
+          <span class="portlink-plan-badge">${escapeHtml(plan.badge)}</span>
+          <div class="portlink-plan-radio">
+            <i class="fa-solid fa-check"></i>
           </div>
         </div>
-        <div>
-          <div style="font-size: 10.5px; color: #a78bfa; text-transform: uppercase; font-weight: 700;">
-            ${escapeHtml(plan.duration)}
-          </div>
+        <div class="portlink-plan-title" title="${escapeHtml(plan.name)}">${escapeHtml(plan.name)}</div>
+        <div class="portlink-plan-footer">
+          <span class="portlink-plan-duration">${escapeHtml(plan.duration)}</span>
           <div class="portlink-plan-price">
-            <span style="font-size: 13px; font-weight: 700; color: #f8fafc;">R$</span>
-            <span>${plan.price.toFixed(2).replace('.', ',')}</span>
+            <small style="font-size: 10px; color: #cbd5e1;">R$</small> ${plan.price.toFixed(2).replace('.', ',')}
           </div>
         </div>
       </div>
