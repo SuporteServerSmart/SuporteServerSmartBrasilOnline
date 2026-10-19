@@ -204,22 +204,72 @@
         <div class="admin-tab-content" id="tab-cards" style="display: none;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
             <div style="font-size: 13px; color: var(--text-muted);">
-              Altere o título, a descrição, a imagem por URL (tamanho exato 44x44px), o valor (R$) e o link do arquivo para download liberado após o pagamento PIX.
+              Gerencie os cards/produtos do catálogo: ative, desative, marque como Disponível ou Indisponível, altere valores, imagens e exclua cards.
             </div>
             <button class="btn-ticker-all" onclick="resetCardsToDefault()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
               <i class="fa-solid fa-rotate-left"></i> Restaurar Cards Padrão
             </button>
           </div>
+
+          <!-- Formulário: Adicionar Novo Card / Produto -->
+          <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-plus-circle" style="color: #4ade80;"></i> Adicionar Novo Card / Produto
+            </h4>
+            <form id="formAddCard" onsubmit="handleAddCard(event)">
+              <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label>Título / Nome do Card:</label>
+                  <input type="text" id="newCardName" placeholder="Ex: MOTOROLA DESBLOQUEIO ou ESQUEMA VIVO" required>
+                </div>
+                <div class="form-group">
+                  <label>Preço do Produto (R$):</label>
+                  <input type="number" id="newCardPrice" step="0.01" min="0" placeholder="29.90" value="29.90" required>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                  <label>Descrição do Card / Produto:</label>
+                  <input type="text" id="newCardDescription" placeholder="Ex: Soluções avançadas e arquivos técnicos homologados" required>
+                </div>
+                <div class="form-group">
+                  <label>URL da Imagem (44x44px):</label>
+                  <input type="url" id="newCardImageUrl" placeholder="https://exemplo.com/icone.png (opcional)">
+                </div>
+                <div class="form-group">
+                  <label>URL do Arquivo para Download (Liberado no PIX):</label>
+                  <input type="url" id="newCardFileUrl" placeholder="https://mega.nz/... ou https://drive.google.com/..." required>
+                </div>
+                <div class="form-group">
+                  <label>Visibilidade no Site:</label>
+                  <select id="newCardActive" required>
+                    <option value="true" selected>● ATIVO (Visível no Site)</option>
+                    <option value="false">○ DESATIVADO (Oculto no Site)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Disponibilidade para Venda:</label>
+                  <select id="newCardAvailable" required>
+                    <option value="true" selected>● DISPONÍVEL (Permitir Compra)</option>
+                    <option value="false">○ INDISPONÍVEL (Bloquear e Avisar)</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary-block" style="width: auto; padding: 10px 22px; display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #16a34a, #15803d);">
+                <i class="fa-solid fa-plus"></i> Adicionar Card / Produto
+              </button>
+            </form>
+          </div>
+
           <div style="overflow-x: auto;">
             <table class="admin-table">
               <thead>
                 <tr>
-                  <th style="width: 60px;">Imagem</th>
-                  <th>Título do Card</th>
-                  <th>Descrição</th>
-                  <th>Preço (R$)</th>
+                  <th style="width: 55px;">Imagem</th>
+                  <th>Card / Produto</th>
+                  <th style="width: 100px;">Preço</th>
+                  <th style="width: 130px;">Visibilidade</th>
+                  <th style="width: 140px;">Disponibilidade</th>
                   <th>Arquivo Download (PIX)</th>
-                  <th style="width: 100px;">Ações</th>
+                  <th style="width: 250px;">Ações Rápidas</th>
                 </tr>
               </thead>
               <tbody id="adminCardsTbody">
@@ -709,6 +759,20 @@
           <div class="form-group" style="margin-bottom: 12px;">
             <label>Preço do Produto (R$):</label>
             <input type="number" id="editCardPrice" step="0.01" min="0" placeholder="29.90" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Visibilidade no Site:</label>
+            <select id="editCardActive" required>
+              <option value="true">● ATIVO (Visível no Site para Todos)</option>
+              <option value="false">○ DESATIVADO (Oculto no Site)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Disponibilidade para Compra:</label>
+            <select id="editCardAvailable" required>
+              <option value="true">● DISPONÍVEL (Permitir Compra Normalmente)</option>
+              <option value="false">○ INDISPONÍVEL (Bloquear Compra e Avisar Usuário)</option>
+            </select>
           </div>
           <div class="form-group" style="margin-bottom: 16px;">
             <label>URL do Arquivo para Download (Liberado no Pagamento):</label>

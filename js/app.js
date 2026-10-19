@@ -151,13 +151,15 @@ function initStorage() {
     AppState.currentUser = null;
   }
 
-  // 6. Cards Customizados (com títulos, descrições, imagens, preços e arquivos)
+  // 6. Cards Customizados (com títulos, descrições, imagens, preços, arquivos, ativo e disponível)
   const savedCards = localStorage.getItem(STORAGE_KEYS.CARDS);
   let baseCards = savedCards ? JSON.parse(savedCards) : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards));
   AppState.cards = baseCards.map(c => ({
     ...c,
     price: c.price !== undefined ? parseFloat(c.price) : 29.90,
-    fileUrl: c.fileUrl || 'https://suporteserversmart.com/download'
+    fileUrl: c.fileUrl || 'https://suporteserversmart.com/download',
+    active: c.active !== false,
+    available: c.available !== false
   }));
 
   // 7. Pedidos / Compras
@@ -166,7 +168,7 @@ function initStorage() {
 }
 
 // ==========================================================================
-// RENDERIZAÇÃO DOS 16 CARDS DO GRID
+// RENDERIZAÇÃO DOS CARDS DO GRID (COM CONTROLE DE ATIVAÇÃO E DISPONIBILIDADE)
 // ==========================================================================
 function renderBrandCards() {
   const container = document.getElementById('cardsGrid');
@@ -174,9 +176,24 @@ function renderBrandCards() {
 
   container.innerHTML = '';
   const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
-  cards.forEach(card => {
+  
+  // Filtrar apenas cards ATIVOS (ocultar os desativados do site público)
+  const visibleCards = cards.filter(c => c.active !== false);
+
+  if (visibleCards.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border-radius: 12px; border: 1px dashed var(--border-color);">
+        <i class="fa-solid fa-box-open" style="font-size: 32px; color: #c084fc; margin-bottom: 10px;"></i>
+        <p style="font-size: 14px;">Nenhum card ativo no momento.</p>
+      </div>
+    `;
+    return;
+  }
+
+  visibleCards.forEach(card => {
+    const isAvailable = card.available !== false;
     const cardEl = document.createElement('div');
-    cardEl.className = 'tech-card';
+    cardEl.className = 'tech-card' + (!isAvailable ? ' card-unavailable' : '');
 
     // Imagem personalizada mantendo exatamente o tamanho do card (44x44px)
     const badgeHtml = card.imageUrl 
@@ -187,23 +204,50 @@ function renderBrandCards() {
 
     const priceText = card.price !== undefined ? `R$ ${parseFloat(card.price).toFixed(2).replace('.', ',')}` : 'R$ 29,90';
 
+    const statusBadge = !isAvailable
+      ? `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); padding: 3px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;">
+           <i class="fa-solid fa-ban"></i> Indisponível
+         </span>`
+      : `<span style="font-size: 11.5px; font-weight: 700; color: #4ade80; display: inline-flex; align-items: center;">
+           <i class="fa-solid fa-tag" style="margin-right: 4px;"></i>${priceText}
+         </span>`;
+
+    const btnHtml = !isAvailable
+      ? `<button class="btn-ver-solucoes btn-unavailable" onclick="handleBuyCardClick('${card.id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+           <i class="fa-solid fa-ban"></i> Indisponível
+         </button>`
+      : `<button class="btn-ver-solucoes ${card.btnColor || 'btn-blue'}" onclick="handleBuyCardClick('${card.id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+           <i class="fa-solid fa-cart-shopping"></i> Comprar Agora
+         </button>`;
+
     cardEl.innerHTML = `
       <div class="card-top">
         ${badgeHtml}
         <div class="card-brand-info">
           <h3>${escapeHtml(card.name)}</h3>
           <p>${escapeHtml(card.description)}</p>
-          <div style="font-size: 11.5px; font-weight: 700; color: #4ade80; margin-top: 4px;">
-            <i class="fa-solid fa-tag" style="margin-right: 4px;"></i>${priceText}
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+            ${statusBadge}
+            ${!isAvailable ? `<span style="font-size: 11px; text-decoration: line-through; color: #94a3b8;">${priceText}</span>` : ''}
           </div>
         </div>
       </div>
-      <button class="btn-ver-solucoes ${card.btnColor || 'btn-blue'}" onclick="openCheckoutModal('${card.id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-        <i class="fa-solid fa-cart-shopping"></i> Comprar Agora
-      </button>
+      ${btnHtml}
     `;
     container.appendChild(cardEl);
   });
+}
+
+function handleBuyCardClick(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  if (card.available === false) {
+    alert(`⚠️ ITEM INDISPONÍVEL!\n\nO produto "${card.name}" está temporariamente INDISPONÍVEL para compra.\n\nNão é possível realizar a compra deste item agora. Por favor, volte mais tarde ou entre em contato com nosso suporte!`);
+    return;
+  }
+
+  openCheckoutModal(cardId);
 }
 
 // ==========================================================================
@@ -1485,7 +1529,22 @@ function renderAdminCardsTable() {
   if (!tbody) return;
 
   const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
+  
+  if (!cards || cards.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Nenhum card cadastrado. Clique em Restaurar Cards Padrão ou Adicione um Novo Card acima!
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   tbody.innerHTML = cards.map(c => {
+    const isAct = c.active !== false;
+    const isAvail = c.available !== false;
+
     const thumbHtml = c.imageUrl 
       ? `<img src="${escapeHtml(c.imageUrl)}" alt="${escapeHtml(c.name)}" style="width: 44px; height: 44px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(168, 85, 247, 0.4);">`
       : `<div style="width: 44px; height: 44px; border-radius: 8px; background: ${c.badgeBg || '#1e1035'}; color: ${c.badgeColor || '#c084fc'}; display: flex; align-items: center; justify-content: center; font-size: 18px;">
@@ -1494,29 +1553,152 @@ function renderAdminCardsTable() {
 
     const priceFormatted = c.price !== undefined ? `R$ ${parseFloat(c.price).toFixed(2).replace('.', ',')}` : 'R$ 29,90';
     const fileUrlText = c.fileUrl 
-      ? `<a href="${escapeHtml(c.fileUrl)}" target="_blank" style="color: #38bdf8; text-decoration: underline; font-size: 11.5px; word-break: break-all;"><i class="fa-solid fa-link"></i> ${escapeHtml(c.fileUrl.length > 32 ? c.fileUrl.substring(0, 32) + '...' : c.fileUrl)}</a>` 
+      ? `<a href="${escapeHtml(c.fileUrl)}" target="_blank" style="color: #38bdf8; text-decoration: underline; font-size: 11.5px; word-break: break-all;"><i class="fa-solid fa-link"></i> ${escapeHtml(c.fileUrl.length > 24 ? c.fileUrl.substring(0, 24) + '...' : c.fileUrl)}</a>` 
       : '<span style="color: #ef4444; font-size: 11px;">Sem link configurado</span>';
 
+    const activeBadge = isAct
+      ? `<span class="badge-pill" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700;">
+           <i class="fa-solid fa-circle-check" style="margin-right: 4px;"></i> ATIVO
+         </span>`
+      : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 11px; font-weight: 700;">
+           <i class="fa-solid fa-circle-xmark" style="margin-right: 4px;"></i> DESATIVADO
+         </span>`;
+
+    const availBadge = isAvail
+      ? `<span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 11px; font-weight: 700;">
+           <i class="fa-solid fa-check" style="margin-right: 4px;"></i> DISPONÍVEL
+         </span>`
+      : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); font-size: 11px; font-weight: 800;">
+           <i class="fa-solid fa-ban" style="margin-right: 4px;"></i> INDISPONÍVEL
+         </span>`;
+
+    const toggleActiveBtn = isAct
+      ? `<button type="button" class="btn-ticker-all" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); color: #fca5a5;" onclick="toggleCardActive('${c.id}')" title="Ocultar do site público">
+           <i class="fa-solid fa-eye-slash"></i> Desativar
+         </button>`
+      : `<button type="button" class="btn-ticker-all" style="padding: 4px 8px; font-size: 11px; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.35); color: #86efac;" onclick="toggleCardActive('${c.id}')" title="Exibir no site público">
+           <i class="fa-solid fa-eye"></i> Ativar
+         </button>`;
+
+    const toggleAvailBtn = isAvail
+      ? `<button type="button" class="btn-ticker-all" style="padding: 4px 8px; font-size: 11px; background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.4); color: #fde047;" onclick="toggleCardAvailable('${c.id}')" title="Marcar como Indisponível (bloqueia compras)">
+           <i class="fa-solid fa-ban"></i> Indisponível
+         </button>`
+      : `<button type="button" class="btn-ticker-all" style="padding: 4px 8px; font-size: 11px; background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.35); color: #7dd3fc;" onclick="toggleCardAvailable('${c.id}')" title="Marcar como Disponível (libera compras)">
+           <i class="fa-solid fa-check"></i> Disponível
+         </button>`;
+
     return `
-      <tr>
+      <tr style="${!isAct ? 'opacity: 0.6;' : ''}">
         <td>${thumbHtml}</td>
         <td>
           <strong style="color: #ffffff; font-size: 13.5px;">${escapeHtml(c.name)}</strong><br>
-          <span style="font-size: 10.5px; color: #94a3b8;">ID: ${escapeHtml(c.id)}</span>
+          <span style="font-size: 10px; color: #94a3b8;">ID: ${escapeHtml(c.id)}</span>
+          <div style="font-size: 11.5px; color: #cbd5e1; margin-top: 2px;">${escapeHtml(c.description)}</div>
         </td>
-        <td style="max-width: 250px; font-size: 12px; color: #cbd5e1;">${escapeHtml(c.description)}</td>
         <td>
           <strong style="color: #4ade80;">${priceFormatted}</strong>
         </td>
+        <td>${activeBadge}</td>
+        <td>${availBadge}</td>
         <td>${fileUrlText}</td>
         <td>
-          <button class="btn-action-sm btn-action-green" onclick="openEditCardModal('${c.id}')" title="Editar este Card">
-            <i class="fa-solid fa-pen"></i> Editar
-          </button>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${toggleActiveBtn}
+            ${toggleAvailBtn}
+            <button class="btn-action-sm btn-action-green" onclick="openEditCardModal('${c.id}')" title="Editar este Card">
+              <i class="fa-solid fa-pen"></i> Editar
+            </button>
+            <button type="button" class="btn-ticker-all" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" onclick="handleDeleteCard('${c.id}')" title="Excluir card permanentemente">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
   }).join('');
+}
+
+async function toggleCardActive(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  card.active = card.active === false ? true : false;
+  localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+
+  renderBrandCards();
+  renderAdminCardsTable();
+  await saveCardsToCloud();
+}
+
+async function toggleCardAvailable(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  card.available = card.available === false ? true : false;
+  localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+
+  renderBrandCards();
+  renderAdminCardsTable();
+  await saveCardsToCloud();
+}
+
+async function handleDeleteCard(cardId) {
+  const card = AppState.cards.find(c => c.id === cardId);
+  const name = card ? card.name : 'este card';
+
+  if (!confirm(`Deseja realmente excluir o card "${name}" permanentemente do catálogo?`)) {
+    return;
+  }
+
+  AppState.cards = AppState.cards.filter(c => c.id !== cardId);
+  localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+
+  renderBrandCards();
+  renderAdminCardsTable();
+  await saveCardsToCloud();
+  alert(`Card "${name}" excluído com sucesso!`);
+}
+
+async function handleAddCard(e) {
+  e.preventDefault();
+  const name = document.getElementById('newCardName').value.trim();
+  const description = document.getElementById('newCardDescription').value.trim();
+  const price = parseFloat(document.getElementById('newCardPrice').value) || 29.90;
+  const imageUrl = document.getElementById('newCardImageUrl').value.trim();
+  const fileUrl = document.getElementById('newCardFileUrl').value.trim();
+  const active = document.getElementById('newCardActive').value === 'true';
+  const available = document.getElementById('newCardAvailable').value === 'true';
+
+  if (!name) {
+    alert('Por favor, informe o título do card.');
+    return;
+  }
+
+  const newId = 'card_' + Date.now();
+  const newCard = {
+    id: newId,
+    name: name,
+    description: description,
+    price: price,
+    imageUrl: imageUrl,
+    fileUrl: fileUrl,
+    active: active,
+    available: available,
+    badgeBg: '#1e1035',
+    badgeColor: '#c084fc',
+    icon: 'fa-solid fa-folder-open',
+    btnColor: 'btn-blue'
+  };
+
+  AppState.cards.push(newCard);
+  localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
+
+  renderBrandCards();
+  renderAdminCardsTable();
+  document.getElementById('formAddCard').reset();
+  await saveCardsToCloud();
+  alert(`✅ Card "${name}" cadastrado com sucesso!`);
 }
 
 function openEditCardModal(cardId) {
@@ -1529,6 +1711,12 @@ function openEditCardModal(cardId) {
   document.getElementById('editCardImageUrl').value = card.imageUrl || '';
   document.getElementById('editCardPrice').value = card.price !== undefined ? card.price : 29.90;
   document.getElementById('editCardFileUrl').value = card.fileUrl || 'https://suporteserversmart.com/download';
+
+  const activeSelect = document.getElementById('editCardActive');
+  if (activeSelect) activeSelect.value = card.active !== false ? 'true' : 'false';
+
+  const availSelect = document.getElementById('editCardAvailable');
+  if (availSelect) availSelect.value = card.available !== false ? 'true' : 'false';
 
   document.getElementById('editCardModal').classList.add('active');
 }
@@ -1546,6 +1734,11 @@ async function handleSaveCardEdit(e) {
   const price = parseFloat(document.getElementById('editCardPrice').value) || 29.90;
   const fileUrl = document.getElementById('editCardFileUrl').value.trim();
 
+  const activeSelect = document.getElementById('editCardActive');
+  const availableSelect = document.getElementById('editCardAvailable');
+  const active = activeSelect ? activeSelect.value === 'true' : true;
+  const available = availableSelect ? availableSelect.value === 'true' : true;
+
   const card = AppState.cards.find(c => c.id === cardId);
   if (!card) return;
 
@@ -1554,6 +1747,8 @@ async function handleSaveCardEdit(e) {
   card.imageUrl = imageUrl;
   card.price = price;
   card.fileUrl = fileUrl;
+  card.active = active;
+  card.available = available;
 
   localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
 
@@ -1562,15 +1757,17 @@ async function handleSaveCardEdit(e) {
   renderBrandCards();
   renderAdminCardsTable();
   closeEditCardModal();
-  alert(`✅ Card "${name}" atualizado com sucesso!\nO novo título, descrição, imagem e arquivo para download já foram atualizados no site.`);
+  alert(`✅ Card "${name}" atualizado com sucesso!\nAs configurações de visibilidade e disponibilidade já estão ativas no site.`);
 }
 
 async function resetCardsToDefault() {
-  if (confirm('Deseja realmente restaurar todos os 16 cards para as configurações padrão?')) {
+  if (confirm('Deseja realmente restaurar todos os cards para as configurações padrão originais?')) {
     AppState.cards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards)).map(c => ({
       ...c,
       price: 29.90,
-      fileUrl: 'https://suporteserversmart.com/download'
+      fileUrl: 'https://suporteserversmart.com/download',
+      active: true,
+      available: true
     }));
     localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
     await saveCardsToCloud();
@@ -1618,7 +1815,11 @@ async function syncCardsFromCloud() {
     if (data && data.length > 0 && data[0].description) {
       const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        AppState.cards = parsed;
+        AppState.cards = parsed.map(c => ({
+          ...c,
+          active: c.active !== false,
+          available: c.available !== false
+        }));
         localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(AppState.cards));
         renderBrandCards();
         if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
@@ -1640,6 +1841,11 @@ let checkoutPollInterval = null;
 function openCheckoutModal(cardId) {
   const card = AppState.cards.find(c => c.id === cardId);
   if (!card) return;
+
+  if (card.available === false) {
+    alert(`⚠️ ITEM INDISPONÍVEL!\n\nO produto "${card.name}" está temporariamente INDISPONÍVEL para compra.\n\nNão é possível realizar a compra deste item no momento.`);
+    return;
+  }
 
   currentCheckoutCard = card;
   const modal = document.getElementById('checkoutModal');
@@ -1976,6 +2182,11 @@ window.openEditCardModal = openEditCardModal;
 window.closeEditCardModal = closeEditCardModal;
 window.handleSaveCardEdit = handleSaveCardEdit;
 window.resetCardsToDefault = resetCardsToDefault;
+window.handleBuyCardClick = handleBuyCardClick;
+window.toggleCardActive = toggleCardActive;
+window.toggleCardAvailable = toggleCardAvailable;
+window.handleDeleteCard = handleDeleteCard;
+window.handleAddCard = handleAddCard;
 window.openCheckoutModal = openCheckoutModal;
 window.closeCheckoutModal = closeCheckoutModal;
 window.processMercadoPagoPix = processMercadoPagoPix;
