@@ -2612,16 +2612,63 @@ function renderSidebarMenu() {
       `;
     }).join('');
 
+    const isCollapsed = localStorage.getItem('sidebar_section_collapsed_' + secName) === 'true';
+
     return `
-      <div class="nav-section">
-        <div class="nav-section-title">${escapeHtml(secName)}</div>
-        <ul class="nav-list">
+      <div class="nav-section" id="navSection_${escapeHtml(secName)}">
+        <div class="nav-section-title" onclick="toggleNavSection('${escapeHtml(secName)}')" style="cursor: pointer; user-select: none;" title="Clique para alternar o menu ${escapeHtml(secName)}">
+          <span>${escapeHtml(secName)}</span>
+          <button type="button" class="btn-toggle-nav-section ${isCollapsed ? 'is-collapsed' : ''}" id="btnToggle_${escapeHtml(secName)}" onclick="event.stopPropagation(); toggleNavSection('${escapeHtml(secName)}');" title="${isCollapsed ? 'Mostrar menu ' + escapeHtml(secName) : 'Esconder menu ' + escapeHtml(secName)}">
+            <span class="toggle-text">${isCollapsed ? 'Mostrar' : 'Esconder'}</span>
+            <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} toggle-icon"></i>
+          </button>
+        </div>
+        <ul class="nav-list ${isCollapsed ? 'collapsed' : ''}" id="navList_${escapeHtml(secName)}">
           ${listHtml}
         </ul>
       </div>
     `;
   }).join('');
 }
+
+function toggleNavSection(secName) {
+  const navList = document.getElementById('navList_' + secName);
+  const btn = document.getElementById('btnToggle_' + secName);
+  if (!navList) return;
+
+  const isCurrentlyCollapsed = navList.classList.contains('collapsed');
+
+  if (isCurrentlyCollapsed) {
+    // Abrir / Mostrar o menu
+    navList.classList.remove('collapsed');
+    localStorage.setItem('sidebar_section_collapsed_' + secName, 'false');
+    if (btn) {
+      btn.classList.remove('is-collapsed');
+      btn.title = 'Esconder menu ' + secName;
+      const textSpan = btn.querySelector('.toggle-text');
+      const icon = btn.querySelector('.toggle-icon');
+      if (textSpan) textSpan.textContent = 'Esconder';
+      if (icon) {
+        icon.className = 'fa-solid fa-chevron-up toggle-icon';
+      }
+    }
+  } else {
+    // Fechar / Esconder o menu
+    navList.classList.add('collapsed');
+    localStorage.setItem('sidebar_section_collapsed_' + secName, 'true');
+    if (btn) {
+      btn.classList.add('is-collapsed');
+      btn.title = 'Mostrar menu ' + secName;
+      const textSpan = btn.querySelector('.toggle-text');
+      const icon = btn.querySelector('.toggle-icon');
+      if (textSpan) textSpan.textContent = 'Mostrar';
+      if (icon) {
+        icon.className = 'fa-solid fa-chevron-down toggle-icon';
+      }
+    }
+  }
+}
+window.toggleNavSection = toggleNavSection;
 
 function renderAdminMenuTable() {
   const tbody = document.getElementById('adminMenuTbody');
