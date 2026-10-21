@@ -265,7 +265,19 @@ function initStorage() {
 
   // 6. Cards Customizados (com títulos, descrições, imagens, preços, arquivos, ativo e disponível)
   const savedCards = localStorage.getItem(STORAGE_KEYS.CARDS);
-  let baseCards = savedCards ? JSON.parse(savedCards) : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards));
+  let baseCards;
+  if (savedCards !== null) {
+    try {
+      baseCards = JSON.parse(savedCards);
+      if (!Array.isArray(baseCards)) {
+        baseCards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+      }
+    } catch (e) {
+      baseCards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+    }
+  } else {
+    baseCards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+  }
   AppState.cards = baseCards.map(c => ({
     ...c,
     price: c.price !== undefined ? parseFloat(c.price) : 29.90,
@@ -287,7 +299,8 @@ function renderBrandCards() {
   if (!container) return;
 
   container.innerHTML = '';
-  const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
+  // Usar AppState.cards se for array (respeitando remoções e desativações salvas pelo admin)
+  const cards = Array.isArray(AppState.cards) ? AppState.cards : (window.TECH_UNION_DATA.cards || []);
   
   // Filtrar apenas cards ATIVOS (ocultar os desativados do site público)
   const visibleCards = cards.filter(c => c.active !== false);
@@ -351,7 +364,8 @@ function renderBrandCards() {
 }
 
 function handleBuyCardClick(cardId) {
-  const card = AppState.cards.find(c => c.id === cardId);
+  const cards = Array.isArray(AppState.cards) ? AppState.cards : (window.TECH_UNION_DATA.cards || []);
+  const card = cards.find(c => c.id === cardId);
   if (!card) return;
 
   if (card.available === false) {
@@ -1640,7 +1654,7 @@ function renderAdminCardsTable() {
   const tbody = document.getElementById('adminCardsTbody');
   if (!tbody) return;
 
-  const cards = (AppState.cards && AppState.cards.length > 0) ? AppState.cards : window.TECH_UNION_DATA.cards;
+  const cards = Array.isArray(AppState.cards) ? AppState.cards : (window.TECH_UNION_DATA.cards || []);
   
   if (!cards || cards.length === 0) {
     tbody.innerHTML = `
@@ -1732,6 +1746,9 @@ function renderAdminCardsTable() {
 }
 
 async function toggleCardActive(cardId) {
+  if (!Array.isArray(AppState.cards)) {
+    AppState.cards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+  }
   const card = AppState.cards.find(c => c.id === cardId);
   if (!card) return;
 
@@ -1744,6 +1761,9 @@ async function toggleCardActive(cardId) {
 }
 
 async function toggleCardAvailable(cardId) {
+  if (!Array.isArray(AppState.cards)) {
+    AppState.cards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+  }
   const card = AppState.cards.find(c => c.id === cardId);
   if (!card) return;
 
@@ -1756,6 +1776,9 @@ async function toggleCardAvailable(cardId) {
 }
 
 async function handleDeleteCard(cardId) {
+  if (!Array.isArray(AppState.cards)) {
+    AppState.cards = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.cards || []));
+  }
   const card = AppState.cards.find(c => c.id === cardId);
   const name = card ? card.name : 'este card';
 
@@ -1891,24 +1914,49 @@ async function resetCardsToDefault() {
 
 async function saveCardsToCloud() {
   try {
-    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
-      method: 'POST',
+    const payload = {
+      id: 'system_cards_config',
+      name: 'Cards Configuration',
+      category: 'system_cards',
+      status: 'active',
+      price_brl: 0,
+      cost_brl: 0,
+      description: JSON.stringify(AppState.cards)
+    };
+
+    // 1. Tentar PATCH diretamente na linha existente (garante atualização confiável)
+    let res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_cards_config`, {
+      method: 'PATCH',
       headers: {
         'apikey': SUPABASE_CONFIG.key,
         'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
+        'Prefer': 'return=representation'
       },
-      body: JSON.stringify({
-        id: 'system_cards_config',
-        name: 'Cards Configuration',
-        category: 'system_cards',
-        status: 'active',
-        price_brl: 0,
-        cost_brl: 0,
-        description: JSON.stringify(AppState.cards)
-      })
+      body: JSON.stringify({ description: JSON.stringify(AppState.cards) })
     });
+
+    let updated = false;
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (Array.isArray(data) && data.length > 0) {
+        updated = true;
+      }
+    }
+
+    // 2. Se o registro ainda não existia no banco, faz POST com resolução de duplicatas
+    if (!updated) {
+      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?on_conflict=id`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_CONFIG.key,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(payload)
+      });
+    }
   } catch (err) {
     console.warn('Erro ao salvar cards na nuvem:', err);
   }
@@ -1925,8 +1973,16 @@ async function syncCardsFromCloud() {
     if (!res.ok) return;
     const data = await res.json();
     if (data && data.length > 0 && data[0].description) {
-      const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      let parsed = null;
+      try {
+        parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
+      } catch (err) {
+        console.warn('Erro ao parsear cards da nuvem:', err);
+        return;
+      }
+
+      // Permite array vazio [] (quando o admin excluiu todos os cards)
+      if (Array.isArray(parsed)) {
         AppState.cards = parsed.map(c => ({
           ...c,
           active: c.active !== false,
@@ -1951,7 +2007,8 @@ let currentCheckoutCard = null;
 let checkoutPollInterval = null;
 
 function openCheckoutModal(cardId) {
-  const card = AppState.cards.find(c => c.id === cardId);
+  const cards = Array.isArray(AppState.cards) ? AppState.cards : (window.TECH_UNION_DATA.cards || []);
+  const card = cards.find(c => c.id === cardId);
   if (!card) return;
 
   if (card.available === false) {
@@ -2884,24 +2941,45 @@ async function resetSidebarMenuToDefault() {
 
 async function saveMenuToCloud() {
   try {
-    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services`, {
-      method: 'POST',
+    const payload = {
+      id: 'system_sidebar_menu',
+      name: 'Sidebar Menu Configuration',
+      category: 'system_menu',
+      status: 'active',
+      price_brl: 0,
+      cost_brl: 0,
+      description: JSON.stringify(AppState.sidebarMenu)
+    };
+
+    let res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?id=eq.system_sidebar_menu`, {
+      method: 'PATCH',
       headers: {
         'apikey': SUPABASE_CONFIG.key,
         'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
+        'Prefer': 'return=representation'
       },
-      body: JSON.stringify({
-        id: 'system_sidebar_menu',
-        name: 'Sidebar Menu Configuration',
-        category: 'system_menu',
-        status: 'active',
-        price_brl: 0,
-        cost_brl: 0,
-        description: JSON.stringify(AppState.sidebarMenu)
-      })
+      body: JSON.stringify({ description: JSON.stringify(AppState.sidebarMenu) })
     });
+
+    let updated = false;
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (Array.isArray(data) && data.length > 0) updated = true;
+    }
+
+    if (!updated) {
+      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/services?on_conflict=id`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_CONFIG.key,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(payload)
+      });
+    }
   } catch (err) {
     console.warn('Erro ao salvar menu lateral na nuvem:', err);
   }
@@ -2918,36 +2996,16 @@ async function syncMenuFromCloud() {
     if (!res.ok) return;
     const data = await res.json();
     if (data && data.length > 0 && data[0].description) {
-      const parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      let parsed = null;
+      try {
+        parsed = typeof data[0].description === 'string' ? JSON.parse(data[0].description) : data[0].description;
+      } catch (e) {
+        console.warn('Erro ao interpretar menu lateral da nuvem:', e);
+        return;
+      }
+
+      if (Array.isArray(parsed)) {
         AppState.sidebarMenu = parsed;
-        if (!AppState.sidebarMenu.some(m => m.id === 'nav_port_link')) {
-          const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
-          const portLinkDef = (window.TECH_UNION_DATA.sidebarMenu || []).find(m => m.id === 'nav_port_link') || {
-            id: 'nav_port_link', section: 'Sistema', label: 'Port Link', icon: 'fa-solid fa-network-wired', actionType: 'port_link', badge: 'NOVO', active: true
-          };
-          if (sysIdx >= 0) {
-            AppState.sidebarMenu.splice(sysIdx, 0, portLinkDef);
-          } else {
-            AppState.sidebarMenu.push(portLinkDef);
-          }
-        }
-        if (!AppState.sidebarMenu.some(m => m.id === 'nav_frp_mtk_moto')) {
-          const portLinkIdx = AppState.sidebarMenu.findIndex(item => item.id === 'nav_port_link');
-          const frpMtkDef = (window.TECH_UNION_DATA.sidebarMenu || []).find(m => m.id === 'nav_frp_mtk_moto') || {
-            id: 'nav_frp_mtk_moto', section: 'Sistema', label: 'FRP MTK Motorola', icon: 'fa-solid fa-mobile-screen-button', actionType: 'frp_mtk_moto', badge: 'NOVO', active: true
-          };
-          if (portLinkIdx >= 0) {
-            AppState.sidebarMenu.splice(portLinkIdx + 1, 0, frpMtkDef);
-          } else {
-            const sysIdx = AppState.sidebarMenu.findIndex(item => item.section === 'Sistema');
-            if (sysIdx >= 0) {
-              AppState.sidebarMenu.splice(sysIdx, 0, frpMtkDef);
-            } else {
-              AppState.sidebarMenu.push(frpMtkDef);
-            }
-          }
-        }
         localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
         renderSidebarMenu();
         if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
