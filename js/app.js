@@ -312,14 +312,24 @@ function initStorage() {
   const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
   AppState.orders = savedOrders ? JSON.parse(savedOrders) : [];
 
-  // 8. Remover aba Loja Oficial da Sidebar do site
-  if (AppState.sidebarMenu && AppState.sidebarMenu.length > 0) {
-    AppState.sidebarMenu = AppState.sidebarMenu.filter(item => item.id !== 'nav_official_store');
+  // 8. Loja Oficial - Menu, Produtos, Usuários, Pedidos e Sessão
+  if (!AppState.sidebarMenu.some(item => item.id === 'nav_official_store')) {
+    const storeDef = {
+      id: 'nav_official_store',
+      section: 'Principal',
+      label: 'Loja Oficial',
+      icon: 'fa-solid fa-store',
+      actionType: 'official_store',
+      badge: 'OFICIAL',
+      active: true
+    };
+    const dashIdx = AppState.sidebarMenu.findIndex(item => item.id === 'nav_dashboard');
+    if (dashIdx >= 0) {
+      AppState.sidebarMenu.splice(dashIdx + 1, 0, storeDef);
+    } else {
+      AppState.sidebarMenu.unshift(storeDef);
+    }
     localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
-  }
-  if (localStorage.getItem(STORAGE_KEYS.ACTIVE_VIEW) === 'officialStoreView') {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'dashboard');
-    AppState.activeView = 'dashboard';
   }
 
   const savedStoreProducts = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS);
@@ -3101,9 +3111,23 @@ async function syncMenuFromCloud() {
       if (Array.isArray(parsed)) {
         let menuNeedsCloudSave = false;
 
-        // 1. Remover Loja Oficial caso exista na nuvem
-        if (parsed.some(item => item.id === 'nav_official_store')) {
-          parsed = parsed.filter(item => item.id !== 'nav_official_store');
+        // 1. Garantir que a Loja Oficial SEMPRE exista no menu Principal
+        if (!parsed.some(item => item.id === 'nav_official_store')) {
+          const storeDef = {
+            id: 'nav_official_store',
+            section: 'Principal',
+            label: 'Loja Oficial',
+            icon: 'fa-solid fa-store',
+            actionType: 'official_store',
+            badge: 'OFICIAL',
+            active: true
+          };
+          const dashIdx = parsed.findIndex(item => item.id === 'nav_dashboard');
+          if (dashIdx >= 0) {
+            parsed.splice(dashIdx + 1, 0, storeDef);
+          } else {
+            parsed.unshift(storeDef);
+          }
           menuNeedsCloudSave = true;
         }
 
