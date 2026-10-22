@@ -72,7 +72,7 @@ window.alert = function(message) {
       <div class="modal-box" style="max-width: 440px; border: 1.5px solid rgba(168, 85, 247, 0.45); box-shadow: 0 10px 40px rgba(0,0,0,0.85), 0 0 30px rgba(168, 85, 247, 0.35); border-radius: 12px; background: #120a22; overflow: hidden; animation: portlinkFadeIn 0.25s ease;">
         <div class="modal-header" style="background: linear-gradient(135deg, rgba(147, 51, 234, 0.25), rgba(91, 26, 141, 0.4)); padding: 12px 16px; border-bottom: 1px solid rgba(168, 85, 247, 0.3); display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="assets/logo.png" alt="Logo" style="width: 24px; height: 24px; object-fit: contain; border-radius: 50%; border: 1px solid rgba(168, 85, 247, 0.5);">
+            <img src="assets/logo.png?v=2.0" alt="Logo" style="width: 24px; height: 24px; object-fit: contain; border-radius: 50%; border: 1px solid rgba(168, 85, 247, 0.5);">
             <span style="font-weight: 800; font-size: 13.5px; color: #ffffff; letter-spacing: 0.3px;">SuporteServerSmart-Brasil Online</span>
           </div>
           <button type="button" id="customAlertCloseBtn" style="background: transparent; border: none; color: #c4b5fd; font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1;">&times;</button>
@@ -4400,7 +4400,7 @@ function openStoreProductDetail(productId) {
 
             <!-- Vendedor Verificado -->
             <div class="store-seller-card">
-              <img src="assets/logo.png" alt="ServerSmart" class="store-seller-avatar">
+              <img src="assets/logo.png?v=2.0" alt="ServerSmart" class="store-seller-avatar">
               <div>
                 <div style="font-size: 13px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 5px;">
                   SuporteServerSmart <i class="fa-solid fa-circle-check" style="color: #a855f7; font-size: 12px;"></i>
