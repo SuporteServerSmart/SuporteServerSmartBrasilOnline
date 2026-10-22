@@ -3702,8 +3702,10 @@ function openOfficialStore() {
   AppState.activeView = 'official_store';
   localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'officialStoreView');
 
-  document.getElementById('dashboardView').style.display = 'none';
-  document.getElementById('adminView').style.display = 'none';
+  const dashView = document.getElementById('dashboardView');
+  if (dashView) dashView.style.display = 'none';
+  const adminView = document.getElementById('adminView');
+  if (adminView) adminView.style.display = 'none';
   const ordersView = document.getElementById('ordersView');
   if (ordersView) ordersView.style.display = 'none';
   
@@ -3727,23 +3729,22 @@ function openOfficialStore() {
   if (!storeUser || !storeUser.username) {
     // Solicita criar nome de usuário e senha conforme pedido pelo usuário
     openStoreAuthModal('register');
-    return;
-  }
-
-  // Verificar se o usuário foi bloqueado pelo Admin
-  const registeredUser = (AppState.officialStoreUsers || []).find(
-    u => u.username && u.username.toLowerCase() === storeUser.username.toLowerCase()
-  );
-  if (registeredUser && registeredUser.status === 'bloqueado') {
-    alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Entre em contato com o suporte.');
-    storeLogout();
-    return;
+  } else {
+    // Verificar se o usuário foi bloqueado pelo Admin
+    const registeredUser = (AppState.officialStoreUsers || []).find(
+      u => u.username && u.username.toLowerCase() === storeUser.username.toLowerCase()
+    );
+    if (registeredUser && registeredUser.status === 'bloqueado') {
+      alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Entre em contato com o suporte.');
+      storeLogout();
+      return;
+    }
   }
 
   // Atualizar cabeçalho do usuário na Loja
   const userGreeting = document.getElementById('storeUserGreeting');
   if (userGreeting) {
-    userGreeting.textContent = storeUser.username;
+    userGreeting.textContent = (storeUser && storeUser.username) ? `@${storeUser.username}` : 'Convidado';
   }
 }
 
@@ -3752,13 +3753,17 @@ function openStoreAuthModal(defaultTab = 'register') {
   const modal = document.getElementById('officialStoreAuthModal');
   if (modal) {
     modal.style.display = 'flex';
+    modal.classList.add('active');
     switchStoreAuthTab(defaultTab);
   }
 }
 
 function closeStoreAuthModal() {
   const modal = document.getElementById('officialStoreAuthModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function switchStoreAuthTab(tab) {
@@ -4478,12 +4483,16 @@ function openStoreProductDetail(productId) {
   const modal = document.getElementById('officialStoreProductModal');
   if (modal) {
     modal.style.display = 'flex';
+    modal.classList.add('active');
   }
 }
 
 function closeStoreProductModal() {
   const modal = document.getElementById('officialStoreProductModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function handleStoreQuestionSubmit() {
@@ -4536,12 +4545,18 @@ function addToCartAndOpen(productId) {
 function openStoreCart() {
   renderStoreCart();
   const overlay = document.getElementById('officialStoreCartOverlay');
-  if (overlay) overlay.style.display = 'flex';
+  if (overlay) {
+    overlay.style.display = 'flex';
+    overlay.classList.add('active');
+  }
 }
 
 function closeStoreCart() {
   const overlay = document.getElementById('officialStoreCartOverlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+  }
 }
 
 function updateStoreCartBadge() {
@@ -4658,7 +4673,10 @@ async function checkoutStoreCart() {
   // Abrir modal do PIX imediatamente em estado de carregamento
   closeStoreCart();
   const pixModal = document.getElementById('officialStorePixModal');
-  if (pixModal) pixModal.style.display = 'flex';
+  if (pixModal) {
+    pixModal.style.display = 'flex';
+    pixModal.classList.add('active');
+  }
 
   document.getElementById('pixOrderBadge').textContent = `PEDIDO #${orderId}`;
   document.getElementById('pixTotalValue').textContent = `R$ ${totalAmount.toFixed(2).replace('.', ',')}`;
@@ -4887,7 +4905,10 @@ function closeStorePixModal() {
     clearInterval(AppState.storePixPollingInterval);
   }
   const modal = document.getElementById('officialStorePixModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function copyPixCode() {

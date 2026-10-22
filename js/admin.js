@@ -348,10 +348,12 @@ function toggleStoreSubmenu() {
   const submenu = document.getElementById('submenu-manage-store');
   const arrow = document.getElementById('store-submenu-arrow');
   if (!submenu) return;
-  const isHidden = submenu.style.display === 'none' || !submenu.style.display;
-  submenu.style.display = isHidden ? 'flex' : 'none';
-  if (arrow) arrow.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+  const isHidden = submenu.style.display === 'none';
   if (isHidden) {
+    submenu.style.display = 'flex';
+    if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    switchTab('store-products');
+  } else {
     switchTab('store-products');
   }
 }
