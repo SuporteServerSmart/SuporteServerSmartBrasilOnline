@@ -1362,7 +1362,7 @@ function openToolsModal(categoryName) {
 // ==========================================================================
 function updateAllConfigDisplays() {
   const cfg = AppState.systemConfig || {};
-  const version = cfg.version || '1.3.4';
+  const version = cfg.version || '1.3.5';
   const trialDays = cfg.trialDaysDefault !== undefined ? parseInt(cfg.trialDaysDefault) : 7;
 
   // 1. Selo de Versão no topo
@@ -1407,7 +1407,7 @@ function loadConfigForm() {
   const cfgTrialDays = document.getElementById('cfgTrialDays');
   const cfgMpAccessToken = document.getElementById('cfgMpAccessToken');
 
-  if (cfgVersion) cfgVersion.value = cfg.version || '1.3.4';
+  if (cfgVersion) cfgVersion.value = cfg.version || '1.3.5';
   if (cfgWhatsapp) cfgWhatsapp.value = cfg.supportWhatsapp || '';
   if (cfgTrialDays) cfgTrialDays.value = cfg.trialDaysDefault !== undefined ? cfg.trialDaysDefault : 7;
   if (cfgMpAccessToken) cfgMpAccessToken.value = cfg.mpAccessToken || '';
@@ -3108,9 +3108,81 @@ async function syncMenuFromCloud() {
       }
 
       if (Array.isArray(parsed)) {
+        let menuNeedsCloudSave = false;
+
+        // 1. Garantir que a Loja Oficial SEMPRE exista no menu Principal
+        if (!parsed.some(item => item.id === 'nav_official_store')) {
+          const storeDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+            ? (window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_official_store') || {
+                id: 'nav_official_store',
+                section: 'Principal',
+                label: 'Loja Oficial',
+                icon: 'fa-solid fa-store',
+                actionType: 'official_store',
+                badge: 'OFICIAL',
+                active: true
+              })
+            : {
+                id: 'nav_official_store',
+                section: 'Principal',
+                label: 'Loja Oficial',
+                icon: 'fa-solid fa-store',
+                actionType: 'official_store',
+                badge: 'OFICIAL',
+                active: true
+              };
+
+          const dashIdx = parsed.findIndex(item => item.id === 'nav_dashboard');
+          if (dashIdx >= 0) {
+            parsed.splice(dashIdx + 1, 0, JSON.parse(JSON.stringify(storeDef)));
+          } else {
+            parsed.unshift(JSON.parse(JSON.stringify(storeDef)));
+          }
+          menuNeedsCloudSave = true;
+        }
+
+        // 2. Garantir que Port Link exista no menu Sistema
+        if (!parsed.some(item => item.id === 'nav_port_link')) {
+          const portLinkDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+            ? window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_port_link')
+            : null;
+          if (portLinkDef) {
+            const sysIdx = parsed.findIndex(item => item.section === 'Sistema');
+            if (sysIdx >= 0) {
+              parsed.splice(sysIdx, 0, JSON.parse(JSON.stringify(portLinkDef)));
+            } else {
+              parsed.push(JSON.parse(JSON.stringify(portLinkDef)));
+            }
+            menuNeedsCloudSave = true;
+          }
+        }
+
+        // 3. Garantir que FRP MTK Motorola exista no menu Sistema
+        if (!parsed.some(item => item.id === 'nav_frp_mtk_moto')) {
+          const frpMtkDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+            ? window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_frp_mtk_moto')
+            : null;
+          if (frpMtkDef) {
+            const portIdx = parsed.findIndex(item => item.id === 'nav_port_link');
+            if (portIdx >= 0) {
+              parsed.splice(portIdx + 1, 0, JSON.parse(JSON.stringify(frpMtkDef)));
+            } else {
+              const sysIdx = parsed.findIndex(item => item.section === 'Sistema');
+              if (sysIdx >= 0) parsed.splice(sysIdx, 0, JSON.parse(JSON.stringify(frpMtkDef)));
+              else parsed.push(JSON.parse(JSON.stringify(frpMtkDef)));
+            }
+            menuNeedsCloudSave = true;
+          }
+        }
+
         AppState.sidebarMenu = parsed;
         localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
         renderSidebarMenu();
+
+        if (menuNeedsCloudSave) {
+          saveMenuToCloud();
+        }
+
         if (document.getElementById('adminView') && document.getElementById('adminView').style.display === 'block') {
           renderAdminMenuTable();
         }

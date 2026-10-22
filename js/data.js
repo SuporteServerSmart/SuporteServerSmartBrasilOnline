@@ -6,7 +6,7 @@ const TECH_UNION_DATA = {
     name: "SuporteServerSmart-Brasil Online",
     subtitle: "Feita de técnico para técnicos!",
     tagline: "A plataforma Nº1 em soluções para técnicos de smartphones.",
-    version: "1.3.4",
+    version: "1.3.5",
     status: "Online",
     supportWhatsapp: "5511999999999",
     trialDaysDefault: 7,
