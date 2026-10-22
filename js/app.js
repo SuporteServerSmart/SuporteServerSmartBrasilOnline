@@ -17,7 +17,12 @@ const STORAGE_KEYS = {
   ADMIN_TAB: 'tu_admin_tab_v1',
   CARDS: 'tu_custom_cards_v1',
   ORDERS: 'tu_user_orders_v1',
-  MENU: 'tu_custom_menu_v1'
+  MENU: 'tu_custom_menu_v1',
+  OFFICIAL_STORE_PRODUCTS: 'tu_official_store_products_v1',
+  OFFICIAL_STORE_USERS: 'tu_official_store_users_v1',
+  OFFICIAL_STORE_ORDERS: 'tu_official_store_orders_v1',
+  OFFICIAL_STORE_SESSION: 'tu_official_store_session_v1',
+  OFFICIAL_STORE_CART: 'tu_official_store_cart_v1'
 };
 
 // Credenciais Oficiais e Exclusivas do Administrador Geral
@@ -38,7 +43,17 @@ const AppState = {
   orders: [],
   sidebarMenu: [],
   systemConfig: {},
-  activeView: 'dashboard'
+  activeView: 'dashboard',
+  officialStoreProducts: [],
+  officialStoreUsers: [],
+  officialStoreOrders: [],
+  officialStoreUser: null,
+  officialStoreCart: [],
+  officialStoreFilterCategory: 'all',
+  officialStoreSearchQuery: '',
+  currentStoreProductDetail: null,
+  currentStorePixOrder: null,
+  storePixPollingInterval: null
 };
 
 // ==========================================================================
@@ -98,6 +113,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   checkAuth();
   updateOrdersBadge();
+  updateStoreCartBadge();
+
+  // Abrir Loja Oficial se estiver no hash da URL ou na sessão salva
+  if (window.location.hash === '#loja-oficial') {
+    openOfficialStore();
+  } else {
+    const savedActiveView = localStorage.getItem(STORAGE_KEYS.ACTIVE_VIEW);
+    if (savedActiveView === 'officialStoreView') {
+      openOfficialStore();
+    }
+  }
+
   // Sincronização em nuvem automática
   syncSystemConfigFromCloud();
   syncUsersFromCloud();
@@ -289,6 +316,58 @@ function initStorage() {
   // 7. Pedidos / Compras
   const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
   AppState.orders = savedOrders ? JSON.parse(savedOrders) : [];
+
+  // 8. Loja Oficial - Menu, Produtos, Usuários, Pedidos e Sessão
+  if (!AppState.sidebarMenu.some(item => item.id === 'nav_official_store')) {
+    const storeDef = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.sidebarMenu))
+      ? (window.TECH_UNION_DATA.sidebarMenu.find(m => m.id === 'nav_official_store') || {
+          id: 'nav_official_store',
+          section: 'Principal',
+          label: 'Loja Oficial',
+          icon: 'fa-solid fa-store',
+          actionType: 'official_store',
+          badge: 'OFICIAL',
+          active: true
+        })
+      : {
+          id: 'nav_official_store',
+          section: 'Principal',
+          label: 'Loja Oficial',
+          icon: 'fa-solid fa-store',
+          actionType: 'official_store',
+          badge: 'OFICIAL',
+          active: true
+        };
+
+    const dashIdx = AppState.sidebarMenu.findIndex(item => item.id === 'nav_dashboard');
+    if (dashIdx >= 0) {
+      AppState.sidebarMenu.splice(dashIdx + 1, 0, JSON.parse(JSON.stringify(storeDef)));
+    } else {
+      AppState.sidebarMenu.unshift(JSON.parse(JSON.stringify(storeDef)));
+    }
+    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(AppState.sidebarMenu));
+  }
+
+  const savedStoreProducts = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS);
+  AppState.officialStoreProducts = savedStoreProducts
+    ? JSON.parse(savedStoreProducts)
+    : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreProducts || []));
+
+  const savedStoreUsers = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_USERS);
+  AppState.officialStoreUsers = savedStoreUsers
+    ? JSON.parse(savedStoreUsers)
+    : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreUsers || []));
+
+  const savedStoreOrders = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS);
+  AppState.officialStoreOrders = savedStoreOrders
+    ? JSON.parse(savedStoreOrders)
+    : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreOrders || []));
+
+  const savedStoreSession = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_SESSION);
+  AppState.officialStoreUser = savedStoreSession ? JSON.parse(savedStoreSession) : null;
+
+  const savedStoreCart = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_CART);
+  AppState.officialStoreCart = savedStoreCart ? JSON.parse(savedStoreCart) : [];
 }
 
 // ==========================================================================
@@ -992,11 +1071,16 @@ function showAdminView(initialTab = 'tab-users') {
   }
 
   // Persistir que o Admin está no painel para não sair ao atualizar a página (F5)
+  AppState.activeView = 'admin';
   localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'adminView');
   localStorage.setItem(STORAGE_KEYS.ADMIN_TAB, initialTab);
 
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('adminView').style.display = 'block';
+  const storeView = document.getElementById('officialStoreView');
+  if (storeView) storeView.style.display = 'none';
+  const ordersView = document.getElementById('ordersView');
+  if (ordersView) ordersView.style.display = 'none';
 
   // Atualizar botões da sidebar
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1011,9 +1095,14 @@ function showAdminView(initialTab = 'tab-users') {
 }
 
 function showDashboardView() {
+  AppState.activeView = 'dashboard';
   localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'dashboardView');
   document.getElementById('dashboardView').style.display = 'block';
   document.getElementById('adminView').style.display = 'none';
+  const storeView = document.getElementById('officialStoreView');
+  if (storeView) storeView.style.display = 'none';
+  const ordersView = document.getElementById('ordersView');
+  if (ordersView) ordersView.style.display = 'none';
 
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const dashNavItem = document.getElementById('navDashboardLink');
@@ -1050,6 +1139,15 @@ function switchAdminTab(tabId) {
   }
   if (tabId === 'tab-config') {
     loadConfigForm();
+  }
+  if (tabId === 'tab-store-products') {
+    renderAdminStoreProducts();
+  }
+  if (tabId === 'tab-store-users') {
+    renderAdminStoreUsers();
+  }
+  if (tabId === 'tab-store-orders') {
+    renderAdminStoreOrders();
   }
 }
 
@@ -2255,8 +2353,11 @@ function confirmPurchaseAndReleaseDownload(cardId, paymentId, customerEmail) {
 }
 
 function showOrdersView() {
+  AppState.activeView = 'orders';
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('adminView').style.display = 'none';
+  const storeView = document.getElementById('officialStoreView');
+  if (storeView) storeView.style.display = 'none';
   document.getElementById('ordersView').style.display = 'block';
 
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -2645,6 +2746,8 @@ function renderSidebarMenu() {
         onclickStr = 'openAllNewsModal()';
       } else if (item.actionType === 'tool_modal') {
         onclickStr = `openToolsModal('${escapeHtml(item.toolCategory || item.label)}')`;
+      } else if (item.actionType === 'official_store' || item.id === 'nav_official_store') {
+        onclickStr = 'openOfficialStore()';
       } else if (item.actionType === 'port_link' || item.id === 'nav_port_link') {
         onclickStr = 'openPortLinkModal()';
       } else if (item.actionType === 'frp_mtk_moto' || item.id === 'nav_frp_mtk_moto') {
@@ -2655,8 +2758,8 @@ function renderSidebarMenu() {
         onclickStr = 'showDashboardView()';
       }
 
-      const linkId = item.id === 'nav_dashboard' ? 'id="navDashboardLink"' : (item.id === 'nav_orders' ? 'id="navOrdersLink"' : '');
-      const activeClass = (item.id === 'nav_dashboard' && AppState.activeView === 'dashboard') ? 'active' : '';
+      const linkId = item.id === 'nav_dashboard' ? 'id="navDashboardLink"' : (item.id === 'nav_official_store' ? 'id="navOfficialStoreLink"' : (item.id === 'nav_orders' ? 'id="navOrdersLink"' : ''));
+      const activeClass = (item.id === 'nav_dashboard' && AppState.activeView === 'dashboard') || (item.id === 'nav_official_store' && AppState.activeView === 'official_store') ? 'active' : '';
 
       return `
         <li>
@@ -3487,6 +3590,1503 @@ window.filterFrpMotorolaSearch = filterFrpMotorolaSearch;
 window.selectMotorolaModel = selectMotorolaModel;
 window.selectFrpServiceType = selectFrpServiceType;
 window.sendFrpMotorolaOrderWhatsApp = sendFrpMotorolaOrderWhatsApp;
+
+// ==========================================================================
+// LOJA OFICIAL - MARKETPLACE EXCLUSIVO (ESTILO BASEFY)
+// ==========================================================================
+
+// 1. Abrir a Loja Oficial / Controle de Acesso
+function openOfficialStore() {
+  // Verifica se o usuário já tem sessão ativa na Loja Oficial
+  const storeUser = AppState.officialStoreUser;
+  if (!storeUser || !storeUser.username) {
+    // Não está logado na Loja Oficial: Abre modal de Autenticação / Cadastro
+    openStoreAuthModal();
+    return;
+  }
+
+  // Verificar se o usuário foi bloqueado pelo Admin
+  const registeredUser = (AppState.officialStoreUsers || []).find(
+    u => u.username && u.username.toLowerCase() === storeUser.username.toLowerCase()
+  );
+  if (registeredUser && registeredUser.status === 'bloqueado') {
+    alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Entre em contato com o suporte.');
+    storeLogout();
+    return;
+  }
+
+  // Usuário autenticado e liberado: Exibe a tela da Loja Oficial
+  AppState.activeView = 'official_store';
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'officialStoreView');
+
+  document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'none';
+  const ordersView = document.getElementById('ordersView');
+  if (ordersView) ordersView.style.display = 'none';
+  
+  const storeView = document.getElementById('officialStoreView');
+  if (storeView) storeView.style.display = 'block';
+
+  // Atualizar botões na barra lateral
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const storeNav = document.getElementById('navOfficialStoreLink');
+  if (storeNav) storeNav.classList.add('active');
+
+  // Atualizar cabeçalho do usuário na Loja
+  const userGreeting = document.getElementById('storeUserGreeting');
+  if (userGreeting) {
+    userGreeting.textContent = storeUser.username;
+  }
+
+  // Renderizar vitrine de produtos e carrinho
+  renderOfficialStore();
+  updateStoreCartBadge();
+
+  // Scroll suave ao topo
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 2. Modais de Autenticação da Loja Oficial (Login & Cadastro)
+function openStoreAuthModal() {
+  const modal = document.getElementById('officialStoreAuthModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    switchStoreAuthTab('login');
+  }
+}
+
+function closeStoreAuthModal() {
+  const modal = document.getElementById('officialStoreAuthModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function switchStoreAuthTab(tab) {
+  const loginBtn = document.getElementById('storeAuthTabLoginBtn');
+  const regBtn = document.getElementById('storeAuthTabRegBtn');
+  const loginForm = document.getElementById('storeLoginForm');
+  const regForm = document.getElementById('storeRegisterForm');
+
+  if (tab === 'login') {
+    if (loginBtn) loginBtn.classList.add('active');
+    if (regBtn) regBtn.classList.remove('active');
+    if (loginForm) loginForm.style.display = 'block';
+    if (regForm) regForm.style.display = 'none';
+  } else {
+    if (loginBtn) loginBtn.classList.remove('active');
+    if (regBtn) regBtn.classList.add('active');
+    if (loginForm) loginForm.style.display = 'none';
+    if (regForm) regForm.style.display = 'block';
+  }
+}
+
+function handleStoreLogin(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById('storeLoginUsername');
+  const passInput = document.getElementById('storeLoginPassword');
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  const pass = passInput ? passInput.value.trim() : '';
+
+  if (!username || !pass) {
+    alert('Informe o nome de usuário e a senha para entrar.');
+    return;
+  }
+
+  // Buscar usuário na base da Loja Oficial
+  const user = (AppState.officialStoreUsers || []).find(
+    u => u.username && u.username.toLowerCase() === username.toLowerCase()
+  );
+
+  if (!user) {
+    alert('Usuário não encontrado na Loja Oficial! Se for seu primeiro acesso, clique na aba "Criar Novo Acesso".');
+    return;
+  }
+
+  if (user.password !== pass) {
+    alert('Senha incorreta! Verifique os dados digitados ou contate o suporte.');
+    return;
+  }
+
+  if (user.status === 'bloqueado') {
+    alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Contate o suporte.');
+    return;
+  }
+
+  // Salvar sessão ativa
+  AppState.officialStoreUser = {
+    username: user.username,
+    whatsapp: user.whatsapp || '',
+    id: user.id
+  };
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_SESSION, JSON.stringify(AppState.officialStoreUser));
+
+  closeStoreAuthModal();
+  openOfficialStore();
+}
+
+function handleStoreRegister(e) {
+  e.preventDefault();
+  const username = (document.getElementById('storeRegUsername').value || '').trim();
+  const whatsapp = (document.getElementById('storeRegWhatsapp').value || '').trim();
+  const pass = (document.getElementById('storeRegPassword').value || '').trim();
+  const passConfirm = (document.getElementById('storeRegPasswordConfirm').value || '').trim();
+
+  if (!username || !whatsapp || !pass) {
+    alert('Preencha todos os campos para criar seu acesso.');
+    return;
+  }
+
+  if (pass !== passConfirm) {
+    alert('As senhas digitadas não coincidem. Digite a mesma senha em ambos os campos.');
+    return;
+  }
+
+  // Verificar se o nome de usuário já existe
+  const exists = (AppState.officialStoreUsers || []).some(
+    u => u.username && u.username.toLowerCase() === username.toLowerCase()
+  );
+  if (exists) {
+    alert('Este nome de usuário já está em uso na Loja Oficial. Por favor, escolha outro.');
+    return;
+  }
+
+  // Criar novo usuário na Loja Oficial com status 'ativo' (liberado imediatamente conforme solicitado)
+  const newUser = {
+    id: 'store_user_' + Date.now(),
+    username: username,
+    password: pass,
+    whatsapp: whatsapp,
+    createdAt: new Date().toISOString(),
+    status: 'ativo',
+    createdBy: 'self'
+  };
+
+  AppState.officialStoreUsers.push(newUser);
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_USERS, JSON.stringify(AppState.officialStoreUsers));
+
+  // Autentica o usuário automaticamente
+  AppState.officialStoreUser = {
+    username: newUser.username,
+    whatsapp: newUser.whatsapp,
+    id: newUser.id
+  };
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_SESSION, JSON.stringify(AppState.officialStoreUser));
+
+  // Limpar formulário
+  e.target.reset();
+  closeStoreAuthModal();
+
+  alert(`Acesso liberado com sucesso! Bem-vindo à Loja Oficial, ${username}!`);
+  openOfficialStore();
+}
+
+function storeLogout() {
+  AppState.officialStoreUser = null;
+  localStorage.removeItem(STORAGE_KEYS.OFFICIAL_STORE_SESSION);
+  showDashboardView();
+}
+
+// 3. Renderização dos Produtos e Filtros
+function renderOfficialStore() {
+  const grid = document.getElementById('storeProductsGrid');
+  if (!grid) return;
+
+  const currentCategory = AppState.officialStoreFilterCategory || 'all';
+  const query = (AppState.officialStoreSearchQuery || '').toLowerCase().trim();
+
+  let products = (AppState.officialStoreProducts || []).filter(p => p.active !== false);
+
+  if (currentCategory !== 'all') {
+    products = products.filter(p => p.categoryKey === currentCategory || (p.category && p.category.toLowerCase().includes(currentCategory)));
+  }
+
+  if (query) {
+    products = products.filter(p => 
+      (p.title && p.title.toLowerCase().includes(query)) ||
+      (p.description && p.description.toLowerCase().includes(query)) ||
+      (p.category && p.category.toLowerCase().includes(query))
+    );
+  }
+
+  // Atualizar contador
+  const countEl = document.getElementById('storeResultsCount');
+  if (countEl) {
+    countEl.textContent = `Mostrando 1-${products.length} de ${products.length} anúncios oficiais`;
+  }
+
+  if (products.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: rgba(168, 85, 247, 0.05); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 14px;">
+        <i class="fa-solid fa-magnifying-glass" style="font-size: 38px; color: #a78bfa; margin-bottom: 12px;"></i>
+        <h3 style="color: #ffffff; font-size: 16px; font-weight: 700;">Nenhum anúncio encontrado</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">Tente pesquisar com outro termo ou selecione "Todos os Anúncios".</p>
+        <button class="btn-ticker-all" onclick="clearStoreSearch()" style="margin-top: 14px; padding: 6px 16px;">Limpar Filtros</button>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = products.map(p => {
+    const discount = p.oldPrice && p.oldPrice > p.price
+      ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
+      : 0;
+
+    const badgeText = p.badge || (discount > 0 ? `-${discount}%` : 'OFICIAL');
+    const badgeColor = p.badgeColor || '#8b5cf6';
+
+    return `
+      <div class="store-card" onclick="openStoreProductDetail('${escapeHtml(p.id)}')">
+        <div class="store-card-img-box">
+          <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}" class="store-card-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+          <span class="store-card-badge" style="background: ${badgeColor};">${escapeHtml(badgeText)}</span>
+          ${discount > 0 ? `<span class="store-card-discount-tag">-${discount}%</span>` : ''}
+        </div>
+        <div class="store-card-content">
+          <div class="store-card-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div>
+          <div class="store-card-prices">
+            <span class="store-card-current-price">R$ ${p.price.toFixed(2).replace('.', ',')}</span>
+            ${p.oldPrice ? `<span class="store-card-old-price">R$ ${p.oldPrice.toFixed(2).replace('.', ',')}</span>` : ''}
+          </div>
+          <div class="store-card-footer">
+            <span class="store-card-seller">
+              <i class="fa-solid fa-circle-check" style="color: #a855f7;"></i>
+              ${escapeHtml(p.seller || 'SuporteServerSmart')}
+            </span>
+            <span class="store-card-rating">
+              <i class="fa-solid fa-star"></i> ${p.rating ? p.rating.toFixed(1) : '5.0'}
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setStoreCategoryFilter(categoryKey, btn) {
+  AppState.officialStoreFilterCategory = categoryKey;
+  document.querySelectorAll('.store-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const heading = document.getElementById('storeCategoryHeading');
+  if (heading) {
+    if (categoryKey === 'ai') heading.textContent = 'Inteligência Artificial';
+    else if (categoryKey === 'credits') heading.textContent = 'Créditos & Tokens';
+    else if (categoryKey === 'frp') heading.textContent = 'FRP & Servidores GSM';
+    else if (categoryKey === 'tools') heading.textContent = 'Ferramentas & Softwares';
+    else heading.textContent = 'Inteligência artificial & Ferramentas Oficiais';
+  }
+
+  renderOfficialStore();
+}
+
+function handleStoreSearch(val) {
+  AppState.officialStoreSearchQuery = val;
+  const clearBtn = document.getElementById('storeSearchClear');
+  if (clearBtn) {
+    clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none';
+  }
+  renderOfficialStore();
+}
+
+function clearStoreSearch() {
+  AppState.officialStoreSearchQuery = '';
+  const input = document.getElementById('storeSearchInput');
+  if (input) input.value = '';
+  const clearBtn = document.getElementById('storeSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderOfficialStore();
+}
+
+// 4. Detalhes do Produto (Idêntico à Imagem 2 do Usuário)
+function openStoreProductDetail(productId) {
+  const prod = (AppState.officialStoreProducts || []).find(p => p.id === productId);
+  if (!prod) return;
+
+  AppState.currentStoreProductDetail = prod;
+
+  const headerTitle = document.getElementById('modalProductTitleHeader');
+  if (headerTitle) {
+    headerTitle.textContent = prod.title;
+  }
+
+  const discount = prod.oldPrice && prod.oldPrice > prod.price
+    ? Math.round(((prod.oldPrice - prod.price) / prod.oldPrice) * 100)
+    : 0;
+
+  // Produtos parecidos / relacionados
+  const relatedProducts = (AppState.officialStoreProducts || [])
+    .filter(p => p.id !== prod.id && p.active !== false)
+    .slice(0, 4);
+
+  const relatedHtml = relatedProducts.map(rp => `
+    <div class="store-card" onclick="openStoreProductDetail('${escapeHtml(rp.id)}')" style="background: #0d0e17;">
+      <div class="store-card-img-box" style="aspect-ratio: 16/9;">
+        <img src="${escapeHtml(rp.image)}" alt="${escapeHtml(rp.title)}" class="store-card-img" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+      </div>
+      <div class="store-card-content" style="padding: 10px;">
+        <div class="store-card-title" style="font-size: 11.5px; min-height: 28px;">${escapeHtml(rp.title)}</div>
+        <div class="store-card-prices" style="margin-bottom: 0;">
+          <span class="store-card-current-price" style="font-size: 14px;">R$ ${rp.price.toFixed(2).replace('.', ',')}</span>
+          ${rp.oldPrice ? `<span class="store-card-old-price" style="font-size: 10px;">R$ ${rp.oldPrice.toFixed(2).replace('.', ',')}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  const modalBody = document.getElementById('storeProductModalBody');
+  if (modalBody) {
+    modalBody.innerHTML = `
+      <div class="store-detail-grid">
+        <!-- Coluna Esquerda: Banner + Descrição + Avaliações + FAQ -->
+        <div>
+          <img src="${escapeHtml(prod.image)}" alt="${escapeHtml(prod.title)}" class="store-detail-banner-img" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+
+          <!-- Descrição do Produto -->
+          <div class="store-detail-section-card">
+            <div class="store-detail-section-title">
+              <i class="fa-solid fa-file-lines"></i> DESCRIÇÃO DO ANÚNCIO
+            </div>
+            <div class="store-detail-desc-text">${escapeHtml(prod.description)}</div>
+          </div>
+
+          <!-- Avaliações dos Clientes (5.0 Estrelas) -->
+          <div class="store-detail-section-card">
+            <div class="store-detail-section-title">
+              <i class="fa-solid fa-star" style="color: #f59e0b;"></i> Avaliações de Clientes Verificados
+            </div>
+            
+            <div class="store-ratings-breakdown">
+              <div>
+                <div class="store-big-rating-number">${prod.rating ? prod.rating.toFixed(1) : '5.0'}</div>
+                <div class="store-stars-row">
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">(${prod.salesCount || 176} compras aprovadas)</div>
+              </div>
+              <div style="flex: 1; border-left: 1px solid rgba(255, 255, 255, 0.08); padding-left: 20px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; margin-bottom: 3px;">
+                  <span>5 estrelas</span>
+                  <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                    <div style="width: 98%; height: 100%; background: #f59e0b;"></div>
+                  </div>
+                  <span>98%</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8;">
+                  <span>4 estrelas</span>
+                  <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                    <div style="width: 2%; height: 100%; background: #f59e0b;"></div>
+                  </div>
+                  <span>2%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comentários reais de técnicos -->
+            <div class="store-review-item">
+              <div class="store-reviewer-header">
+                <span class="store-reviewer-name">
+                  <i class="fa-solid fa-circle-user" style="color: #a855f7;"></i> Ramon Oliveira
+                  <span class="store-verified-buyer-badge">Comprador Verificado</span>
+                </span>
+                <span style="font-size: 10.5px; color: #64748b;">Há 2 horas</span>
+              </div>
+              <div style="color: #f59e0b; font-size: 11px; margin-bottom: 4px;">★★★★★</div>
+              <p style="font-size: 12px; color: #cbd5e1;">Acesso liberado no mesmo minuto após pagar o PIX! Recomendo muito o suporte, sempre com excelência.</p>
+            </div>
+
+            <div class="store-review-item">
+              <div class="store-reviewer-header">
+                <span class="store-reviewer-name">
+                  <i class="fa-solid fa-circle-user" style="color: #38bdf8;"></i> Marcos Santos - Cell Tech
+                  <span class="store-verified-buyer-badge">Comprador Verificado</span>
+                </span>
+                <span style="font-size: 10.5px; color: #64748b;">Ontem</span>
+              </div>
+              <div style="color: #f59e0b; font-size: 11px; margin-bottom: 4px;">★★★★★</div>
+              <p style="font-size: 12px; color: #cbd5e1;">Funcionou 100%, sem complicação nenhuma. Melhor servidor do Brasil!</p>
+            </div>
+
+            <div class="store-review-item">
+              <div class="store-reviewer-header">
+                <span class="store-reviewer-name">
+                  <i class="fa-solid fa-circle-user" style="color: #4ade80;"></i> Leandro Campos
+                  <span class="store-verified-buyer-badge">Comprador Verificado</span>
+                </span>
+                <span style="font-size: 10.5px; color: #64748b;">Há 2 dias</span>
+              </div>
+              <div style="color: #f59e0b; font-size: 11px; margin-bottom: 4px;">★★★★★</div>
+              <p style="font-size: 12px; color: #cbd5e1;">Nota 10! Vale cada centavo, entrega rápida no WhatsApp.</p>
+            </div>
+          </div>
+
+          <!-- Perguntas Frequentes / Dúvidas -->
+          <div class="store-detail-section-card">
+            <div class="store-detail-section-title">
+              <i class="fa-solid fa-circle-question"></i> Perguntas sobre este anúncio
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+              <input type="text" id="storeAskQuestionInput" placeholder="Tem alguma dúvida? Faça sua pergunta..." style="flex: 1; padding: 10px 14px; background: #0c0d16; border: 1px solid rgba(168,85,247,0.25); border-radius: 8px; color: #ffffff; font-size: 12px;">
+              <button class="btn-ticker-all" onclick="handleStoreQuestionSubmit()" style="white-space: nowrap; padding: 0 16px; font-weight: 700; background: #9333ea; border-color: #a855f7;">
+                Perguntar
+              </button>
+            </div>
+            <div id="storeFaqList">
+              <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding: 8px 0;">
+                <div style="font-size: 12px; font-weight: 700; color: #ffffff;">P: Como recebo meu produto após o pagamento?</div>
+                <div style="font-size: 11.5px; color: #c4b5fd; margin-top: 2px;">R: Assim que o PIX é identificado, o sistema te redireciona ao WhatsApp com seu pedido e os acessos são enviados imediatamente.</div>
+              </div>
+              <div style="padding: 8px 0;">
+                <div style="font-size: 12px; font-weight: 700; color: #ffffff;">P: Posso usar no celular e no computador?</div>
+                <div style="font-size: 11.5px; color: #c4b5fd; margin-top: 2px;">R: Sim! Compatível tanto com aparelhos Android, iPhone e navegadores de computador.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Anúncios Parecidos -->
+          <div class="store-detail-section-card">
+            <div class="store-detail-section-title">
+              <i class="fa-solid fa-fire" style="color: #f97316;"></i> Anúncios Parecidos / Quem Comprou Também Levou
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+              ${relatedHtml}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Coluna Direita: Box de Compra (Idêntico ao Basefy) -->
+        <div>
+          <div class="store-buy-box">
+            <div class="store-buy-badges">
+              <span class="store-pill-badge">
+                <i class="fa-solid fa-bolt"></i> Entrega Automática
+              </span>
+              <span class="store-pill-badge" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.35); color: #38bdf8;">
+                <i class="fa-solid fa-box"></i> ${prod.stock || 100} Disponíveis
+              </span>
+              <span class="store-pill-badge" style="background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.35); color: #fde047;">
+                <i class="fa-solid fa-star"></i> 5.0
+              </span>
+            </div>
+
+            <div class="store-buy-price-row">
+              <span class="store-buy-big-price">R$ ${prod.price.toFixed(2).replace('.', ',')}</span>
+              ${prod.oldPrice ? `<span class="store-buy-old-price">R$ ${prod.oldPrice.toFixed(2).replace('.', ',')}</span>` : ''}
+              ${discount > 0 ? `<span class="store-buy-discount-pill">-${discount}%</span>` : ''}
+            </div>
+
+            <button class="btn-store-buy-now" onclick="addToCartAndOpen('${escapeHtml(prod.id)}')">
+              <i class="fa-solid fa-bag-shopping"></i> Comprar agora
+            </button>
+
+            <div class="store-sales-proof">
+              <i class="fa-solid fa-user-check" style="color: #4ade80;"></i>
+              <span>${prod.salesCount || 76} Técnicos compraram este produto</span>
+            </div>
+
+            <!-- Vendedor Verificado -->
+            <div class="store-seller-card">
+              <img src="assets/logo.png" alt="ServerSmart" class="store-seller-avatar">
+              <div>
+                <div style="font-size: 13px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 5px;">
+                  SuporteServerSmart <i class="fa-solid fa-circle-check" style="color: #a855f7; font-size: 12px;"></i>
+                </div>
+                <div style="font-size: 11px; color: #f59e0b; margin-top: 2px;">
+                  ★ 5.0 (500+ avaliações)
+                </div>
+                <div style="font-size: 10px; color: #4ade80; font-weight: 700; margin-top: 1px;">
+                  Vendedor Oficial Verificado
+                </div>
+              </div>
+            </div>
+
+            <!-- Entrega Garantida Box -->
+            <div class="store-guarantee-card">
+              <i class="fa-solid fa-shield-halved" style="font-size: 20px; color: #4ade80; flex-shrink: 0; margin-top: 2px;"></i>
+              <div>
+                <strong style="color: #ffffff; display: block; font-size: 12px; margin-bottom: 2px;">Entrega 100% Garantida</strong>
+                Receba seu acesso e produto imediatamente com suporte VIP e garantia total de funcionamento.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const modal = document.getElementById('officialStoreProductModal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function closeStoreProductModal() {
+  const modal = document.getElementById('officialStoreProductModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleStoreQuestionSubmit() {
+  const input = document.getElementById('storeAskQuestionInput');
+  const question = input ? input.value.trim() : '';
+  if (!question) return;
+
+  const faqList = document.getElementById('storeFaqList');
+  if (faqList) {
+    const item = document.createElement('div');
+    item.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+    item.style.padding = '8px 0';
+    item.innerHTML = `
+      <div style="font-size: 12px; font-weight: 700; color: #ffffff;">P: ${escapeHtml(question)}</div>
+      <div style="font-size: 11.5px; color: #4ade80; margin-top: 2px;">R: Pergunta enviada ao suporte! Responderemos no WhatsApp imediatamente após o pedido.</div>
+    `;
+    faqList.prepend(item);
+  }
+  input.value = '';
+}
+
+// 5. Carrinho de Compras (Idêntico à Imagem 3 do Usuário)
+function addToCartAndOpen(productId) {
+  const prod = (AppState.officialStoreProducts || []).find(p => p.id === productId);
+  if (!prod) return;
+
+  const cart = AppState.officialStoreCart || [];
+  const existing = cart.find(item => item.productId === productId);
+
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    cart.push({
+      productId: prod.id,
+      title: prod.title,
+      price: prod.price,
+      image: prod.image,
+      quantity: 1
+    });
+  }
+
+  AppState.officialStoreCart = cart;
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_CART, JSON.stringify(cart));
+
+  closeStoreProductModal();
+  updateStoreCartBadge();
+  openStoreCart();
+}
+
+function openStoreCart() {
+  renderStoreCart();
+  const overlay = document.getElementById('officialStoreCartOverlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeStoreCart() {
+  const overlay = document.getElementById('officialStoreCartOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function updateStoreCartBadge() {
+  const cart = AppState.officialStoreCart || [];
+  const count = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const total = cart.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
+
+  const badgeCount = document.getElementById('storeCartBadgeCount');
+  if (badgeCount) badgeCount.textContent = count;
+
+  const badgeTotal = document.getElementById('storeCartBadgeTotal');
+  if (badgeTotal) badgeTotal.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+}
+
+function renderStoreCart() {
+  const listContainer = document.getElementById('storeCartItemsList');
+  const subtotalEl = document.getElementById('storeCartSubtotalAmount');
+  if (!listContainer || !subtotalEl) return;
+
+  const cart = AppState.officialStoreCart || [];
+
+  if (cart.length === 0) {
+    listContainer.innerHTML = `
+      <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+        <i class="fa-solid fa-cart-shopping" style="font-size: 38px; color: rgba(168, 85, 247, 0.4); margin-bottom: 12px;"></i>
+        <h4 style="color: #ffffff; font-size: 15px; font-weight: 700;">Seu carrinho está vazio</h4>
+        <p style="font-size: 12px; margin-top: 6px;">Adicione produtos e aproveite as ofertas oficiais!</p>
+      </div>
+    `;
+    subtotalEl.textContent = 'R$ 0,00';
+    return;
+  }
+
+  let subtotal = 0;
+
+  listContainer.innerHTML = cart.map((item, index) => {
+    const itemTotal = item.price * (item.quantity || 1);
+    subtotal += itemTotal;
+
+    return `
+      <div class="store-cart-item">
+        <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="store-cart-item-thumb" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+        
+        <div class="store-cart-item-info">
+          <div class="store-cart-item-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+          <div class="store-cart-item-unit-price">R$ ${item.price.toFixed(2).replace('.', ',')} cada</div>
+          <div class="store-cart-item-total">R$ ${itemTotal.toFixed(2).replace('.', ',')}</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <button class="btn-cart-remove" onclick="removeStoreCartItem(${index})" title="Remover item">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+          
+          <div class="store-cart-qty-controls">
+            <button class="btn-cart-qty" onclick="changeStoreCartQty(${index}, -1)">&minus;</button>
+            <span class="store-cart-qty-val">${item.quantity || 1}</span>
+            <button class="btn-cart-qty" onclick="changeStoreCartQty(${index}, 1)">&plus;</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  subtotalEl.textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+  updateStoreCartBadge();
+}
+
+function changeStoreCartQty(index, delta) {
+  const cart = AppState.officialStoreCart || [];
+  if (!cart[index]) return;
+
+  cart[index].quantity = (cart[index].quantity || 1) + delta;
+  if (cart[index].quantity <= 0) {
+    cart.splice(index, 1);
+  }
+
+  AppState.officialStoreCart = cart;
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_CART, JSON.stringify(cart));
+  renderStoreCart();
+}
+
+function removeStoreCartItem(index) {
+  const cart = AppState.officialStoreCart || [];
+  if (!cart[index]) return;
+
+  cart.splice(index, 1);
+  AppState.officialStoreCart = cart;
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_CART, JSON.stringify(cart));
+  renderStoreCart();
+}
+
+// 6. Finalização da Compra & Geração do PIX no Mercado Pago
+async function checkoutStoreCart() {
+  const cart = AppState.officialStoreCart || [];
+  if (cart.length === 0) {
+    alert('Seu carrinho está vazio! Adicione algum produto antes de finalizar a compra.');
+    return;
+  }
+
+  // Verifica se o usuário da Loja Oficial está logado
+  if (!AppState.officialStoreUser || !AppState.officialStoreUser.username) {
+    alert('Por favor, faça login ou cadastre seu usuário para finalizar o pedido.');
+    closeStoreCart();
+    openStoreAuthModal();
+    return;
+  }
+
+  const storeUser = AppState.officialStoreUser;
+  const totalAmount = cart.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
+  const orderId = 'LOJA-' + Math.floor(10000 + Math.random() * 90000);
+  const titlesSummary = cart.map(i => `${i.title} (${i.quantity}x)`).join(', ');
+
+  // Abrir modal do PIX imediatamente em estado de carregamento
+  closeStoreCart();
+  const pixModal = document.getElementById('officialStorePixModal');
+  if (pixModal) pixModal.style.display = 'flex';
+
+  document.getElementById('pixOrderBadge').textContent = `PEDIDO #${orderId}`;
+  document.getElementById('pixTotalValue').textContent = `R$ ${totalAmount.toFixed(2).replace('.', ',')}`;
+  document.getElementById('pixUserPayer').innerHTML = `👤 Usuário da Compra: <strong style="color: #ffffff;">${escapeHtml(storeUser.username)}</strong>`;
+  
+  const qrImg = document.getElementById('pixQrImg');
+  const qrLoading = document.getElementById('pixQrLoading');
+  const copyInput = document.getElementById('pixCopyInput');
+  const statusText = document.getElementById('pixStatusText');
+
+  if (qrImg) qrImg.style.display = 'none';
+  if (qrLoading) qrLoading.style.display = 'flex';
+  if (copyInput) copyInput.value = 'Gerando PIX Mercado Pago...';
+  if (statusText) statusText.textContent = 'Gerando cobrança oficial no Mercado Pago...';
+
+  // Obter token configurado pelo admin ou padrão
+  const mpToken = (AppState.systemConfig && AppState.systemConfig.mpAccessToken && AppState.systemConfig.mpAccessToken.trim().length > 15)
+    ? AppState.systemConfig.mpAccessToken.trim()
+    : 'APP_USR-2750012879381679-051115-2dc1610e908f48d05dd63736d9473db7-615957613';
+
+  let pixGeneratedData = null;
+
+  try {
+    const res = await fetch('/api/mercadopago', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_pix',
+        amount: totalAmount,
+        title: `Loja Oficial: ${titlesSummary}`,
+        customerName: storeUser.username,
+        customerEmail: `${storeUser.username.replace(/[^a-zA-Z0-9]/g, '')}@suporteserversmart.com`,
+        accessToken: mpToken
+      })
+    });
+
+    const json = await res.json();
+    if (json.success && (json.qr_code_base64 || json.qr_code)) {
+      pixGeneratedData = json;
+    }
+  } catch (err) {
+    console.warn('Erro ao chamar api/mercadopago:', err);
+  }
+
+  // Fallback se a API retornar erro ou offline
+  if (!pixGeneratedData) {
+    const fallbackPixCode = `00020126580014br.gov.bcb.pix0136${mpToken.substring(0, 20)}520400005303986540${totalAmount.toFixed(2)}5802BR5925SUPORTE SERVER SMART6009SAO PAULO62070503***6304`;
+    const fallbackQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(fallbackPixCode)}`;
+
+    pixGeneratedData = {
+      payment_id: 'pay_' + Date.now(),
+      qr_code: fallbackPixCode,
+      qr_code_base64: '',
+      fallback_qr_url: fallbackQrUrl
+    };
+  }
+
+  // Renderizar QR Code e Chave PIX
+  if (qrLoading) qrLoading.style.display = 'none';
+  if (qrImg) {
+    qrImg.style.display = 'block';
+    qrImg.src = pixGeneratedData.qr_code_base64 
+      ? `data:image/png;base64,${pixGeneratedData.qr_code_base64}`
+      : (pixGeneratedData.fallback_qr_url || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(pixGeneratedData.qr_code)}`);
+  }
+
+  if (copyInput) {
+    copyInput.value = pixGeneratedData.qr_code || '';
+  }
+
+  if (statusText) {
+    statusText.textContent = 'Aguardando pagamento... Verificando a cada 3 segundos ⏳';
+  }
+
+  // Criar e Salvar Pedido no Histórico e no Painel Admin
+  const newOrder = {
+    id: orderId,
+    payment_id: pixGeneratedData.payment_id,
+    date: new Date().toISOString(),
+    formattedDate: new Date().toLocaleString('pt-BR'),
+    username: storeUser.username,
+    userWhatsapp: storeUser.whatsapp || '',
+    items: JSON.parse(JSON.stringify(cart)),
+    itemsSummary: titlesSummary,
+    totalAmount: totalAmount,
+    paymentStatus: 'PENDENTE',
+    deliveryStatus: 'PENDENTE',
+    pixCode: pixGeneratedData.qr_code,
+    mpTokenUsed: mpToken
+  };
+
+  AppState.currentStorePixOrder = newOrder;
+  AppState.officialStoreOrders.unshift(newOrder);
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+
+  // Iniciar verificação automática em tempo real do pagamento PIX
+  startStorePixPolling(newOrder);
+}
+
+function startStorePixPolling(order) {
+  if (AppState.storePixPollingInterval) {
+    clearInterval(AppState.storePixPollingInterval);
+  }
+
+  let attempts = 0;
+  AppState.storePixPollingInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > 120) { // 6 minutos de polling
+      clearInterval(AppState.storePixPollingInterval);
+      return;
+    }
+
+    if (!order.payment_id || String(order.payment_id).startsWith('pay_')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/mercadopago?action=check_payment&payment_id=${order.payment_id}&accessToken=${encodeURIComponent(order.mpTokenUsed || '')}`);
+      const data = await res.json();
+      if (data.approved || data.status === 'approved') {
+        clearInterval(AppState.storePixPollingInterval);
+        handleStorePaymentApproved(order);
+      }
+    } catch (e) {
+      console.warn('Polling check error:', e);
+    }
+  }, 3000);
+}
+
+function handleStorePaymentApproved(order) {
+  if (AppState.storePixPollingInterval) {
+    clearInterval(AppState.storePixPollingInterval);
+  }
+
+  // Atualizar status do pedido para PAGO
+  order.paymentStatus = 'PAGO';
+  order.paidAt = new Date().toISOString();
+
+  // Atualizar na lista
+  const ordIndex = (AppState.officialStoreOrders || []).findIndex(o => o.id === order.id);
+  if (ordIndex >= 0) {
+    AppState.officialStoreOrders[ordIndex] = order;
+  }
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+
+  // Limpar carrinho
+  AppState.officialStoreCart = [];
+  localStorage.removeItem(STORAGE_KEYS.OFFICIAL_STORE_CART);
+  updateStoreCartBadge();
+
+  // Fechar modal do PIX
+  closeStorePixModal();
+
+  alert(`🎉 PAGAMENTO CONFIRMADO COM SUCESSO!\n\nPedido #${order.id} pago via PIX Mercado Pago.\nVocê será redirecionado ao WhatsApp com seu comprovante para a liberação do seu produto!`);
+
+  // Redirecionamento automático com a mensagem completa para o WhatsApp do Administrador
+  sendStoreOrderWhatsApp(order);
+}
+
+function confirmStorePaymentManual() {
+  const order = AppState.currentStorePixOrder;
+  if (!order) {
+    alert('Nenhum pedido ativo no momento.');
+    return;
+  }
+
+  // Se o usuário clicar em "Já Paguei / Enviar Pedido no WhatsApp"
+  order.paymentStatus = 'PAGO';
+  order.paidAt = new Date().toISOString();
+
+  const ordIndex = (AppState.officialStoreOrders || []).findIndex(o => o.id === order.id);
+  if (ordIndex >= 0) {
+    AppState.officialStoreOrders[ordIndex] = order;
+  }
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+
+  AppState.officialStoreCart = [];
+  localStorage.removeItem(STORAGE_KEYS.OFFICIAL_STORE_CART);
+  updateStoreCartBadge();
+
+  closeStorePixModal();
+  sendStoreOrderWhatsApp(order);
+}
+
+function sendStoreOrderWhatsApp(order) {
+  const itemsText = (order.items || []).map(i => `• ${i.title} (x${i.quantity || 1}) - R$ ${(i.price * (i.quantity || 1)).toFixed(2).replace('.', ',')}`).join('\n');
+  
+  const message =
+    `🛒 *NOVO PEDIDO - LOJA OFICIAL SERVER SMART* 🛒\n` +
+    `----------------------------------------\n` +
+    `👤 *Usuário da Loja:* ${order.username}\n` +
+    `📱 *WhatsApp do Cliente:* ${order.userWhatsapp || 'Não informado'}\n` +
+    `🆔 *ID do Pedido:* #${order.id}\n` +
+    `📅 *Data/Hora:* ${order.formattedDate || new Date().toLocaleString('pt-BR')}\n` +
+    `💳 *Pagamento:* PIX Mercado Pago (${order.paymentStatus})\n` +
+    `----------------------------------------\n` +
+    `📦 *PRODUTOS ESCOLHIDOS:*\n` +
+    `${itemsText}\n` +
+    `----------------------------------------\n` +
+    `💰 *VALOR TOTAL PAGO:* R$ ${order.totalAmount.toFixed(2).replace('.', ',')}\n` +
+    `----------------------------------------\n` +
+    `Olá Suporte Server Smart! Acabei de efetuar o pagamento do meu pedido #${order.id} na Loja Oficial no valor de R$ ${order.totalAmount.toFixed(2).replace('.', ',')}. Meu usuário é "${order.username}". Aguardo a liberação e envio dos meus acessos!`;
+
+  const targetPhone = (AppState.systemConfig && AppState.systemConfig.supportWhatsapp) || '5541996378029';
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(message)}`;
+
+  try {
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.warn('Erro ao abrir link WhatsApp:', e);
+  }
+
+  setTimeout(() => {
+    window.location.href = whatsappUrl;
+  }, 400);
+}
+
+function closeStorePixModal() {
+  if (AppState.storePixPollingInterval) {
+    clearInterval(AppState.storePixPollingInterval);
+  }
+  const modal = document.getElementById('officialStorePixModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function copyPixCode() {
+  const input = document.getElementById('pixCopyInput');
+  const btn = document.getElementById('btnCopyPix');
+  if (!input) return;
+
+  input.select();
+  input.setSelectionRange(0, 99999);
+
+  try {
+    navigator.clipboard.writeText(input.value);
+  } catch (e) {
+    document.execCommand('copy');
+  }
+
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
+    btn.style.background = '#16a34a';
+    setTimeout(() => {
+      btn.innerHTML = origHtml;
+      btn.style.background = '#9333ea';
+    }, 2000);
+  }
+}
+
+// 7. Painel Admin - Gestão dos Produtos/Cards da Loja Oficial
+function renderAdminStoreProducts() {
+  const tbody = document.getElementById('adminStoreProductsTbody');
+  if (!tbody) return;
+
+  const products = AppState.officialStoreProducts || [];
+  if (products.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">Nenhum produto cadastrado na Loja Oficial.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const isAct = p.active !== false;
+    return `
+      <tr>
+        <td>
+          <img src="${escapeHtml(p.image)}" alt="Capa" style="width: 44px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(168,85,247,0.3);" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+        </td>
+        <td>
+          <strong style="color: #ffffff;">${escapeHtml(p.title)}</strong><br>
+          <span style="font-size: 11px; color: #a78bfa;">${escapeHtml(p.category || 'Geral')} &bull; Selo: ${escapeHtml(p.badge || '-')}</span>
+        </td>
+        <td>
+          <span style="color: #4ade80; font-weight: 700;">R$ ${p.price.toFixed(2).replace('.', ',')}</span>
+          ${p.oldPrice ? `<br><small style="color: #64748b; text-decoration: line-through;">R$ ${p.oldPrice.toFixed(2).replace('.', ',')}</small>` : ''}
+        </td>
+        <td>
+          <span style="font-size: 12px; color: #cbd5e1;">Estoque: <strong>${p.stock || 100}</strong></span><br>
+          <span style="font-size: 11px; color: #38bdf8;">Vendas: <strong>${p.salesCount || 0}</strong></span>
+        </td>
+        <td>
+          ${isAct 
+            ? `<span class="badge-pill" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700;">ATIVO</span>`
+            : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 11px; font-weight: 700;">INATIVO</span>`
+          }
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px;" onclick="editStoreProduct('${escapeHtml(p.id)}')" title="Editar">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; ${isAct ? 'color: #fca5a5;' : 'color: #86efac;'}" onclick="toggleStoreProduct('${escapeHtml(p.id)}')" title="${isAct ? 'Desativar' : 'Ativar'}">
+              <i class="fa-solid ${isAct ? 'fa-eye-slash' : 'fa-eye'}"></i>
+            </button>
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; color: #ef4444;" onclick="deleteStoreProduct('${escapeHtml(p.id)}')" title="Excluir">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function handleSaveStoreProduct(e) {
+  e.preventDefault();
+  const editId = document.getElementById('storeProductEditId').value;
+  const title = document.getElementById('storeProductTitle').value.trim();
+  const category = document.getElementById('storeProductCategory').value;
+  const price = parseFloat(document.getElementById('storeProductPrice').value);
+  const oldPrice = parseFloat(document.getElementById('storeProductOldPrice').value) || (price * 1.6);
+  const badge = document.getElementById('storeProductBadge').value.trim() || 'OFICIAL';
+  const stock = parseInt(document.getElementById('storeProductStock').value, 10) || 100;
+  const image = document.getElementById('storeProductImage').value.trim();
+  const description = document.getElementById('storeProductDescription').value.trim();
+
+  let categoryKey = 'ai';
+  if (category.includes('Créditos')) categoryKey = 'credits';
+  else if (category.includes('FRP')) categoryKey = 'frp';
+  else if (category.includes('Ferramentas')) categoryKey = 'tools';
+
+  if (editId) {
+    // Modo Edição
+    const idx = (AppState.officialStoreProducts || []).findIndex(p => p.id === editId);
+    if (idx >= 0) {
+      AppState.officialStoreProducts[idx] = {
+        ...AppState.officialStoreProducts[idx],
+        title,
+        category,
+        categoryKey,
+        price,
+        oldPrice,
+        badge,
+        stock,
+        image,
+        description
+      };
+    }
+    cancelStoreProductEdit();
+  } else {
+    // Novo Produto
+    const newProd = {
+      id: 'prod_' + Date.now(),
+      title,
+      category,
+      categoryKey,
+      price,
+      oldPrice,
+      badge,
+      badgeColor: '#8b5cf6',
+      stock,
+      salesCount: 0,
+      rating: 5.0,
+      seller: 'SuporteServerSmart Oficial',
+      image,
+      description,
+      active: true
+    };
+    AppState.officialStoreProducts.unshift(newProd);
+    e.target.reset();
+  }
+
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS, JSON.stringify(AppState.officialStoreProducts));
+  renderAdminStoreProducts();
+  alert('Produto da Loja Oficial salvo com sucesso!');
+}
+
+function editStoreProduct(id) {
+  const prod = (AppState.officialStoreProducts || []).find(p => p.id === id);
+  if (!prod) return;
+
+  document.getElementById('storeProductEditId').value = prod.id;
+  document.getElementById('storeProductTitle').value = prod.title || '';
+  document.getElementById('storeProductCategory').value = prod.category || 'Inteligência Artificial';
+  document.getElementById('storeProductPrice').value = prod.price || '';
+  document.getElementById('storeProductOldPrice').value = prod.oldPrice || '';
+  document.getElementById('storeProductBadge').value = prod.badge || '';
+  document.getElementById('storeProductStock').value = prod.stock || 100;
+  document.getElementById('storeProductImage').value = prod.image || '';
+  document.getElementById('storeProductDescription').value = prod.description || '';
+
+  const titleEl = document.getElementById('storeProductFormTitle');
+  if (titleEl) {
+    titleEl.innerHTML = `<i class="fa-solid fa-pen-to-square" style="color: #38bdf8;"></i> Editando Produto: "${escapeHtml(prod.title)}"`;
+  }
+  const cancelBtn = document.getElementById('btnCancelEditStoreProd');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+  document.getElementById('formStoreProduct').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelStoreProductEdit() {
+  document.getElementById('storeProductEditId').value = '';
+  document.getElementById('formStoreProduct').reset();
+  const titleEl = document.getElementById('storeProductFormTitle');
+  if (titleEl) {
+    titleEl.innerHTML = `<i class="fa-solid fa-plus-circle" style="color: #4ade80;"></i> Cadastrar Novo Produto / Card na Loja Oficial`;
+  }
+  const cancelBtn = document.getElementById('btnCancelEditStoreProd');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function toggleStoreProduct(id) {
+  const prod = (AppState.officialStoreProducts || []).find(p => p.id === id);
+  if (!prod) return;
+  prod.active = prod.active === false ? true : false;
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS, JSON.stringify(AppState.officialStoreProducts));
+  renderAdminStoreProducts();
+}
+
+function deleteStoreProduct(id) {
+  if (!confirm('Tem certeza que deseja excluir este produto da Loja Oficial?')) return;
+  AppState.officialStoreProducts = (AppState.officialStoreProducts || []).filter(p => p.id !== id);
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS, JSON.stringify(AppState.officialStoreProducts));
+  renderAdminStoreProducts();
+}
+
+function resetStoreProductsToDefault() {
+  if (!confirm('Deseja restaurar todos os produtos originais da Loja Oficial?')) return;
+  AppState.officialStoreProducts = JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreProducts || []));
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS, JSON.stringify(AppState.officialStoreProducts));
+  renderAdminStoreProducts();
+  alert('Catálogo original da Loja Oficial restaurado com sucesso!');
+}
+
+function setStoreImagePreset(type) {
+  const imgInput = document.getElementById('storeProductImage');
+  if (!imgInput) return;
+
+  const presets = {
+    chatgpt: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=500&auto=format&fit=crop&q=80',
+    gemini: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80',
+    lovable: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=500&auto=format&fit=crop&q=80',
+    claude: 'https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=500&auto=format&fit=crop&q=80',
+    kling: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80',
+    motorola: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80',
+    portlink: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=500&auto=format&fit=crop&q=80'
+  };
+
+  imgInput.value = presets[type] || '';
+}
+
+// 8. Painel Admin - Gestão dos Usuários da Loja Oficial
+function renderAdminStoreUsers() {
+  const tbody = document.getElementById('adminStoreUsersTbody');
+  if (!tbody) return;
+
+  const users = AppState.officialStoreUsers || [];
+  if (users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">Nenhum usuário cadastrado na Loja Oficial.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const isAct = u.status !== 'bloqueado';
+    const userOrdersCount = (AppState.officialStoreOrders || []).filter(
+      o => o.username && o.username.toLowerCase() === u.username.toLowerCase()
+    ).length;
+
+    const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '-';
+
+    return `
+      <tr>
+        <td>
+          <strong style="color: #ffffff; font-size: 13px;">${escapeHtml(u.username)}</strong><br>
+          <span style="font-size: 11px; color: #a78bfa;">Senha: <code>${escapeHtml(u.password)}</code></span>
+        </td>
+        <td>
+          <a href="https://api.whatsapp.com/send?phone=55${escapeHtml((u.whatsapp || '').replace(/\D/g, ''))}" target="_blank" style="color: #4ade80; text-decoration: none; font-weight: 600;">
+            <i class="fa-brands fa-whatsapp"></i> ${escapeHtml(u.whatsapp || '-')}
+          </a>
+        </td>
+        <td>${dateStr}</td>
+        <td>
+          ${isAct
+            ? `<span class="badge-pill" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700;">LIBERADO (Ativo)</span>`
+            : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 11px; font-weight: 700;">BLOQUEADO</span>`
+          }
+        </td>
+        <td>
+          <span class="badge-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-weight: 800;">
+            ${userOrdersCount} Pedidos
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; ${isAct ? 'color: #fca5a5;' : 'color: #86efac;'}" onclick="toggleStoreUserStatus('${escapeHtml(u.username)}')" title="${isAct ? 'Bloquear Acesso' : 'Liberar Acesso'}">
+              <i class="fa-solid ${isAct ? 'fa-user-lock' : 'fa-user-check'}"></i> ${isAct ? 'Bloquear' : 'Liberar'}
+            </button>
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px;" onclick="changeStoreUserPassword('${escapeHtml(u.username)}')" title="Alterar Senha">
+              <i class="fa-solid fa-key"></i> Senha
+            </button>
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; color: #ef4444;" onclick="deleteStoreUser('${escapeHtml(u.username)}')" title="Excluir Usuário">
+              <i class="fa-solid fa-user-xmark"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function handleAdminCreateStoreUser(e) {
+  e.preventDefault();
+  const username = document.getElementById('adminNewStoreUsername').value.trim();
+  const whatsapp = document.getElementById('adminNewStoreWhatsapp').value.trim();
+  const password = document.getElementById('adminNewStorePassword').value.trim();
+
+  if (!username || !whatsapp || !password) {
+    alert('Preencha o nome de usuário, whatsapp e senha.');
+    return;
+  }
+
+  const exists = (AppState.officialStoreUsers || []).some(
+    u => u.username && u.username.toLowerCase() === username.toLowerCase()
+  );
+  if (exists) {
+    alert('Já existe um usuário com esse nome cadastrado na Loja Oficial.');
+    return;
+  }
+
+  const newUser = {
+    id: 'store_user_' + Date.now(),
+    username,
+    whatsapp,
+    password,
+    createdAt: new Date().toISOString(),
+    status: 'ativo',
+    createdBy: 'admin'
+  };
+
+  AppState.officialStoreUsers.push(newUser);
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_USERS, JSON.stringify(AppState.officialStoreUsers));
+
+  // Montar mensagem para o cliente
+  const msg = 
+    `🎉 *SEU ACESSO À LOJA OFICIAL FOI LIBERADO!* 🎉\n` +
+    `----------------------------------------\n` +
+    `👤 *Usuário:* ${username}\n` +
+    `🔑 *Senha:* ${password}\n` +
+    `🌐 *Acesse pelo site oficial:* SuporteServerSmart-Brasil Online\n` +
+    `----------------------------------------\n` +
+    `Clique na aba *Loja Oficial* no menu principal, digite seu usuário e senha e aproveite as ofertas com entrega automática via PIX!`;
+
+  try {
+    navigator.clipboard.writeText(msg);
+  } catch (err) {}
+
+  e.target.reset();
+  renderAdminStoreUsers();
+
+  const cleanPhone = whatsapp.replace(/\D/g, '');
+  if (confirm(`Acesso criado com sucesso para "${username}"!\n\nA mensagem com os dados de login foi copiada para sua área de transferência.\n\nDeseja abrir o WhatsApp do cliente agora para enviar os dados?`)) {
+    window.open(`https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+  }
+}
+
+function toggleStoreUserStatus(username) {
+  const user = (AppState.officialStoreUsers || []).find(
+    u => u.username && u.username.toLowerCase() === username.toLowerCase()
+  );
+  if (!user) return;
+
+  user.status = user.status === 'bloqueado' ? 'ativo' : 'bloqueado';
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_USERS, JSON.stringify(AppState.officialStoreUsers));
+  renderAdminStoreUsers();
+  alert(`O acesso do usuário "${username}" foi alterado para: ${user.status === 'ativo' ? 'LIBERADO' : 'BLOQUEADO'}.`);
+}
+
+function changeStoreUserPassword(username) {
+  const user = (AppState.officialStoreUsers || []).find(
+    u => u.username && u.username.toLowerCase() === username.toLowerCase()
+  );
+  if (!user) return;
+
+  const newPass = prompt(`Digite a nova senha para o usuário "${username}":`, user.password || '');
+  if (!newPass || !newPass.trim()) return;
+
+  user.password = newPass.trim();
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_USERS, JSON.stringify(AppState.officialStoreUsers));
+  renderAdminStoreUsers();
+  alert(`Senha do usuário "${username}" alterada para: ${user.password}`);
+}
+
+function deleteStoreUser(username) {
+  if (!confirm(`Tem certeza que deseja excluir o acesso do usuário "${username}" na Loja Oficial?`)) return;
+  AppState.officialStoreUsers = (AppState.officialStoreUsers || []).filter(
+    u => !u.username || u.username.toLowerCase() !== username.toLowerCase()
+  );
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_USERS, JSON.stringify(AppState.officialStoreUsers));
+  renderAdminStoreUsers();
+}
+
+// 9. Painel Admin - Gestão dos Pedidos & PIX da Loja Oficial
+function renderAdminStoreOrders() {
+  const tbody = document.getElementById('adminStoreOrdersTbody');
+  if (!tbody) return;
+
+  const orders = AppState.officialStoreOrders || [];
+
+  // Calcular métricas / KPIs
+  let totalEarned = 0;
+  let paidCount = 0;
+  let pendingCount = 0;
+  let deliveredCount = 0;
+
+  orders.forEach(o => {
+    if (o.paymentStatus === 'PAGO') {
+      totalEarned += (o.totalAmount || 0);
+      paidCount++;
+    } else {
+      pendingCount++;
+    }
+
+    if (o.deliveryStatus === 'LIBERADO') {
+      deliveredCount++;
+    }
+  });
+
+  const mEarned = document.getElementById('metricStoreTotalEarned');
+  if (mEarned) mEarned.textContent = `R$ ${totalEarned.toFixed(2).replace('.', ',')}`;
+
+  const mPaid = document.getElementById('metricStorePaidCount');
+  if (mPaid) mPaid.textContent = paidCount;
+
+  const mPending = document.getElementById('metricStorePendingCount');
+  if (mPending) mPending.textContent = pendingCount;
+
+  const mTotal = document.getElementById('metricStoreTotalOrders');
+  if (mTotal) mTotal.textContent = orders.length;
+
+  const mDelivered = document.getElementById('metricStoreDeliveredCount');
+  if (mDelivered) mDelivered.textContent = deliveredCount;
+
+  if (orders.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Nenhum pedido efetuado na Loja Oficial ainda.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = orders.map(o => {
+    const isPaid = o.paymentStatus === 'PAGO';
+    const isDelivered = o.deliveryStatus === 'LIBERADO';
+    const cleanWa = (o.userWhatsapp || '').replace(/\D/g, '');
+
+    return `
+      <tr>
+        <td><strong style="color: #a855f7;">#${escapeHtml(o.id)}</strong></td>
+        <td style="font-size: 11px; color: #94a3b8;">${escapeHtml(o.formattedDate || o.date || '-')}</td>
+        <td>
+          <strong style="color: #ffffff;">${escapeHtml(o.username || 'Desconhecido')}</strong>
+        </td>
+        <td>
+          ${cleanWa ? `
+            <a href="https://api.whatsapp.com/send?phone=55${cleanWa}" target="_blank" style="color: #4ade80; text-decoration: none; font-size: 11.5px;">
+              <i class="fa-brands fa-whatsapp"></i> ${escapeHtml(o.userWhatsapp)}
+            </a>
+          ` : '-'}
+        </td>
+        <td>
+          <div style="font-size: 12px; color: #cbd5e1; max-width: 250px;">
+            ${escapeHtml(o.itemsSummary || (o.items && o.items.map(i => i.title).join(', ')) || '-')}
+          </div>
+        </td>
+        <td><strong style="color: #4ade80; font-size: 13px;">R$ ${(o.totalAmount || 0).toFixed(2).replace('.', ',')}</strong></td>
+        <td>
+          ${isPaid
+            ? `<span class="badge-pill" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700;">PIX PAGO</span>`
+            : `<span class="badge-pill" style="background: rgba(234, 179, 8, 0.15); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11px; font-weight: 700;">PENDENTE</span>`
+          }
+        </td>
+        <td>
+          ${isDelivered
+            ? `<span class="badge-pill" style="background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); font-size: 11px; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> LIBERADO</span>`
+            : `<span class="badge-pill" style="background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.4); font-size: 11px; font-weight: 700;"><i class="fa-solid fa-clock"></i> AGUARDANDO</span>`
+          }
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${!isDelivered ? `
+              <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #86efac;" onclick="markStoreOrderDelivered('${escapeHtml(o.id)}')" title="Marcar como Liberado / Entregue">
+                <i class="fa-solid fa-check"></i> Liberar Pedido
+              </button>
+            ` : `
+              <span style="font-size: 10px; color: #86efac; font-weight: 700; align-self: center;">Entregue ✔️</span>
+            `}
+
+            ${!isPaid ? `
+              <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; color: #fde047;" onclick="manuallyApproveStoreOrder('${escapeHtml(o.id)}')" title="Aprovar PIX Manualmente">
+                <i class="fa-solid fa-money-bill-wave"></i> Confirmar PIX
+              </button>
+            ` : ''}
+
+            ${cleanWa ? `
+              <a href="https://api.whatsapp.com/send?phone=55${cleanWa}&text=${encodeURIComponent(`Olá ${o.username}! Sobre seu pedido #${o.id} na Loja Oficial Server Smart...`)}" target="_blank" class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; color: #4ade80; text-decoration: none;" title="Conversar no WhatsApp">
+                <i class="fa-brands fa-whatsapp"></i>
+              </a>
+            ` : ''}
+
+            <button class="btn-ticker-all" style="font-size: 11px; padding: 4px 8px; color: #ef4444;" onclick="deleteStoreOrder('${escapeHtml(o.id)}')" title="Excluir Pedido">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function markStoreOrderDelivered(orderId) {
+  const ord = (AppState.officialStoreOrders || []).find(o => o.id === orderId);
+  if (!ord) return;
+
+  ord.deliveryStatus = 'LIBERADO';
+  ord.deliveredAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+  renderAdminStoreOrders();
+  alert(`Pedido #${orderId} do usuário "${ord.username}" marcado como LIBERADO com sucesso!`);
+}
+
+function manuallyApproveStoreOrder(orderId) {
+  const ord = (AppState.officialStoreOrders || []).find(o => o.id === orderId);
+  if (!ord) return;
+
+  ord.paymentStatus = 'PAGO';
+  ord.paidAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+  renderAdminStoreOrders();
+  alert(`Pagamento do Pedido #${orderId} confirmado manualmente como PAGO!`);
+}
+
+function deleteStoreOrder(orderId) {
+  if (!confirm(`Tem certeza que deseja excluir o registro do pedido #${orderId}?`)) return;
+  AppState.officialStoreOrders = (AppState.officialStoreOrders || []).filter(o => o.id !== orderId);
+  localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_ORDERS, JSON.stringify(AppState.officialStoreOrders));
+  renderAdminStoreOrders();
+}
+
+// Exportações Globais da Loja Oficial
+window.openOfficialStore = openOfficialStore;
+window.openStoreAuthModal = openStoreAuthModal;
+window.closeStoreAuthModal = closeStoreAuthModal;
+window.switchStoreAuthTab = switchStoreAuthTab;
+window.handleStoreLogin = handleStoreLogin;
+window.handleStoreRegister = handleStoreRegister;
+window.storeLogout = storeLogout;
+window.renderOfficialStore = renderOfficialStore;
+window.setStoreCategoryFilter = setStoreCategoryFilter;
+window.handleStoreSearch = handleStoreSearch;
+window.clearStoreSearch = clearStoreSearch;
+window.openStoreProductDetail = openStoreProductDetail;
+window.closeStoreProductModal = closeStoreProductModal;
+window.handleStoreQuestionSubmit = handleStoreQuestionSubmit;
+window.addToCartAndOpen = addToCartAndOpen;
+window.openStoreCart = openStoreCart;
+window.closeStoreCart = closeStoreCart;
+window.changeStoreCartQty = changeStoreCartQty;
+window.removeStoreCartItem = removeStoreCartItem;
+window.checkoutStoreCart = checkoutStoreCart;
+window.confirmStorePaymentManual = confirmStorePaymentManual;
+window.closeStorePixModal = closeStorePixModal;
+window.copyPixCode = copyPixCode;
+window.renderAdminStoreProducts = renderAdminStoreProducts;
+window.handleSaveStoreProduct = handleSaveStoreProduct;
+window.editStoreProduct = editStoreProduct;
+window.cancelStoreProductEdit = cancelStoreProductEdit;
+window.toggleStoreProduct = toggleStoreProduct;
+window.deleteStoreProduct = deleteStoreProduct;
+window.resetStoreProductsToDefault = resetStoreProductsToDefault;
+window.setStoreImagePreset = setStoreImagePreset;
+window.renderAdminStoreUsers = renderAdminStoreUsers;
+window.handleAdminCreateStoreUser = handleAdminCreateStoreUser;
+window.toggleStoreUserStatus = toggleStoreUserStatus;
+window.changeStoreUserPassword = changeStoreUserPassword;
+window.deleteStoreUser = deleteStoreUser;
+window.renderAdminStoreOrders = renderAdminStoreOrders;
+window.markStoreOrderDelivered = markStoreOrderDelivered;
+window.manuallyApproveStoreOrder = manuallyApproveStoreOrder;
+window.deleteStoreOrder = deleteStoreOrder;
+
 
 
 

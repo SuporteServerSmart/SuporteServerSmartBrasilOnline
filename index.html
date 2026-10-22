@@ -130,6 +130,93 @@
       </div>
 
       <!-- ================================================================
+           LOJA OFICIAL VIEW (Estilo Basefy / Marketplace Exclusivo)
+           ================================================================ -->
+      <div id="officialStoreView" class="admin-view-container" style="display: none; max-width: 1400px; margin: 0 auto; padding: 20px 24px;">
+        
+        <!-- Top Bar da Loja Oficial -->
+        <div class="store-topbar">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-ticker-all" onclick="showDashboardView()" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px;">
+              <i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard
+            </button>
+            <div class="store-brand-badge">
+              <i class="fa-solid fa-store" style="color: #c084fc;"></i>
+              <span style="font-weight: 800; letter-spacing: 0.5px;">LOJA OFICIAL</span>
+            </div>
+          </div>
+
+          <!-- Barra de Busca Instantânea -->
+          <div class="store-search-box">
+            <i class="fa-solid fa-magnifying-glass store-search-icon"></i>
+            <input type="text" id="storeSearchInput" placeholder="O que você procura? (Ex: ChatGPT, Gemini, FRP Motorola, Lovable...)" oninput="handleStoreSearch(this.value)">
+            <button class="store-search-clear" id="storeSearchClear" onclick="clearStoreSearch()" style="display: none;">&times;</button>
+          </div>
+
+          <!-- Informações do Usuário & Carrinho -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="store-user-pill" id="storeUserSnippet">
+              <i class="fa-solid fa-circle-user" style="color: #a855f7; font-size: 17px;"></i>
+              <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.1;">
+                <span style="font-size: 9.5px; color: var(--text-muted); text-transform: uppercase;">Usuário Ativo</span>
+                <span id="storeUserGreeting" style="font-size: 12px; font-weight: 700; color: #ffffff;">Conectado</span>
+              </div>
+              <button class="btn-store-logout" onclick="storeLogout()" title="Sair da Loja Oficial">
+                <i class="fa-solid fa-right-from-bracket"></i>
+              </button>
+            </div>
+            
+            <button class="btn-store-cart-trigger" onclick="openStoreCart()" id="btnStoreCartTrigger">
+              <i class="fa-solid fa-cart-shopping"></i>
+              <span>Carrinho</span>
+              <span class="store-cart-badge" id="storeCartBadgeCount">0</span>
+              <span class="store-cart-total-badge" id="storeCartBadgeTotal">R$ 0,00</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Banner Principal da Categoria (Idêntico ao Basefy) -->
+        <div class="store-hero-banner">
+          <div class="store-hero-content">
+            <h1 id="storeCategoryHeading">Inteligência artificial & Ferramentas Oficiais</h1>
+            <p id="storeCategorySubheading">
+              Compre ferramentas, licenças de IA, créditos e acessos com entrega garantida e pagamento via PIX no maior marketplace do Brasil.
+            </p>
+          </div>
+          
+          <!-- Filtros de Categorias em Chips -->
+          <div class="store-filter-pills" id="storeFilterPills">
+            <button class="store-filter-btn active" data-cat="all" onclick="setStoreCategoryFilter('all', this)">
+              <i class="fa-solid fa-border-all"></i> Todos os Anúncios
+            </button>
+            <button class="store-filter-btn" data-cat="ai" onclick="setStoreCategoryFilter('ai', this)">
+              <i class="fa-solid fa-brain"></i> Inteligência Artificial
+            </button>
+            <button class="store-filter-btn" data-cat="credits" onclick="setStoreCategoryFilter('credits', this)">
+              <i class="fa-solid fa-coins"></i> Créditos & Tokens
+            </button>
+            <button class="store-filter-btn" data-cat="frp" onclick="setStoreCategoryFilter('frp', this)">
+              <i class="fa-solid fa-unlock-keyhole"></i> FRP & Servidores
+            </button>
+            <button class="store-filter-btn" data-cat="tools" onclick="setStoreCategoryFilter('tools', this)">
+              <i class="fa-solid fa-screwdriver-wrench"></i> Ferramentas & Softwares
+            </button>
+          </div>
+
+          <div class="store-results-info">
+            <span id="storeResultsCount">Mostrando produtos disponíveis</span>
+            <span class="store-live-tag"><span class="dot-online"></span> Pagamento PIX com Verificação Instantânea</span>
+          </div>
+        </div>
+
+        <!-- Grid de Cards da Loja Oficial (Idêntico à Imagem 1) -->
+        <div class="store-products-grid" id="storeProductsGrid">
+          <!-- Renderizado dinamicamente via renderOfficialStore() -->
+        </div>
+
+      </div>
+
+      <!-- ================================================================
            PAINEL ADMINISTRATIVO (ADMIN VIEW)
            ================================================================ -->
       <div id="adminView" class="admin-view-container">
@@ -168,6 +255,15 @@
           </button>
           <button class="admin-tab-btn" id="btn-tab-config" onclick="switchAdminTab('tab-config')">
             <i class="fa-solid fa-sliders"></i> Configurações do Sistema
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-store-products" onclick="switchAdminTab('tab-store-products')" style="border-left: 2px solid #a855f7;">
+            <i class="fa-solid fa-store" style="color: #c084fc;"></i> Loja: Produtos / Cards
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-store-users" onclick="switchAdminTab('tab-store-users')">
+            <i class="fa-solid fa-user-shield" style="color: #38bdf8;"></i> Loja: Usuários & Acessos
+          </button>
+          <button class="admin-tab-btn" id="btn-tab-store-orders" onclick="switchAdminTab('tab-store-orders')">
+            <i class="fa-solid fa-cash-register" style="color: #4ade80;"></i> Loja: Pedidos & PIX
           </button>
         </div>
 
@@ -519,6 +615,210 @@
           <button type="button" class="btn-primary-block" style="width: auto; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;" onclick="saveSystemConfig(event)">
             <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
           </button>
+        </div>
+
+        <!-- Conteúdo Aba: Loja - Produtos / Cards -->
+        <div class="admin-tab-content" id="tab-store-products" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Gerencie todos os anúncios da Loja Oficial: altere imagens, valores (preço promocional e riscado), descrições, estoque, badges e status.
+            </div>
+            <button class="btn-ticker-all" onclick="resetStoreProductsToDefault()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+              <i class="fa-solid fa-rotate-left"></i> Restaurar Produtos da Loja Padrão
+            </button>
+          </div>
+
+          <!-- Formulário: Adicionar / Editar Produto da Loja -->
+          <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 18px; margin-bottom: 22px;">
+            <h4 id="storeProductFormTitle" style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-plus-circle" style="color: #4ade80;"></i> Cadastrar Novo Produto / Card na Loja Oficial
+            </h4>
+            <form id="formStoreProduct" onsubmit="handleSaveStoreProduct(event)">
+              <input type="hidden" id="storeProductEditId" value="">
+              
+              <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label>Título do Produto / Anúncio:</label>
+                  <input type="text" id="storeProductTitle" placeholder="Ex: 🔥 CHAT GPT GO | 30 dias" required>
+                </div>
+                <div class="form-group">
+                  <label>Categoria:</label>
+                  <select id="storeProductCategory" required style="width: 100%; padding: 9px; background: #16122b; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; color: #ffffff;">
+                    <option value="Inteligência Artificial">Inteligência Artificial (ai)</option>
+                    <option value="Créditos & Tokens">Créditos & Tokens (credits)</option>
+                    <option value="FRP & Servidores">FRP & Servidores (frp)</option>
+                    <option value="Ferramentas & Softwares">Ferramentas & Softwares (tools)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Preço Promocional (R$):</label>
+                  <input type="number" id="storeProductPrice" step="0.01" min="0.50" placeholder="6.20" required>
+                </div>
+                <div class="form-group">
+                  <label>Preço Original Riscado (R$):</label>
+                  <input type="number" id="storeProductOldPrice" step="0.01" min="0" placeholder="17.00">
+                </div>
+                <div class="form-group">
+                  <label>Selo / Badge de Destaque:</label>
+                  <input type="text" id="storeProductBadge" placeholder="Ex: MAIS VENDIDO, NOVO, OFERTA">
+                </div>
+                <div class="form-group">
+                  <label>Estoque Disponível:</label>
+                  <input type="number" id="storeProductStock" min="1" value="100">
+                </div>
+                <div class="form-group full-width">
+                  <label>URL da Imagem de Capa do Card:</label>
+                  <input type="url" id="storeProductImage" placeholder="https://..." required>
+                  <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+                    <span style="font-size: 11px; color: var(--text-muted); align-self: center;">Sugestões de Imagens Rápidas:</span>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('chatgpt')">ChatGPT</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('gemini')">Gemini</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('lovable')">Lovable</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('claude')">Claude</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('kling')">Kling AI</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('motorola')">FRP Moto</button>
+                    <button type="button" class="btn-ticker-all" style="font-size: 10px; padding: 2px 8px;" onclick="setStoreImagePreset('portlink')">Port Link</button>
+                  </div>
+                </div>
+                <div class="form-group full-width">
+                  <label>Descrição Completa do Anúncio (Suporta Quebras de Linha):</label>
+                  <textarea id="storeProductDescription" rows="4" placeholder="Descreva os benefícios, tempo de entrega, compatibilidade e suporte..." required style="width: 100%; padding: 10px; background: #16122b; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; color: #ffffff;"></textarea>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="submit" class="btn-primary-block" style="width: auto; padding: 10px 24px; font-weight: 700;">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar Produto da Loja
+                </button>
+                <button type="button" id="btnCancelEditStoreProd" class="btn-ticker-all" style="display: none; padding: 10px 18px;" onclick="cancelStoreProductEdit()">
+                  Cancelar Edição
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Tabela de Produtos da Loja -->
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Capa</th>
+                  <th>Título & Categoria</th>
+                  <th>Preço Atual / Riscado</th>
+                  <th>Estoque / Vendas</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="adminStoreProductsTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conteúdo Aba: Loja - Usuários & Acessos -->
+        <div class="admin-tab-content" id="tab-store-users" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Controle de quem acessou e se cadastrou na Loja Oficial. Bloqueie, libere, exclua ou crie acessos manualmente para seus clientes.
+            </div>
+          </div>
+
+          <!-- Formulário: Criar Novo Acesso Manual para Cliente -->
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 18px; margin-bottom: 22px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-user-plus" style="color: #38bdf8;"></i> Gerar Novo Acesso para Cliente (Com Envio no WhatsApp)
+            </h4>
+            <form id="formAdminCreateStoreUser" onsubmit="handleAdminCreateStoreUser(event)">
+              <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label>Nome de Usuário:</label>
+                  <input type="text" id="adminNewStoreUsername" placeholder="Ex: marcos_assistencia" required>
+                </div>
+                <div class="form-group">
+                  <label>WhatsApp do Cliente com DDD:</label>
+                  <input type="text" id="adminNewStoreWhatsapp" placeholder="(11) 99999-9999" required>
+                </div>
+                <div class="form-group">
+                  <label>Senha Provisória:</label>
+                  <input type="text" id="adminNewStorePassword" placeholder="Ex: 123456" value="123456" required>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary-block" style="background: linear-gradient(135deg, #0284c7, #38bdf8); width: auto; padding: 10px 24px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-brands fa-whatsapp"></i> Criar Acesso e Copiar Mensagem para Enviar ao Cliente
+              </button>
+            </form>
+          </div>
+
+          <!-- Tabela de Usuários da Loja Oficial -->
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Usuário</th>
+                  <th>WhatsApp</th>
+                  <th>Data de Cadastro</th>
+                  <th>Status do Acesso</th>
+                  <th>Total de Pedidos</th>
+                  <th>Ações Administrativas</th>
+                </tr>
+              </thead>
+              <tbody id="adminStoreUsersTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conteúdo Aba: Loja - Pedidos & PIX -->
+        <div class="admin-tab-content" id="tab-store-orders" style="display: none;">
+          
+          <!-- Cards de Métricas e KPIs da Loja Oficial -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px;">
+            <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11px; color: #86efac; text-transform: uppercase; font-weight: 700;">Total Recebido (PIX)</div>
+              <div style="font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px;" id="metricStoreTotalEarned">R$ 0,00</div>
+            </div>
+            <div style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11px; color: #c084fc; text-transform: uppercase; font-weight: 700;">PIX Pagos / Aprovados</div>
+              <div style="font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px;" id="metricStorePaidCount">0</div>
+            </div>
+            <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11px; color: #fde047; text-transform: uppercase; font-weight: 700;">PIX Pendentes</div>
+              <div style="font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px;" id="metricStorePendingCount">0</div>
+            </div>
+            <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11px; color: #7dd3fc; text-transform: uppercase; font-weight: 700;">Total de Pedidos</div>
+              <div style="font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px;" id="metricStoreTotalOrders">0</div>
+            </div>
+            <div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11px; color: #a5b4fc; text-transform: uppercase; font-weight: 700;">Pedidos Liberados</div>
+              <div style="font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px;" id="metricStoreDeliveredCount">0</div>
+            </div>
+          </div>
+
+          <!-- Tabela de Pedidos da Loja Oficial -->
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID Pedido</th>
+                  <th>Data / Hora</th>
+                  <th>Usuário da Loja</th>
+                  <th>WhatsApp</th>
+                  <th>Produto(s) Comprado(s)</th>
+                  <th>Total (R$)</th>
+                  <th>Status PIX</th>
+                  <th>Entrega / Liberação</th>
+                  <th>Ações Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="adminStoreOrdersTbody">
+                <!-- Preenchido via app.js -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
@@ -1186,6 +1486,196 @@
           </small>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAIS DA LOJA OFICIAL (Autenticação, Detalhes do Produto, Carrinho e PIX)
+       ==================================================================== -->
+
+  <!-- 1. Modal: Autenticação da Loja Oficial (Login & Cadastro com Usuário e Senha) -->
+  <div class="modal-overlay" id="officialStoreAuthModal" style="display: none;">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <i class="fa-solid fa-store" style="color: #a855f7; font-size: 20px;"></i>
+          <h3 style="margin: 0; font-size: 16px; color: #ffffff;">Acesso Exclusivo &bull; Loja Oficial</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeStoreAuthModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 22px;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="assets/logo.png" alt="ServerSmart Logo" style="width: 58px; height: 58px; object-fit: contain; border-radius: 50%; border: 2px solid rgba(168, 85, 247, 0.5); box-shadow: 0 0 16px rgba(168, 85, 247, 0.4); display: inline-block;">
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 10px;">
+            Acesse seu usuário ou crie um novo acesso para desbloquear o catálogo oficial e fazer compras via PIX.
+          </p>
+        </div>
+
+        <!-- Alternador entre Entrar e Cadastrar -->
+        <div class="admin-tabs" style="justify-content: center; margin-bottom: 18px;">
+          <button class="admin-tab-btn active" id="storeAuthTabLoginBtn" onclick="switchStoreAuthTab('login')">
+            <i class="fa-solid fa-right-to-bracket"></i> Já Tenho Acesso
+          </button>
+          <button class="admin-tab-btn" id="storeAuthTabRegBtn" onclick="switchStoreAuthTab('register')">
+            <i class="fa-solid fa-user-plus"></i> Criar Novo Acesso
+          </button>
+        </div>
+
+        <!-- Formulário: Entrar com Usuário e Senha -->
+        <form id="storeLoginForm" onsubmit="handleStoreLogin(event)">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Nome de Usuário:</label>
+            <div style="position: relative;">
+              <input type="text" id="storeLoginUsername" placeholder="Digite seu usuário" required style="width: 100%; padding-left: 36px;">
+              <i class="fa-solid fa-user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a78bfa;"></i>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Sua Senha:</label>
+            <div style="position: relative;">
+              <input type="password" id="storeLoginPassword" placeholder="Digite sua senha" required style="width: 100%; padding-left: 36px;">
+              <i class="fa-solid fa-lock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a78bfa;"></i>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary-block" style="background: linear-gradient(135deg, #7c3aed, #9333ea); font-weight: 700; padding: 12px; border-radius: 8px;">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar na Loja Oficial
+          </button>
+        </form>
+
+        <!-- Formulário: Criar Novo Acesso -->
+        <form id="storeRegisterForm" onsubmit="handleStoreRegister(event)" style="display: none;">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Criar Nome de Usuário:</label>
+            <input type="text" id="storeRegUsername" placeholder="Ex: marcos_tecnico" required style="width: 100%;">
+            <small style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Você usará este usuário sempre que entrar na Loja Oficial.</small>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Seu WhatsApp com DDD:</label>
+            <input type="tel" id="storeRegWhatsapp" placeholder="(11) 99999-9999" required style="width: 100%;">
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Criar Senha:</label>
+            <input type="password" id="storeRegPassword" placeholder="Crie uma senha de acesso" required style="width: 100%;">
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-size: 12px; color: #e2e8f0; font-weight: 600;">Confirmar Senha:</label>
+            <input type="password" id="storeRegPasswordConfirm" placeholder="Repita a senha criada" required style="width: 100%;">
+          </div>
+          <button type="submit" class="btn-primary-block" style="background: linear-gradient(135deg, #16a34a, #22c55e); font-weight: 700; padding: 12px; border-radius: 8px;">
+            <i class="fa-solid fa-check-circle"></i> Criar Acesso e Liberar Entrada
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal: Detalhes do Produto Selecionado (Idêntico à Imagem 2 do Usuário) -->
+  <div class="modal-overlay" id="officialStoreProductModal" style="display: none;">
+    <div class="modal-box store-product-detail-box">
+      
+      <!-- Topo com Navegação -->
+      <div class="store-modal-nav">
+        <button class="btn-store-back" onclick="closeStoreProductModal()">
+          <i class="fa-solid fa-arrow-left"></i> Voltar para a Loja Oficial
+        </button>
+        <div class="store-modal-title-header" id="modalProductTitleHeader">
+          <!-- Título dinâmico -->
+        </div>
+        <button class="modal-close-btn" onclick="closeStoreProductModal()">&times;</button>
+      </div>
+
+      <!-- Conteúdo com Scroll -->
+      <div class="store-modal-scroll-body" id="storeProductModalBody">
+        <!-- Renderizado dinamicamente via renderStoreProductDetail() -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. Drawer / Modal: Carrinho de Compras (Idêntico à Imagem 3 do Usuário) -->
+  <div class="modal-overlay" id="officialStoreCartOverlay" style="display: none;" onclick="closeStoreCart()">
+    <div class="store-cart-drawer" onclick="event.stopPropagation()">
+      <div class="store-cart-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-cart-shopping" style="color: #a855f7;"></i>
+          <h3>Carrinho</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeStoreCart()">&times;</button>
+      </div>
+
+      <div class="store-cart-body" id="storeCartItemsList">
+        <!-- Itens do carrinho renderizados dinamicamente -->
+      </div>
+
+      <div class="store-cart-footer">
+        <div class="store-cart-subtotal-row">
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 700;">SUBTOTAL</span>
+          <span class="store-cart-subtotal-value" id="storeCartSubtotalAmount">R$ 0,00</span>
+        </div>
+        <button class="btn-store-checkout" onclick="checkoutStoreCart()">
+          Finalizar compra
+        </button>
+        <button class="btn-store-continue" onclick="closeStoreCart()">
+          Continuar comprando
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Modal: Pagamento PIX Mercado Pago Oficial -->
+  <div class="modal-overlay" id="officialStorePixModal" style="display: none;">
+    <div class="modal-box" style="max-width: 480px; text-align: center;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="https://logopng.com.br/logos/pix-106.png" alt="PIX" style="height: 20px; filter: brightness(0) invert(1);" onerror="this.style.display='none'">
+          <h3 style="margin: 0; font-size: 15px; color: #ffffff;">Pagamento PIX Oficial &bull; Mercado Pago</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeStorePixModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 22px 20px;">
+        <div class="pix-order-badge" id="pixOrderBadge">PEDIDO #...</div>
+        
+        <div style="margin: 10px 0 4px;">
+          <span style="font-size: 12px; color: var(--text-muted);">Total a Pagar via PIX:</span>
+          <div style="font-size: 30px; font-weight: 900; color: #4ade80; letter-spacing: -0.5px;" id="pixTotalValue">R$ 0,00</div>
+        </div>
+        
+        <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 14px;" id="pixUserPayer">
+          👤 Usuário da Compra: <strong>...</strong>
+        </div>
+
+        <!-- Container do QR Code -->
+        <div class="pix-qr-container">
+          <img id="pixQrImg" src="" alt="QR Code PIX Mercado Pago" class="pix-qr-code-img">
+          <div id="pixQrLoading" class="pix-qr-loading">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; color: #a855f7;"></i>
+            <span style="font-size: 12px; color: #cbd5e1; margin-top: 10px; font-weight: 600;">Gerando QR Code Oficial no Mercado Pago...</span>
+          </div>
+        </div>
+
+        <!-- Copia e Cola -->
+        <div style="margin-top: 14px; text-align: left;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8; display: block; margin-bottom: 5px;">
+            Código PIX Copia e Cola:
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="pixCopyInput" readonly style="font-size: 11px; padding: 9px 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: #e2e8f0; width: 100%;">
+            <button class="btn-ticker-all" onclick="copyPixCode()" id="btnCopyPix" style="white-space: nowrap; padding: 0 16px; font-weight: 700; background: #9333ea; border-color: #a855f7;">
+              <i class="fa-regular fa-copy"></i> Copiar
+            </button>
+          </div>
+        </div>
+
+        <!-- Status e Polling -->
+        <div class="pix-status-box" style="margin-top: 14px;">
+          <div class="pix-status-pulse"></div>
+          <span id="pixStatusText">Aguardando pagamento... Verificando a cada 3 segundos</span>
+        </div>
+
+        <button class="btn-primary-block" style="margin-top: 16px; background: linear-gradient(135deg, #16a34a, #22c55e); font-weight: 700; padding: 12px; font-size: 13px;" onclick="confirmStorePaymentManual()">
+          <i class="fa-brands fa-whatsapp" style="font-size: 16px;"></i> Já Paguei &bull; Enviar Pedido no WhatsApp do Suporte
+        </button>
       </div>
     </div>
   </div>

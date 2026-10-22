@@ -27,6 +27,7 @@ const TECH_UNION_DATA = {
   sidebarMenu: [
     // Seção Principal
     { id: "nav_dashboard", section: "Principal", label: "Dashboard", icon: "fa-solid fa-gauge-high", actionType: "dashboard", active: true },
+    { id: "nav_official_store", section: "Principal", label: "Loja Oficial", icon: "fa-solid fa-store", actionType: "official_store", badge: "OFICIAL", active: true },
     { id: "nav_solutions", section: "Principal", label: "Soluções", icon: "fa-solid fa-layer-group", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
     { id: "nav_samsung", section: "Principal", label: "Samsung", icon: "fa-brands fa-android", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
     { id: "nav_apple", section: "Principal", label: "Apple", icon: "fa-brands fa-apple", actionType: "brand", brandId: "apple", brandName: "Apple", active: true },
@@ -474,8 +475,167 @@ const TECH_UNION_DATA = {
     { id: "razr_xt2453_1_24", category: "razr", categoryLabel: "Moto Razr", code: "XT2453-1", name: "Moto Razr (2024)", chip: "MTK", mode: "FASTBOOT" },
     { id: "razr_xt2553_1_60", category: "razr", categoryLabel: "Moto Razr", code: "XT2553-1", name: "Moto Razr 60", chip: "MTK", mode: "FASTBOOT" },
     { id: "razr_xt2553_1_25", category: "razr", categoryLabel: "Moto Razr", code: "XT2553-1", name: "Moto Razr (2025)", chip: "MTK", mode: "FASTBOOT" }
-  ]
+  ],
+
+  // ========================================================================
+  // LOJA OFICIAL - CATÁLOGO DE PRODUTOS & SERVIÇOS EXCLUSIVOS
+  // ========================================================================
+  officialStoreProducts: [
+    {
+      id: "prod_chatgpt_go",
+      title: "🔥 CHAT GPT GO | 30 dias",
+      category: "Inteligência Artificial",
+      categoryKey: "ai",
+      price: 6.20,
+      oldPrice: 17.00,
+      badge: "MAIS VENDIDO",
+      badgeColor: "#8b5cf6",
+      image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=500&auto=format&fit=crop&q=80",
+      description: "Acesso de 30 dias ao ChatGPT GO com resposta ultra rápida, navegação web integrada, análise de dados e geração de imagens em alta definição. Entrega automática e suporte prioritário.\n\n⚡ Entrega automática e imediata após o PIX\n🔒 Acesso 100% garantido por 30 dias\n📱 Compatível com Celular (Android/iOS) e Computador\n💬 Suporte via WhatsApp direto com nosso time",
+      stock: 112,
+      salesCount: 176,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_gemini_pro_18m",
+      title: "Gemini AI Pro 18 Meses — 5TB Workspace",
+      category: "Inteligência Artificial",
+      categoryKey: "ai",
+      price: 6.70,
+      oldPrice: 18.00,
+      badge: "PROMOÇÃO",
+      badgeColor: "#3b82f6",
+      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80",
+      description: "Google Gemini Advanced com modelo 1.5 Pro de contexto gigante (1 Milhão de tokens). Acompanha 5TB de armazenamento no Google One/Drive por 18 meses com ativação rápida.\n\n⚡ Ativação imediata no seu e-mail\n🔒 Garantia completa de duração de 18 meses\n💾 5TB de nuvem para backup de esquemas e roms\n🚀 Sem limite de mensagens por hora",
+      stock: 84,
+      salesCount: 292,
+      rating: 4.9,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_lovable_pro",
+      title: "Créditos Lovable + PRO — Entrega na Hora",
+      category: "Créditos & Tokens",
+      categoryKey: "credits",
+      price: 8.90,
+      oldPrice: 25.00,
+      badge: "ENTREGA RÁPIDA",
+      badgeColor: "#ec4899",
+      image: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=500&auto=format&fit=crop&q=80",
+      description: "Pacote de créditos Lovable Dev com modo Pro para construção de aplicações web completas e automações fullstack via prompts inteligentes.\n\n⚡ Envio de código / link de ativação na hora\n🛠️ Modo desenvolvedor avançado liberado\n🔒 Suporte dedicado SuporteServerSmart",
+      stock: 45,
+      salesCount: 144,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_claude_api_10m",
+      title: "Claude API — 10M Tokens | 24 Horas",
+      category: "Créditos & Tokens",
+      categoryKey: "credits",
+      price: 29.90,
+      oldPrice: 60.00,
+      badge: "RECOMENDADO",
+      badgeColor: "#f97316",
+      image: "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=500&auto=format&fit=crop&q=80",
+      description: "Acesso à API oficial do Claude 3.5 Sonnet com franquia de 10 Milhões de tokens. Ideal para desenvolvedores, scripts de automação e análises de código pesadas.\n\n⚡ Chave de API ativada e pronta para uso imediato\n🚀 Claude 3.5 Sonnet com a melhor precisão do mercado\n🔒 Sem bloqueios ou quedas",
+      stock: 60,
+      salesCount: 88,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_kling_ai",
+      title: "Kling AI Standard — 1.000+ Créditos de Vídeo",
+      category: "Inteligência Artificial",
+      categoryKey: "ai",
+      price: 49.90,
+      oldPrice: 90.00,
+      badge: "EXCLUSIVO",
+      badgeColor: "#eab308",
+      image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80",
+      description: "Geração de vídeos realistas em alta definição com a inteligência artificial Kling. 1.000 créditos válidos para criação de animações hiper-realistas.\n\n⚡ Liberação automática da conta com créditos\n🎬 Vídeos em 1080p sem marca d'água\n🔒 Garantia do saldo",
+      stock: 32,
+      salesCount: 95,
+      rating: 4.9,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_perplexity_pro",
+      title: "Perplexity Pro — 12 Meses | Código Ativação",
+      category: "Inteligência Artificial",
+      categoryKey: "ai",
+      price: 159.90,
+      oldPrice: 290.00,
+      badge: "OFERTA",
+      badgeColor: "#14b8a6",
+      image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&auto=format&fit=crop&q=80",
+      description: "Buscador inteligente com pesquisa profunda (Deep Research), modelos Claude 3.5 Sonnet, GPT-4o e Sonar ilimitados. Licença anual com código de resgate direto no seu perfil.\n\n⚡ Código oficial com resgate no seu e-mail\n📚 Pesquisas acadêmicas e técnicas sem limites\n🔒 12 meses de garantia integral",
+      stock: 18,
+      salesCount: 57,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_frp_fastboot_moto",
+      title: "FRP MTK Motorola Fastboot — Desbloqueio 1 Clique",
+      category: "FRP & Servidores",
+      categoryKey: "frp",
+      price: 35.00,
+      oldPrice: 70.00,
+      badge: "SERVIÇO GSM",
+      badgeColor: "#ef4444",
+      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80",
+      description: "Serviço de remoção de conta Google (FRP) para Motorola linha MediaTek em modo Fastboot. Procedimento rápido via AnyDesk/USB remoto sem necessidade de abrir o aparelho.\n\n⚡ Execução em menos de 5 minutos\n🛡️ Não perde garantia nem corrompe firmware\n💻 Suporte técnico remoto via AnyDesk dedicado",
+      stock: 999,
+      salesCount: 420,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    },
+    {
+      id: "prod_portlink_license",
+      title: "Port Link USB Remoto — Licença Mensal Ilimitada",
+      category: "Ferramentas & Softwares",
+      categoryKey: "tools",
+      price: 49.90,
+      oldPrice: 99.00,
+      badge: "FERRAMENTA VIP",
+      badgeColor: "#6366f1",
+      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=500&auto=format&fit=crop&q=80",
+      description: "Compartilhamento de portas USB e conexões remotas para técnicos e bancadas. Conecte dongles, caixas e aparelhos de clientes a distância com baixíssima latência.\n\n⚡ Acesso ilimitado por 30 dias\n🔌 Compartilhamento com 1 clique\n🔒 Conexão criptografada ponta a ponta",
+      stock: 999,
+      salesCount: 310,
+      rating: 5.0,
+      seller: "SuporteServerSmart Oficial",
+      active: true
+    }
+  ],
+
+  // Usuários com Acesso à Loja Oficial (gerenciados pelo Admin)
+  officialStoreUsers: [
+    {
+      id: "store_user_demo",
+      username: "tecnico_vip",
+      password: "123",
+      whatsapp: "(41) 99637-8029",
+      createdAt: "2026-10-20T10:00:00.000Z",
+      status: "ativo", // "ativo" | "bloqueado"
+      createdBy: "admin"
+    }
+  ],
+
+  // Pedidos Efetuados na Loja Oficial
+  officialStoreOrders: []
 };
 
 // Exportar globalmente
 window.TECH_UNION_DATA = TECH_UNION_DATA;
+
