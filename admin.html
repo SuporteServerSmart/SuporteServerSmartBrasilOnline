@@ -242,11 +242,31 @@
               <span>Gerenciar Arquivos</span>
             </div>
 
-            <!-- 12. Loja Oficial & Vendas -->
-            <div class="admin-nav-item" onclick="window.location.href='index.html#loja-oficial'" style="border-left: 2px solid #a855f7;">
+            <!-- 12. Loja Oficial & Vendas (Submenu Completo de Gestão) -->
+            <div class="admin-nav-item nav-has-submenu" id="nav-item-manage-store" onclick="toggleStoreSubmenu()" style="border-left: 2px solid #a855f7;">
               <i class="fa-solid fa-store" style="color: #c084fc;"></i>
               <span style="color: #ffffff; font-weight: 700;">Loja Oficial</span>
               <span class="nav-badge-new" style="margin-left: auto; background: #9333ea; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 8px;">OFICIAL</span>
+              <i class="fa-solid fa-chevron-left submenu-arrow" id="store-submenu-arrow" style="margin-left: 6px; font-size: 0.75rem; transition: transform 0.25s;"></i>
+            </div>
+            <!-- Submenu Loja Oficial: Produtos, Usuários e Pedidos -->
+            <div class="admin-submenu" id="submenu-manage-store" style="display: none; padding-left: 1.25rem; flex-direction: column; gap: 0.2rem; margin-bottom: 0.35rem;">
+              <div class="admin-nav-item admin-sub-item" data-tab="store-products" onclick="switchTab('store-products')">
+                <i class="fa-solid fa-tags" style="font-size: 0.75rem; color: #c084fc;"></i>
+                <span>Produtos & Cards</span>
+              </div>
+              <div class="admin-nav-item admin-sub-item" data-tab="store-users" onclick="switchTab('store-users')">
+                <i class="fa-solid fa-users" style="font-size: 0.75rem; color: #60a5fa;"></i>
+                <span>Usuários da Loja</span>
+              </div>
+              <div class="admin-nav-item admin-sub-item" data-tab="store-orders" onclick="switchTab('store-orders')">
+                <i class="fa-solid fa-receipt" style="font-size: 0.75rem; color: #4ade80;"></i>
+                <span>Pedidos & PIX</span>
+              </div>
+              <div class="admin-nav-item admin-sub-item" onclick="window.open('index.html#loja-oficial', '_blank')">
+                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.75rem; color: #a78bfa;"></i>
+                <span>Abrir Loja no Site</span>
+              </div>
             </div>
           </nav>
         </div>
@@ -1205,6 +1225,281 @@
           </div>
         </section>
 
+        <!-- ==============================================================
+             13. LOJA OFICIAL: GESTÃO DE PRODUTOS & CARDS
+             ============================================================== -->
+        <section id="view-store-products" class="admin-view" style="display: none;">
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+              <div>
+                <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.6rem; margin: 0;">
+                  <i class="fa-solid fa-tags" style="color: #c084fc;"></i>
+                  <span>Produtos da Loja Oficial (Estilo Basefy)</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 0;">Controle total dos cards: imagens, preços promocionais, valores riscados, descrição e ativação.</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleStoreProductForm(true)" style="background: linear-gradient(135deg, #7c3aed, #9333ea);">
+                  <i class="fa-solid fa-plus"></i> Novo Produto
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="adminResetStoreProductsToDefault()" title="Restaurar cards padrões da Loja Oficial">
+                  <i class="fa-solid fa-rotate-left"></i> Padrões
+                </button>
+                <a href="index.html#loja-oficial" target="_blank" class="btn btn-secondary btn-sm" style="color: #c084fc;">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver no Site
+                </a>
+              </div>
+            </div>
+
+            <!-- Formulário Colapsável de Cadastro / Edição de Produto -->
+            <div id="store-product-form-box" style="display: none; background: rgba(0,0,0,0.35); border: 1px solid rgba(168,85,247,0.35); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+              <h4 id="store-product-form-title" style="font-size: 1.05rem; font-weight: 700; color: #e9d5ff; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-pen-to-square"></i> Cadastrar / Editar Produto
+              </h4>
+              <form id="adminStoreProductForm" onsubmit="adminSaveStoreProduct(event)">
+                <input type="hidden" id="adminStoreProdId">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Nome / Título do Produto *</label>
+                    <input type="text" id="adminStoreProdTitle" class="form-control" placeholder="Ex: Claude Pro 3.5 Sonnet" required>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Preço Promocional (R$) *</label>
+                    <input type="number" step="0.01" id="adminStoreProdPrice" class="form-control" placeholder="Ex: 50.00" required>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Preço Original Riscado (R$)</label>
+                    <input type="number" step="0.01" id="adminStoreProdOriginalPrice" class="form-control" placeholder="Ex: 110.00">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Categoria</label>
+                    <select id="adminStoreProdCategory" class="form-control">
+                      <option value="ia">Inteligência Artificial (IA)</option>
+                      <option value="streaming">Streaming & Mídia</option>
+                      <option value="design">Design & Criatividade</option>
+                      <option value="tools">Ferramentas & Utilitários</option>
+                      <option value="outros">Outros Produtos</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Selo / Badge Destaque</label>
+                    <input type="text" id="adminStoreProdBadge" class="form-control" placeholder="Ex: MAIS VENDIDO, NOVO, OFERTA">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Status de Venda</label>
+                    <select id="adminStoreProdActive" class="form-control">
+                      <option value="true">Ativo (Exibido na Loja)</option>
+                      <option value="false">Pausado (Oculto)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- URL da Imagem + Presets Rápidos -->
+                <div style="margin-bottom: 1rem;">
+                  <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">URL da Imagem do Card *</label>
+                  <div style="display: flex; gap: 0.5rem; margin-bottom: 6px;">
+                    <input type="url" id="adminStoreProdImage" class="form-control" placeholder="https://..." required>
+                  </div>
+                  <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Presets Rápidos:</span>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setAdminStoreImagePreset('claude')" style="font-size: 0.75rem; padding: 2px 8px;">Claude Pro</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setAdminStoreImagePreset('kling')" style="font-size: 0.75rem; padding: 2px 8px;">Kling AI</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setAdminStoreImagePreset('chatgpt')" style="font-size: 0.75rem; padding: 2px 8px;">ChatGPT Plus</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setAdminStoreImagePreset('canva')" style="font-size: 0.75rem; padding: 2px 8px;">Canva Pro</button>
+                  </div>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                  <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Descrição Detalhada do Produto</label>
+                  <textarea id="adminStoreProdDesc" class="form-control" rows="3" placeholder="Informações que aparecem ao clicar no card..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="toggleStoreProductForm(false)">Cancelar</button>
+                  <button type="submit" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #16a34a, #22c55e);">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar Produto
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Tabela de Produtos -->
+            <div class="data-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Imagem</th>
+                    <th>Título do Produto</th>
+                    <th>Categoria</th>
+                    <th>Preço Promo</th>
+                    <th>Preço Original</th>
+                    <th>Badge</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="adminStoreProductsTbody">
+                  <!-- Renderizado via renderAdminStoreProducts() -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==============================================================
+             14. LOJA OFICIAL: USUÁRIOS & SENHAS CADASTRADOS
+             ============================================================== -->
+        <section id="view-store-users" class="admin-view" style="display: none;">
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+              <div>
+                <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.6rem; margin: 0;">
+                  <i class="fa-solid fa-users" style="color: #60a5fa;"></i>
+                  <span>Usuários Cadastrados na Loja Oficial</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 0;">Controle completo dos usuários e senhas criados pelos clientes na aba Loja Oficial.</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleStoreUserForm(true)" style="background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                  <i class="fa-solid fa-user-plus"></i> Criar Acesso Manual
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="renderAdminStoreUsers()">
+                  <i class="fa-solid fa-arrows-rotate"></i> Atualizar
+                </button>
+              </div>
+            </div>
+
+            <!-- Formulário Manual de Criação de Acesso -->
+            <div id="store-user-form-box" style="display: none; background: rgba(0,0,0,0.35); border: 1px solid rgba(96,165,250,0.35); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; color: #93c5fd; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-user-shield"></i> Criar Novo Usuário para Cliente
+              </h4>
+              <form id="adminCreateStoreUserForm" onsubmit="adminSaveManualStoreUser(event)">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Nome de Usuário *</label>
+                    <input type="text" id="adminManualStoreUsername" class="form-control" placeholder="Ex: joao_smart" required>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">Senha de Acesso *</label>
+                    <input type="text" id="adminManualStorePassword" class="form-control" placeholder="Ex: 123456" required>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;">WhatsApp com DDD (para envio)</label>
+                    <input type="tel" id="adminManualStoreWhatsapp" class="form-control" placeholder="(11) 99999-9999">
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="toggleStoreUserForm(false)">Cancelar</button>
+                  <button type="submit" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #16a34a, #22c55e);">
+                    <i class="fa-solid fa-check"></i> Criar e Liberar Acesso
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Tabela de Usuários da Loja Oficial -->
+            <div class="data-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nome de Usuário</th>
+                    <th>Senha</th>
+                    <th>WhatsApp</th>
+                    <th>Criado Em</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="adminStoreUsersTbody">
+                  <!-- Renderizado via renderAdminStoreUsers() -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==============================================================
+             15. LOJA OFICIAL: PEDIDOS & VENDAS PIX
+             ============================================================== -->
+        <section id="view-store-orders" class="admin-view" style="display: none;">
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+              <div>
+                <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.6rem; margin: 0;">
+                  <i class="fa-solid fa-receipt" style="color: #4ade80;"></i>
+                  <span>Pedidos e Vendas da Loja Oficial</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 0;">Acompanhe todos os pedidos, status do PIX Mercado Pago e libere acessos para os clientes.</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="renderAdminStoreOrders()">
+                <i class="fa-solid fa-arrows-rotate"></i> Atualizar Pedidos
+              </button>
+            </div>
+
+            <!-- Stat Cards de Vendas da Loja Oficial -->
+            <div class="admin-stat-grid" style="margin-bottom: 1.5rem;">
+              <div class="stat-card">
+                <div class="stat-icon green">
+                  <i class="fa-solid fa-brazilian-real-sign"></i>
+                </div>
+                <div class="stat-info">
+                  <h3 id="adminStoreRevenueTotal" style="font-size: 1.4rem;">R$ 0,00</h3>
+                  <p>Total Recebido (PIX Pago)</p>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon cyan">
+                  <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <div class="stat-info">
+                  <h3 id="adminStoreOrdersCount">0</h3>
+                  <p>Total de Pedidos Feitos</p>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon purple">
+                  <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="stat-info">
+                  <h3 id="adminStorePixPaidCount">0</h3>
+                  <p>PIX Pagos / Confirmados</p>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon yellow">
+                  <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                  <h3 id="adminStorePixPendingCount">0</h3>
+                  <p>PIX Pendentes</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela de Pedidos da Loja Oficial -->
+            <div class="data-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID Pedido</th>
+                    <th>Data / Hora</th>
+                    <th>Cliente</th>
+                    <th>Itens Comprados</th>
+                    <th>Total</th>
+                    <th>Status Pagamento</th>
+                    <th>Status Entrega</th>
+                    <th style="text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="adminStoreOrdersTbody">
+                  <!-- Renderizado via renderAdminStoreOrders() -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -1539,8 +1834,8 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js?v=1.3.5"></script>
-  <script src="js/data.js?v=1.3.5"></script>
-  <script src="js/admin.js?v=1.3.5"></script>
+  <script src="js/supabase.js?v=1.3.6"></script>
+  <script src="js/data.js?v=1.3.6"></script>
+  <script src="js/admin.js?v=1.3.6"></script>
 </body>
 </html>

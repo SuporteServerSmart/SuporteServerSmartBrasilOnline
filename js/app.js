@@ -3669,25 +3669,19 @@ window.sendFrpMotorolaOrderWhatsApp = sendFrpMotorolaOrderWhatsApp;
 
 // 1. Abrir a Loja Oficial / Controle de Acesso
 function openOfficialStore() {
-  // Verifica se o usuário já tem sessão ativa na Loja Oficial
-  const storeUser = AppState.officialStoreUser;
-  if (!storeUser || !storeUser.username) {
-    // Não está logado na Loja Oficial: Abre modal de Autenticação / Cadastro
-    openStoreAuthModal();
-    return;
+  // Se for o Administrador Master geral logado no sistema, liberar acesso automaticamente
+  if (AppState.currentUser && (AppState.currentUser.isAdmin || (AppState.currentUser.email && AppState.currentUser.email.toLowerCase() === MASTER_ADMIN.email))) {
+    if (!AppState.officialStoreUser || !AppState.officialStoreUser.username) {
+      AppState.officialStoreUser = {
+        username: MASTER_ADMIN.username || 'suporteserversmart',
+        whatsapp: '5541996378029',
+        role: 'superadmin'
+      };
+      localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_SESSION, JSON.stringify(AppState.officialStoreUser));
+    }
   }
 
-  // Verificar se o usuário foi bloqueado pelo Admin
-  const registeredUser = (AppState.officialStoreUsers || []).find(
-    u => u.username && u.username.toLowerCase() === storeUser.username.toLowerCase()
-  );
-  if (registeredUser && registeredUser.status === 'bloqueado') {
-    alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Entre em contato com o suporte.');
-    storeLogout();
-    return;
-  }
-
-  // Usuário autenticado e liberado: Exibe a tela da Loja Oficial
+  // SEMPRE exibe a tela da Loja Oficial com os Cards no Estilo Basefy solicitados
   AppState.activeView = 'official_store';
   localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, 'officialStoreView');
 
@@ -3704,26 +3698,44 @@ function openOfficialStore() {
   const storeNav = document.getElementById('navOfficialStoreLink');
   if (storeNav) storeNav.classList.add('active');
 
-  // Atualizar cabeçalho do usuário na Loja
-  const userGreeting = document.getElementById('storeUserGreeting');
-  if (userGreeting) {
-    userGreeting.textContent = storeUser.username;
-  }
-
   // Renderizar vitrine de produtos e carrinho
   renderOfficialStore();
   updateStoreCartBadge();
 
   // Scroll suave ao topo
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Verifica se o usuário já tem sessão ativa na Loja Oficial
+  const storeUser = AppState.officialStoreUser;
+  if (!storeUser || !storeUser.username) {
+    // Solicita criar nome de usuário e senha conforme pedido pelo usuário
+    openStoreAuthModal('register');
+    return;
+  }
+
+  // Verificar se o usuário foi bloqueado pelo Admin
+  const registeredUser = (AppState.officialStoreUsers || []).find(
+    u => u.username && u.username.toLowerCase() === storeUser.username.toLowerCase()
+  );
+  if (registeredUser && registeredUser.status === 'bloqueado') {
+    alert('Acesso Bloqueado! Seu usuário foi bloqueado pelo Administrador da Loja Oficial. Entre em contato com o suporte.');
+    storeLogout();
+    return;
+  }
+
+  // Atualizar cabeçalho do usuário na Loja
+  const userGreeting = document.getElementById('storeUserGreeting');
+  if (userGreeting) {
+    userGreeting.textContent = storeUser.username;
+  }
 }
 
 // 2. Modais de Autenticação da Loja Oficial (Login & Cadastro)
-function openStoreAuthModal() {
+function openStoreAuthModal(defaultTab = 'register') {
   const modal = document.getElementById('officialStoreAuthModal');
   if (modal) {
     modal.style.display = 'flex';
-    switchStoreAuthTab('login');
+    switchStoreAuthTab(defaultTab);
   }
 }
 

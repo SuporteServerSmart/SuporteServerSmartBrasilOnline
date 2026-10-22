@@ -290,6 +290,19 @@ function switchTab(tabName) {
     if (parentNavItem) parentNavItem.classList.remove('active');
   }
 
+  // Se a aba for uma sub-aba da Loja Oficial, manter o submenu aberto
+  const storeSubmenu = document.getElementById('submenu-manage-store');
+  const storeArrow = document.getElementById('store-submenu-arrow');
+  const parentStoreNavItem = document.getElementById('nav-item-manage-store');
+
+  if (tabName === 'store-products' || tabName === 'store-users' || tabName === 'store-orders') {
+    if (storeSubmenu) storeSubmenu.style.display = 'flex';
+    if (storeArrow) storeArrow.style.transform = 'rotate(-90deg)';
+    if (parentStoreNavItem) parentStoreNavItem.classList.add('active');
+  } else {
+    if (parentStoreNavItem) parentStoreNavItem.classList.remove('active');
+  }
+
   // 1. Alterna estado ativo nos botões do menu lateral
   const navItems = document.querySelectorAll('.admin-nav-item');
   navItems.forEach(el => {
@@ -321,12 +334,28 @@ function switchTab(tabName) {
     else if (tabName === 'courses') renderCoursesTable();
     else if (tabName === 'files') renderFilesTable();
     else if (tabName === 'settings') renderSettingsForm();
+    else if (tabName === 'store-products') renderAdminStoreProducts();
+    else if (tabName === 'store-users') renderAdminStoreUsers();
+    else if (tabName === 'store-orders') renderAdminStoreOrders();
   } catch (err) {
     console.error(`Erro ao carregar dados da aba ${tabName}:`, err);
   }
 }
 window.switchTab = switchTab;
 window.toggleServicesSubmenu = toggleServicesSubmenu;
+
+function toggleStoreSubmenu() {
+  const submenu = document.getElementById('submenu-manage-store');
+  const arrow = document.getElementById('store-submenu-arrow');
+  if (!submenu) return;
+  const isHidden = submenu.style.display === 'none' || !submenu.style.display;
+  submenu.style.display = isHidden ? 'flex' : 'none';
+  if (arrow) arrow.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+  if (isHidden) {
+    switchTab('store-products');
+  }
+}
+window.toggleStoreSubmenu = toggleStoreSubmenu;
 
 // 3. Load all admin views
 function loadAllAdminData() {
@@ -338,6 +367,9 @@ function loadAllAdminData() {
   try { renderUsersTable(); } catch (e) { console.error('Users load error:', e); }
   try { renderSettingsForm(); } catch (e) { console.error('Settings load error:', e); }
   try { refreshMainApiBalance(false); } catch (e) { console.error('API balance load error:', e); }
+  try { renderAdminStoreProducts(); } catch (e) { console.error('Store prods load error:', e); }
+  try { renderAdminStoreUsers(); } catch (e) { console.error('Store users load error:', e); }
+  try { renderAdminStoreOrders(); } catch (e) { console.error('Store orders load error:', e); }
 }
 
 // 4. Render Dashboard
@@ -2884,4 +2916,627 @@ function deleteFileItem(fileId) {
   showToast('success', 'Arquivo removido com sucesso.');
   renderFilesTable();
 }
+
+// ==========================================================================
+// GESTÃO COMPLETA DA LOJA OFICIAL NO PAINEL ADMIN (PRODUTOS, USUÁRIOS, PEDIDOS)
+// ==========================================================================
+
+const STORE_STORAGE_KEYS = {
+  PRODUCTS: 'tu_official_store_products_v1',
+  USERS: 'tu_official_store_users_v1',
+  ORDERS: 'tu_official_store_orders_v1'
+};
+
+const STORE_IMG_PRESETS = {
+  claude: 'https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=500&auto=format&fit=crop&q=80',
+  kling: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80',
+  chatgpt: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=500&auto=format&fit=crop&q=80',
+  canva: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'
+};
+
+function getAdminStoreProducts() {
+  const saved = localStorage.getItem(STORE_STORAGE_KEYS.PRODUCTS);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreProducts))
+    ? JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreProducts))
+    : [];
+}
+
+function saveAdminStoreProducts(prods) {
+  localStorage.setItem(STORE_STORAGE_KEYS.PRODUCTS, JSON.stringify(prods));
+}
+
+function getAdminStoreUsers() {
+  const saved = localStorage.getItem(STORE_STORAGE_KEYS.USERS);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreUsers))
+    ? JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreUsers))
+    : [];
+}
+
+function saveAdminStoreUsers(users) {
+  localStorage.setItem(STORE_STORAGE_KEYS.USERS, JSON.stringify(users));
+}
+
+function getAdminStoreOrders() {
+  const saved = localStorage.getItem(STORE_STORAGE_KEYS.ORDERS);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreOrders))
+    ? JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreOrders))
+    : [];
+}
+
+function saveAdminStoreOrders(orders) {
+  localStorage.setItem(STORE_STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+}
+
+// --------------------------------------------------------------------------
+// 1. PRODUTOS DA LOJA OFICIAL
+// --------------------------------------------------------------------------
+function renderAdminStoreProducts() {
+  const tbody = document.getElementById('adminStoreProductsTbody');
+  if (!tbody) return;
+
+  const products = getAdminStoreProducts();
+  if (products.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+          Nenhum produto cadastrado na Loja Oficial.<br>
+          <button type="button" class="btn btn-primary btn-sm" onclick="toggleStoreProductForm(true)" style="margin-top: 10px;">
+            <i class="fa-solid fa-plus"></i> Cadastrar Primeiro Produto
+          </button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const isAct = p.active !== false;
+    const priceFmt = (p.price !== undefined ? parseFloat(p.price) : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const origPriceFmt = p.originalPrice ? parseFloat(p.originalPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
+    const catLabel = p.category ? p.category.toUpperCase() : 'IA';
+    const badgeText = p.badge || '-';
+
+    return `
+      <tr>
+        <td>
+          <img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.title)}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);" onerror="this.src='https://via.placeholder.com/44'">
+        </td>
+        <td style="font-weight: 700; color: #fff;">
+          ${escapeHtml(p.title)}
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${escapeHtml(p.description || '')}
+          </div>
+        </td>
+        <td><span style="background: rgba(168,85,247,0.15); color: #c084fc; padding: 2px 7px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">${escapeHtml(catLabel)}</span></td>
+        <td class="mono" style="font-weight: 700; color: #4ade80;">${priceFmt}</td>
+        <td class="mono" style="color: #94a3b8; text-decoration: line-through;">${origPriceFmt}</td>
+        <td><span style="background: rgba(234,179,8,0.15); color: #fde047; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">${escapeHtml(badgeText)}</span></td>
+        <td>
+          <span style="background: ${isAct ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${isAct ? '#4ade80' : '#f87171'}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">
+            ${isAct ? 'Ativo' : 'Pausado'}
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminEditStoreProduct('${p.id}')" title="Editar Produto" style="color: #60a5fa; margin-right: 4px;">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminToggleStoreProductActive('${p.id}')" title="${isAct ? 'Pausar' : 'Ativar'}" style="color: ${isAct ? '#eab308' : '#22c55e'}; margin-right: 4px;">
+            <i class="fa-solid ${isAct ? 'fa-pause' : 'fa-play'}"></i>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminDeleteStoreProduct('${p.id}')" title="Excluir" style="color: #ef4444;">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleStoreProductForm(show) {
+  const box = document.getElementById('store-product-form-box');
+  if (!box) return;
+  box.style.display = show ? 'block' : 'none';
+  if (show) {
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    const form = document.getElementById('adminStoreProductForm');
+    if (form) form.reset();
+    const idInput = document.getElementById('adminStoreProdId');
+    if (idInput) idInput.value = '';
+    const title = document.getElementById('store-product-form-title');
+    if (title) title.innerHTML = '<i class="fa-solid fa-plus"></i> Cadastrar Novo Produto';
+  }
+}
+
+function setAdminStoreImagePreset(type) {
+  const input = document.getElementById('adminStoreProdImage');
+  if (input && STORE_IMG_PRESETS[type]) {
+    input.value = STORE_IMG_PRESETS[type];
+  }
+}
+
+function adminSaveStoreProduct(e) {
+  e.preventDefault();
+  const idInput = document.getElementById('adminStoreProdId');
+  const title = (document.getElementById('adminStoreProdTitle').value || '').trim();
+  const price = parseFloat(document.getElementById('adminStoreProdPrice').value) || 0;
+  const origPriceVal = document.getElementById('adminStoreProdOriginalPrice').value;
+  const originalPrice = origPriceVal ? parseFloat(origPriceVal) : null;
+  const category = document.getElementById('adminStoreProdCategory').value || 'ia';
+  const badge = (document.getElementById('adminStoreProdBadge').value || '').trim();
+  const image = (document.getElementById('adminStoreProdImage').value || '').trim();
+  const description = (document.getElementById('adminStoreProdDesc').value || '').trim();
+  const active = document.getElementById('adminStoreProdActive').value === 'true';
+
+  let products = getAdminStoreProducts();
+  const editingId = idInput ? idInput.value : '';
+
+  if (editingId) {
+    const idx = products.findIndex(p => String(p.id) === String(editingId));
+    if (idx >= 0) {
+      products[idx] = {
+        ...products[idx],
+        title,
+        price,
+        originalPrice,
+        category,
+        badge,
+        image,
+        description,
+        active
+      };
+      showToast('success', `Produto "${title}" atualizado com sucesso!`);
+    }
+  } else {
+    const newProd = {
+      id: 'store_prod_' + Date.now(),
+      title,
+      price,
+      originalPrice,
+      category,
+      badge,
+      image,
+      description,
+      active
+    };
+    products.unshift(newProd);
+    showToast('success', `Produto "${title}" adicionado à Loja Oficial!`);
+  }
+
+  saveAdminStoreProducts(products);
+  toggleStoreProductForm(false);
+  renderAdminStoreProducts();
+}
+
+function adminEditStoreProduct(id) {
+  const products = getAdminStoreProducts();
+  const p = products.find(item => String(item.id) === String(id));
+  if (!p) return;
+
+  toggleStoreProductForm(true);
+  const titleEl = document.getElementById('store-product-form-title');
+  if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Editar Produto: ${escapeHtml(p.title)}`;
+
+  document.getElementById('adminStoreProdId').value = p.id;
+  document.getElementById('adminStoreProdTitle').value = p.title || '';
+  document.getElementById('adminStoreProdPrice').value = p.price !== undefined ? p.price : '';
+  document.getElementById('adminStoreProdOriginalPrice').value = p.originalPrice || '';
+  document.getElementById('adminStoreProdCategory').value = p.category || 'ia';
+  document.getElementById('adminStoreProdBadge').value = p.badge || '';
+  document.getElementById('adminStoreProdImage').value = p.image || '';
+  document.getElementById('adminStoreProdDesc').value = p.description || '';
+  document.getElementById('adminStoreProdActive').value = p.active !== false ? 'true' : 'false';
+}
+
+function adminToggleStoreProductActive(id) {
+  let products = getAdminStoreProducts();
+  const idx = products.findIndex(p => String(p.id) === String(id));
+  if (idx >= 0) {
+    products[idx].active = products[idx].active === false ? true : false;
+    saveAdminStoreProducts(products);
+    showToast('info', `Status do produto alterado para ${products[idx].active ? 'Ativo' : 'Pausado'}.`);
+    renderAdminStoreProducts();
+  }
+}
+
+function adminDeleteStoreProduct(id) {
+  if (!confirm('Deseja realmente excluir este produto da Loja Oficial?')) return;
+  let products = getAdminStoreProducts();
+  products = products.filter(p => String(p.id) !== String(id));
+  saveAdminStoreProducts(products);
+  showToast('success', 'Produto removido com sucesso da Loja Oficial.');
+  renderAdminStoreProducts();
+}
+
+function adminResetStoreProductsToDefault() {
+  if (!confirm('Deseja restaurar a lista original de produtos padrões da Loja Oficial?')) return;
+  if (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreProducts)) {
+    saveAdminStoreProducts(JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreProducts)));
+    showToast('success', 'Produtos restaurados para os padrões originais com sucesso!');
+    renderAdminStoreProducts();
+  }
+}
+
+// --------------------------------------------------------------------------
+// 2. USUÁRIOS DA LOJA OFICIAL
+// --------------------------------------------------------------------------
+function renderAdminStoreUsers() {
+  const tbody = document.getElementById('adminStoreUsersTbody');
+  if (!tbody) return;
+
+  const users = getAdminStoreUsers();
+  if (users.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+          Nenhum usuário cadastrado na Loja Oficial ainda.<br>
+          <small>Assim que os clientes clicarem em Loja Oficial e criarem usuário/senha, eles aparecerão aqui em tempo real.</small>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const isBloq = u.status === 'bloqueado';
+    const createdFmt = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '-';
+    const waClean = (u.whatsapp || '').replace(/\D/g, '');
+    const waLink = waClean ? `https://wa.me/${waClean}` : '#';
+
+    return `
+      <tr>
+        <td style="font-weight: 700; color: #fff;">
+          <i class="fa-solid fa-user-tag" style="color: #60a5fa; margin-right: 6px;"></i>
+          ${escapeHtml(u.username)}
+        </td>
+        <td class="mono" style="color: #fde047; font-weight: 700;">
+          ${escapeHtml(u.password || '******')}
+        </td>
+        <td>
+          ${waClean ? `
+            <a href="${waLink}" target="_blank" style="color: #4ade80; text-decoration: none; font-weight: 600;">
+              <i class="fa-brands fa-whatsapp"></i> ${escapeHtml(u.whatsapp)}
+            </a>
+          ` : '<span style="color: var(--text-muted);">-</span>'}
+        </td>
+        <td style="color: #cbd5e1; font-size: 0.8rem;">${createdFmt}</td>
+        <td>
+          <span style="background: ${isBloq ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)'}; color: ${isBloq ? '#f87171' : '#4ade80'}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">
+            ${isBloq ? 'Bloqueado' : 'Liberado'}
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminToggleStoreUserStatus('${escapeHtml(u.username)}')" title="${isBloq ? 'Liberar Acesso' : 'Bloquear Acesso'}" style="color: ${isBloq ? '#4ade80' : '#eab308'}; margin-right: 4px;">
+            <i class="fa-solid ${isBloq ? 'fa-lock-open' : 'fa-ban'}"></i> ${isBloq ? 'Liberar' : 'Bloquear'}
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminChangeStoreUserPassword('${escapeHtml(u.username)}')" title="Alterar Senha" style="color: #60a5fa; margin-right: 4px;">
+            <i class="fa-solid fa-key"></i> Senha
+          </button>
+          ${waClean ? `
+            <button type="button" class="btn btn-secondary btn-sm" onclick="adminSendStoreUserWhatsApp('${escapeHtml(u.username)}')" title="Enviar Dados no WhatsApp" style="color: #22c55e; margin-right: 4px;">
+              <i class="fa-brands fa-whatsapp"></i> Enviar
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminDeleteStoreUser('${escapeHtml(u.username)}')" title="Excluir Usuário" style="color: #ef4444;">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleStoreUserForm(show) {
+  const box = document.getElementById('store-user-form-box');
+  if (!box) return;
+  box.style.display = show ? 'block' : 'none';
+  if (show) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  else {
+    const f = document.getElementById('adminCreateStoreUserForm');
+    if (f) f.reset();
+  }
+}
+
+function adminSaveManualStoreUser(e) {
+  e.preventDefault();
+  const username = (document.getElementById('adminManualStoreUsername').value || '').trim();
+  const password = (document.getElementById('adminManualStorePassword').value || '').trim();
+  const whatsapp = (document.getElementById('adminManualStoreWhatsapp').value || '').trim();
+
+  if (!username || !password) {
+    alert('Por favor, informe o nome de usuário e a senha.');
+    return;
+  }
+
+  let users = getAdminStoreUsers();
+  if (users.some(u => u.username && u.username.toLowerCase() === username.toLowerCase())) {
+    alert('Este nome de usuário já está cadastrado na Loja Oficial!');
+    return;
+  }
+
+  const newUser = {
+    id: 'store_user_' + Date.now(),
+    username,
+    password,
+    whatsapp,
+    createdAt: new Date().toISOString(),
+    status: 'ativo',
+    createdBy: 'admin'
+  };
+
+  users.unshift(newUser);
+  saveAdminStoreUsers(users);
+  toggleStoreUserForm(false);
+  renderAdminStoreUsers();
+  showToast('success', `Usuário "${username}" criado com sucesso!`);
+
+  if (whatsapp) {
+    if (confirm(`Deseja abrir o WhatsApp agora para enviar o login e senha para ${username}?`)) {
+      adminSendStoreUserWhatsApp(username);
+    }
+  }
+}
+
+function adminToggleStoreUserStatus(username) {
+  let users = getAdminStoreUsers();
+  const u = users.find(item => item.username && item.username.toLowerCase() === username.toLowerCase());
+  if (!u) return;
+
+  u.status = u.status === 'bloqueado' ? 'ativo' : 'bloqueado';
+  saveAdminStoreUsers(users);
+  showToast('info', `Status do usuário "${username}" alterado para ${u.status === 'bloqueado' ? 'Bloqueado' : 'Liberado'}.`);
+  renderAdminStoreUsers();
+}
+
+function adminChangeStoreUserPassword(username) {
+  let users = getAdminStoreUsers();
+  const u = users.find(item => item.username && item.username.toLowerCase() === username.toLowerCase());
+  if (!u) return;
+
+  const newPass = prompt(`Digite a nova senha para o usuário "${username}":`, u.password || '');
+  if (!newPass || !newPass.trim()) return;
+
+  u.password = newPass.trim();
+  saveAdminStoreUsers(users);
+  showToast('success', `Senha do usuário "${username}" atualizada com sucesso!`);
+  renderAdminStoreUsers();
+}
+
+function adminDeleteStoreUser(username) {
+  if (!confirm(`Deseja realmente remover o usuário "${username}" da Loja Oficial?`)) return;
+  let users = getAdminStoreUsers();
+  users = users.filter(u => !u.username || u.username.toLowerCase() !== username.toLowerCase());
+  saveAdminStoreUsers(users);
+  showToast('success', `Usuário "${username}" removido.`);
+  renderAdminStoreUsers();
+}
+
+function adminSendStoreUserWhatsApp(username) {
+  const users = getAdminStoreUsers();
+  const u = users.find(item => item.username && item.username.toLowerCase() === username.toLowerCase());
+  if (!u || !u.whatsapp) {
+    alert('Este usuário não possui WhatsApp cadastrado.');
+    return;
+  }
+
+  const phone = u.whatsapp.replace(/\D/g, '');
+  const targetPhone = phone.startsWith('55') ? phone : '55' + phone;
+
+  const msg = 
+    `🛍️ *SEU ACESSO À LOJA OFICIAL SERVER SMART*\n\n` +
+    `Olá! Seu acesso exclusivo à nossa Loja Oficial foi liberado com sucesso:\n\n` +
+    `👤 *Usuário:* ${u.username}\n` +
+    `🔑 *Senha:* ${u.password}\n\n` +
+    `🌐 *Link de Acesso:* https://suporteserversmartbrasil.online\n\n` +
+    `Entre no site, clique na aba *Loja Oficial* e digite seu usuário e senha para aproveitar as ofertas!`;
+
+  window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// --------------------------------------------------------------------------
+// 3. PEDIDOS E VENDAS DA LOJA OFICIAL
+// --------------------------------------------------------------------------
+function renderAdminStoreOrders() {
+  const tbody = document.getElementById('adminStoreOrdersTbody');
+  const revenueEl = document.getElementById('adminStoreRevenueTotal');
+  const countEl = document.getElementById('adminStoreOrdersCount');
+  const paidEl = document.getElementById('adminStorePixPaidCount');
+  const pendEl = document.getElementById('adminStorePixPendingCount');
+
+  const orders = getAdminStoreOrders();
+
+  let totalRevenue = 0;
+  let paidCount = 0;
+  let pendingCount = 0;
+
+  orders.forEach(o => {
+    if (o.status === 'pago' || o.status === 'aprovado' || o.paymentStatus === 'approved') {
+      totalRevenue += (o.totalBrl || 0);
+      paidCount++;
+    } else {
+      pendingCount++;
+    }
+  });
+
+  if (revenueEl) revenueEl.innerText = totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  if (countEl) countEl.innerText = orders.length;
+  if (paidEl) paidEl.innerText = paidCount;
+  if (pendEl) pendEl.innerText = pendingCount;
+
+  if (!tbody) return;
+
+  if (orders.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+          Nenhum pedido realizado na Loja Oficial ainda.<br>
+          <small>Quando os clientes finalizarem compras via PIX, os registros aparecerão aqui instantaneamente.</small>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = orders.map(o => {
+    const isPaid = o.status === 'pago' || o.status === 'aprovado' || o.paymentStatus === 'approved';
+    const isDelivered = o.deliveryStatus === 'entregue' || o.deliveryStatus === 'liberado';
+    const dateFmt = o.createdAt ? new Date(o.createdAt).toLocaleString('pt-BR') : '-';
+    const totalFmt = (o.totalBrl || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    let itemsSummary = '';
+    if (Array.isArray(o.items)) {
+      itemsSummary = o.items.map(it => `${it.qty || 1}x ${it.title}`).join(', ');
+    } else {
+      itemsSummary = o.productName || 'Produto da Loja';
+    }
+
+    const waClean = (o.customerWhatsapp || '').replace(/\D/g, '');
+
+    return `
+      <tr>
+        <td class="mono" style="font-weight: 700; color: #c084fc;">
+          ${escapeHtml(o.id || '#PED-000')}
+        </td>
+        <td style="font-size: 0.8rem; color: #cbd5e1;">${dateFmt}</td>
+        <td>
+          <strong style="color: #fff;">${escapeHtml(o.customerUsername || 'Cliente')}</strong>
+          ${waClean ? `
+            <div style="font-size: 0.75rem;">
+              <a href="https://wa.me/${waClean}" target="_blank" style="color: #4ade80; text-decoration: none;">
+                <i class="fa-brands fa-whatsapp"></i> ${escapeHtml(o.customerWhatsapp)}
+              </a>
+            </div>
+          ` : ''}
+        </td>
+        <td style="max-width: 250px; font-size: 0.8rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(itemsSummary)}">
+          ${escapeHtml(itemsSummary)}
+        </td>
+        <td class="mono" style="font-weight: 700; color: #4ade80;">${totalFmt}</td>
+        <td>
+          <span style="background: ${isPaid ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.15)'}; color: ${isPaid ? '#4ade80' : '#fde047'}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">
+            ${isPaid ? 'PIX Aprovado' : 'PIX Pendente'}
+          </span>
+        </td>
+        <td>
+          <span style="background: ${isDelivered ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${isDelivered ? '#4ade80' : '#f87171'}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">
+            ${isDelivered ? 'Liberado / Entregue' : 'Entrega Pendente'}
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          ${!isDelivered ? `
+            <button type="button" class="btn btn-secondary btn-sm" onclick="adminMarkStoreOrderDelivered('${o.id}')" title="Marcar como Liberado / Entregue" style="color: #4ade80; margin-right: 4px;">
+              <i class="fa-solid fa-check"></i> Liberar
+            </button>
+          ` : ''}
+          ${!isPaid ? `
+            <button type="button" class="btn btn-secondary btn-sm" onclick="adminManuallyApproveStoreOrder('${o.id}')" title="Aprovar Pagamento Manualmente" style="color: #60a5fa; margin-right: 4px;">
+              <i class="fa-solid fa-circle-dollar-to-slot"></i> Aprovar
+            </button>
+          ` : ''}
+          ${waClean ? `
+            <button type="button" class="btn btn-secondary btn-sm" onclick="adminContactOrderWhatsApp('${o.id}')" title="Falar no WhatsApp" style="color: #22c55e; margin-right: 4px;">
+              <i class="fa-brands fa-whatsapp"></i>
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-secondary btn-sm" onclick="adminDeleteStoreOrder('${o.id}')" title="Excluir Pedido" style="color: #ef4444;">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function adminMarkStoreOrderDelivered(orderId) {
+  let orders = getAdminStoreOrders();
+  const o = orders.find(item => String(item.id) === String(orderId));
+  if (!o) return;
+
+  o.deliveryStatus = 'liberado';
+  saveAdminStoreOrders(orders);
+  showToast('success', `Pedido ${orderId} marcado como LIBERADO / ENTREGUE!`);
+  renderAdminStoreOrders();
+}
+
+function adminManuallyApproveStoreOrder(orderId) {
+  let orders = getAdminStoreOrders();
+  const o = orders.find(item => String(item.id) === String(orderId));
+  if (!o) return;
+
+  o.status = 'pago';
+  o.paymentStatus = 'approved';
+  saveAdminStoreOrders(orders);
+  showToast('success', `Pagamento do pedido ${orderId} aprovado manualmente!`);
+  renderAdminStoreOrders();
+}
+
+function adminDeleteStoreOrder(orderId) {
+  if (!confirm(`Deseja realmente remover o pedido ${orderId}?`)) return;
+  let orders = getAdminStoreOrders();
+  orders = orders.filter(item => String(item.id) !== String(orderId));
+  saveAdminStoreOrders(orders);
+  showToast('success', `Pedido ${orderId} removido com sucesso.`);
+  renderAdminStoreOrders();
+}
+
+function adminContactOrderWhatsApp(orderId) {
+  const orders = getAdminStoreOrders();
+  const o = orders.find(item => String(item.id) === String(orderId));
+  if (!o || !o.customerWhatsapp) return;
+
+  const phone = o.customerWhatsapp.replace(/\D/g, '');
+  const targetPhone = phone.startsWith('55') ? phone : '55' + phone;
+
+  const msg = 
+    `🛍️ *SUPORTE SERVER SMART - PEDIDO ${o.id}*\n\n` +
+    `Olá ${o.customerUsername || ''}! Estou entrando em contato sobre a sua compra na Loja Oficial:\n\n` +
+    `💰 *Valor:* R$ ${(o.totalBrl || 0).toFixed(2)}\n` +
+    `📦 *Status:* ${o.deliveryStatus === 'liberado' ? 'Liberado' : 'Aguardando Liberação'}\n\n` +
+    `Como podemos te ajudar?`;
+
+  window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// Exportações Globais
+window.renderAdminStoreProducts = renderAdminStoreProducts;
+window.toggleStoreProductForm = toggleStoreProductForm;
+window.setAdminStoreImagePreset = setAdminStoreImagePreset;
+window.adminSaveStoreProduct = adminSaveStoreProduct;
+window.adminEditStoreProduct = adminEditStoreProduct;
+window.adminToggleStoreProductActive = adminToggleStoreProductActive;
+window.adminDeleteStoreProduct = adminDeleteStoreProduct;
+window.adminResetStoreProductsToDefault = adminResetStoreProductsToDefault;
+
+window.renderAdminStoreUsers = renderAdminStoreUsers;
+window.toggleStoreUserForm = toggleStoreUserForm;
+window.adminSaveManualStoreUser = adminSaveManualStoreUser;
+window.adminToggleStoreUserStatus = adminToggleStoreUserStatus;
+window.adminChangeStoreUserPassword = adminChangeStoreUserPassword;
+window.adminDeleteStoreUser = adminDeleteStoreUser;
+window.adminSendStoreUserWhatsApp = adminSendStoreUserWhatsApp;
+
+window.renderAdminStoreOrders = renderAdminStoreOrders;
+window.adminMarkStoreOrderDelivered = adminMarkStoreOrderDelivered;
+window.adminManuallyApproveStoreOrder = adminManuallyApproveStoreOrder;
+window.adminDeleteStoreOrder = adminDeleteStoreOrder;
+window.adminContactOrderWhatsApp = adminContactOrderWhatsApp;
+
 
