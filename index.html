@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <!-- Estilos Customizados -->
-  <link rel="stylesheet" href="css/style.css?v=1.3.6">
+  <link rel="stylesheet" href="css/style.css?v=1.3.7">
 </head>
 <body>
 
@@ -184,22 +184,40 @@
             </p>
           </div>
           
-          <!-- Filtros de Categorias em Chips -->
+          <!-- Filtros de Categorias em Chips (Idênticos ao Basefy) -->
           <div class="store-filter-pills" id="storeFilterPills">
             <button class="store-filter-btn active" data-cat="all" onclick="setStoreCategoryFilter('all', this)">
               <i class="fa-solid fa-border-all"></i> Todos os Anúncios
             </button>
+            <button class="store-filter-btn" data-cat="popular" onclick="setStoreCategoryFilter('popular', this)">
+              <i class="fa-solid fa-fire" style="color: #f97316;"></i> Mais Populares
+            </button>
             <button class="store-filter-btn" data-cat="ai" onclick="setStoreCategoryFilter('ai', this)">
-              <i class="fa-solid fa-brain"></i> Inteligência Artificial
+              <i class="fa-solid fa-brain" style="color: #a855f7;"></i> Inteligência Artificial
             </button>
-            <button class="store-filter-btn" data-cat="credits" onclick="setStoreCategoryFilter('credits', this)">
-              <i class="fa-solid fa-coins"></i> Créditos & Tokens
+            <button class="store-filter-btn" data-cat="antidetect" onclick="setStoreCategoryFilter('antidetect', this)">
+              <i class="fa-solid fa-user-secret" style="color: #ec4899;"></i> Anti-Detect
             </button>
-            <button class="store-filter-btn" data-cat="frp" onclick="setStoreCategoryFilter('frp', this)">
-              <i class="fa-solid fa-unlock-keyhole"></i> FRP & Servidores
+            <button class="store-filter-btn" data-cat="plans" onclick="setStoreCategoryFilter('plans', this)">
+              <i class="fa-solid fa-crown" style="color: #eab308;"></i> Planos & Assinaturas
+            </button>
+            <button class="store-filter-btn" data-cat="assets" onclick="setStoreCategoryFilter('assets', this)">
+              <i class="fa-solid fa-address-card" style="color: #10b981;"></i> Ativos & Contas
+            </button>
+            <button class="store-filter-btn" data-cat="proxy" onclick="setStoreCategoryFilter('proxy', this)">
+              <i class="fa-solid fa-network-wired" style="color: #06b6d4;"></i> Proxy
+            </button>
+            <button class="store-filter-btn" data-cat="ads" onclick="setStoreCategoryFilter('ads', this)">
+              <i class="fa-solid fa-rectangle-ad" style="color: #3b82f6;"></i> Contas Anúncios
+            </button>
+            <button class="store-filter-btn" data-cat="bms" onclick="setStoreCategoryFilter('bms', this)">
+              <i class="fa-solid fa-briefcase" style="color: #c084fc;"></i> Contas e BMs
+            </button>
+            <button class="store-filter-btn" data-cat="courses" onclick="setStoreCategoryFilter('courses', this)">
+              <i class="fa-solid fa-graduation-cap" style="color: #f59e0b;"></i> Cursos
             </button>
             <button class="store-filter-btn" data-cat="tools" onclick="setStoreCategoryFilter('tools', this)">
-              <i class="fa-solid fa-screwdriver-wrench"></i> Ferramentas & Softwares
+              <i class="fa-solid fa-screwdriver-wrench" style="color: #ef4444;"></i> Ferramentas GSM
             </button>
           </div>
 
@@ -1681,7 +1699,7 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/data.js?v=1.3.6"></script>
-  <script src="js/app.js?v=1.3.6"></script>
+  <script src="js/data.js?v=1.3.7"></script>
+  <script src="js/app.js?v=1.3.7"></script>
 </body>
 </html>

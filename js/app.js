@@ -349,9 +349,26 @@ function initStorage() {
   }
 
   const savedStoreProducts = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS);
-  AppState.officialStoreProducts = savedStoreProducts
-    ? JSON.parse(savedStoreProducts)
-    : JSON.parse(JSON.stringify(window.TECH_UNION_DATA.officialStoreProducts || []));
+  let storeProductsList = [];
+  try {
+    storeProductsList = savedStoreProducts ? JSON.parse(savedStoreProducts) : [];
+  } catch (e) {
+    storeProductsList = [];
+  }
+  const defaultStoreCatalog = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreProducts))
+    ? window.TECH_UNION_DATA.officialStoreProducts
+    : [];
+
+  if (!Array.isArray(storeProductsList) || storeProductsList.length < defaultStoreCatalog.length) {
+    const existingIds = new Set((storeProductsList || []).map(p => p.id));
+    defaultStoreCatalog.forEach(dp => {
+      if (!existingIds.has(dp.id)) {
+        storeProductsList.push(JSON.parse(JSON.stringify(dp)));
+      }
+    });
+    localStorage.setItem(STORAGE_KEYS.OFFICIAL_STORE_PRODUCTS, JSON.stringify(storeProductsList));
+  }
+  AppState.officialStoreProducts = storeProductsList;
 
   const savedStoreUsers = localStorage.getItem(STORAGE_KEYS.OFFICIAL_STORE_USERS);
   AppState.officialStoreUsers = savedStoreUsers
@@ -3869,7 +3886,44 @@ function storeLogout() {
   showDashboardView();
 }
 
-// 3. Renderização dos Produtos e Filtros
+// 3. Renderização Completa da Loja Oficial (Layout Completo Idêntico ao Basefy da Foto)
+function renderStoreCardHtml(p) {
+  const discount = p.oldPrice && p.oldPrice > p.price
+    ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
+    : 0;
+
+  const badgeText = p.badge || (discount > 0 ? `-${discount}%` : 'OFICIAL');
+  const badgeColor = p.badgeColor || '#8b5cf6';
+  const priceFormatted = (p.price !== undefined ? parseFloat(p.price) : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const oldPriceFormatted = p.oldPrice ? parseFloat(p.oldPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+
+  return `
+    <div class="store-card" onclick="openStoreProductDetail('${escapeHtml(p.id)}')">
+      <div class="store-card-img-box">
+        <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}" class="store-card-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
+        <span class="store-card-badge" style="background: ${badgeColor};">${escapeHtml(badgeText)}</span>
+        ${discount > 0 ? `<span class="store-card-discount-tag">-${discount}%</span>` : ''}
+      </div>
+      <div class="store-card-content">
+        <div class="store-card-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div>
+        <div class="store-card-prices">
+          <span class="store-card-current-price">${priceFormatted}</span>
+          ${oldPriceFormatted ? `<span class="store-card-old-price">${oldPriceFormatted}</span>` : ''}
+        </div>
+        <div class="store-card-footer">
+          <span class="store-card-seller">
+            <i class="fa-solid fa-circle-check" style="color: #a855f7;"></i>
+            ${escapeHtml(p.seller || 'SuporteServerSmart')}
+          </span>
+          <span class="store-card-rating">
+            <i class="fa-solid fa-star"></i> ${p.rating ? p.rating.toFixed(1) : '5.0'}
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderOfficialStore() {
   const grid = document.getElementById('storeProductsGrid');
   if (!grid) return;
@@ -3877,89 +3931,308 @@ function renderOfficialStore() {
   const currentCategory = AppState.officialStoreFilterCategory || 'all';
   const query = (AppState.officialStoreSearchQuery || '').toLowerCase().trim();
 
-  let products = (AppState.officialStoreProducts || []).filter(p => p.active !== false);
+  let allProducts = (AppState.officialStoreProducts || []).filter(p => p.active !== false);
 
-  if (currentCategory !== 'all') {
-    products = products.filter(p => p.categoryKey === currentCategory || (p.category && p.category.toLowerCase().includes(currentCategory)));
-  }
+  // Se houver busca ou filtro por categoria específica, exibe grade filtrada
+  if (currentCategory !== 'all' || query) {
+    let filtered = allProducts;
+    if (currentCategory !== 'all') {
+      filtered = filtered.filter(p => p.categoryKey === currentCategory || (p.category && p.category.toLowerCase().includes(currentCategory)));
+    }
+    if (query) {
+      filtered = filtered.filter(p => 
+        (p.title && p.title.toLowerCase().includes(query)) ||
+        (p.description && p.description.toLowerCase().includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query))
+      );
+    }
 
-  if (query) {
-    products = products.filter(p => 
-      (p.title && p.title.toLowerCase().includes(query)) ||
-      (p.description && p.description.toLowerCase().includes(query)) ||
-      (p.category && p.category.toLowerCase().includes(query))
-    );
-  }
+    const countEl = document.getElementById('storeResultsCount');
+    if (countEl) countEl.textContent = `Mostrando ${filtered.length} anúncios encontrados`;
 
-  // Atualizar contador
-  const countEl = document.getElementById('storeResultsCount');
-  if (countEl) {
-    countEl.textContent = `Mostrando 1-${products.length} de ${products.length} anúncios oficiais`;
-  }
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: rgba(168, 85, 247, 0.05); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 14px;">
+          <i class="fa-solid fa-magnifying-glass" style="font-size: 38px; color: #a78bfa; margin-bottom: 12px;"></i>
+          <h3 style="color: #ffffff; font-size: 16px; font-weight: 700;">Nenhum anúncio encontrado</h3>
+          <p style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">Tente pesquisar com outro termo ou clique em "Todos os Anúncios".</p>
+          <button class="btn-ticker-all" onclick="clearStoreSearch()" style="margin-top: 14px; padding: 6px 16px;">Limpar Filtros</button>
+        </div>
+      `;
+      return;
+    }
 
-  if (products.length === 0) {
     grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: rgba(168, 85, 247, 0.05); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 14px;">
-        <i class="fa-solid fa-magnifying-glass" style="font-size: 38px; color: #a78bfa; margin-bottom: 12px;"></i>
-        <h3 style="color: #ffffff; font-size: 16px; font-weight: 700;">Nenhum anúncio encontrado</h3>
-        <p style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">Tente pesquisar com outro termo ou selecione "Todos os Anúncios".</p>
-        <button class="btn-ticker-all" onclick="clearStoreSearch()" style="margin-top: 14px; padding: 6px 16px;">Limpar Filtros</button>
+      <div class="store-cards-row" style="grid-column: 1 / -1; width: 100%;">
+        ${filtered.map(p => renderStoreCardHtml(p)).join('')}
       </div>
     `;
     return;
   }
 
-  grid.innerHTML = products.map(p => {
-    const discount = p.oldPrice && p.oldPrice > p.price
-      ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
-      : 0;
+  // MODO VITRINE COMPLETA BASEFY (Idêntico à foto enviada pelo usuário)
+  const countEl = document.getElementById('storeResultsCount');
+  if (countEl) countEl.textContent = `Mostrando catálogo completo com ${allProducts.length} anúncios oficiais`;
 
-    const badgeText = p.badge || (discount > 0 ? `-${discount}%` : 'OFICIAL');
-    const badgeColor = p.badgeColor || '#8b5cf6';
+  // Função auxiliar para renderizar uma seção inteira com cabeçalho
+  const renderSection = (title, iconClass, catKey, customColor = '#c084fc') => {
+    let sectionItems = allProducts.filter(p => p.categoryKey === catKey);
+    if (sectionItems.length === 0) {
+      // Fallback para itens da categoria pelo nome
+      sectionItems = allProducts.filter(p => p.category && p.category.toLowerCase().includes(title.toLowerCase()));
+    }
+    if (sectionItems.length === 0) return '';
 
     return `
-      <div class="store-card" onclick="openStoreProductDetail('${escapeHtml(p.id)}')">
-        <div class="store-card-img-box">
-          <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}" class="store-card-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'">
-          <span class="store-card-badge" style="background: ${badgeColor};">${escapeHtml(badgeText)}</span>
-          ${discount > 0 ? `<span class="store-card-discount-tag">-${discount}%</span>` : ''}
+      <div class="store-category-section" id="sec_${catKey}">
+        <div class="store-section-header">
+          <div class="store-section-title-wrap">
+            <div class="store-section-icon" style="color: ${customColor};">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="store-section-title">${escapeHtml(title)}</div>
+          </div>
+          <a class="store-section-link" onclick="setStoreCategoryFilter('${catKey}')">
+            <span>Ver todos (${sectionItems.length})</span>
+            <i class="fa-solid fa-chevron-right" style="font-size: 10px;"></i>
+          </a>
         </div>
-        <div class="store-card-content">
-          <div class="store-card-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div>
-          <div class="store-card-prices">
-            <span class="store-card-current-price">R$ ${p.price.toFixed(2).replace('.', ',')}</span>
-            ${p.oldPrice ? `<span class="store-card-old-price">R$ ${p.oldPrice.toFixed(2).replace('.', ',')}</span>` : ''}
-          </div>
-          <div class="store-card-footer">
-            <span class="store-card-seller">
-              <i class="fa-solid fa-circle-check" style="color: #a855f7;"></i>
-              ${escapeHtml(p.seller || 'SuporteServerSmart')}
-            </span>
-            <span class="store-card-rating">
-              <i class="fa-solid fa-star"></i> ${p.rating ? p.rating.toFixed(1) : '5.0'}
-            </span>
-          </div>
+        <div class="store-cards-row">
+          ${sectionItems.map(p => renderStoreCardHtml(p)).join('')}
         </div>
       </div>
     `;
-  }).join('');
+  };
+
+  // Top 10 Vendedores Widget
+  const topSellers = (window.TECH_UNION_DATA && Array.isArray(window.TECH_UNION_DATA.officialStoreTopSellers))
+    ? window.TECH_UNION_DATA.officialStoreTopSellers
+    : [
+        { rank: 1, name: "SuporteServerSmart Oficial", badge: "OFICIAL", revenue: 48712.00, avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80" },
+        { rank: 2, name: "Smart Cell Contingência", badge: "VERIFICADO", revenue: 24890.00, avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80" },
+        { rank: 3, name: "GSM Global Store", badge: "PRO", revenue: 18340.00, avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80" }
+      ];
+
+  const firstPlace = topSellers.find(s => s.rank === 1) || topSellers[0];
+  const secondPlace = topSellers.find(s => s.rank === 2) || topSellers[1];
+  const thirdPlace = topSellers.find(s => s.rank === 3) || topSellers[2];
+  const remainingSellers = topSellers.filter(s => s.rank > 3);
+
+  const topSellersHtml = `
+    <div class="store-top-sellers-widget">
+      <div class="store-sellers-header">
+        <div class="store-sellers-title">
+          <i class="fa-solid fa-trophy" style="color: #fbbf24;"></i>
+          <span>Top 10 Vendedores</span>
+        </div>
+        <div class="store-sellers-subtitle">
+          Ranking dos maiores vendedores e transações concluídas deste mês
+        </div>
+      </div>
+
+      <!-- Pódio Top 3 (Idêntico ao Basefy) -->
+      <div class="store-podium-container">
+        <!-- 2º Lugar -->
+        <div class="store-podium-card store-podium-second">
+          <div class="store-podium-avatar-box">
+            <span class="store-podium-crown">🥈</span>
+            <img src="${secondPlace ? secondPlace.avatar : 'https://via.placeholder.com/68'}" alt="2º Lugar" class="store-podium-avatar">
+          </div>
+          <span class="store-podium-rank-tag">2º LUGAR</span>
+          <div class="store-podium-name">${secondPlace ? escapeHtml(secondPlace.name) : 'Smart Cell'}</div>
+          <div class="store-podium-revenue">R$ ${(secondPlace ? secondPlace.revenue : 24890).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+
+        <!-- 1º Lugar (Centro com Ouro & Destaque) -->
+        <div class="store-podium-card store-podium-first">
+          <div class="store-podium-avatar-box">
+            <span class="store-podium-crown">👑</span>
+            <img src="${firstPlace ? firstPlace.avatar : 'https://via.placeholder.com/84'}" alt="1º Lugar" class="store-podium-avatar">
+          </div>
+          <span class="store-podium-rank-tag">👑 1º LUGAR</span>
+          <div class="store-podium-name">${firstPlace ? escapeHtml(firstPlace.name) : 'SuporteServerSmart Oficial'}</div>
+          <div class="store-podium-revenue">R$ ${(firstPlace ? firstPlace.revenue : 48712).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+
+        <!-- 3º Lugar -->
+        <div class="store-podium-card store-podium-third">
+          <div class="store-podium-avatar-box">
+            <span class="store-podium-crown">🥉</span>
+            <img src="${thirdPlace ? thirdPlace.avatar : 'https://via.placeholder.com/68'}" alt="3º Lugar" class="store-podium-avatar">
+          </div>
+          <span class="store-podium-rank-tag">3º LUGAR</span>
+          <div class="store-podium-name">${thirdPlace ? escapeHtml(thirdPlace.name) : 'GSM Global'}</div>
+          <div class="store-podium-revenue">R$ ${(thirdPlace ? thirdPlace.revenue : 18340).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+      </div>
+
+      <!-- Lista #4 ao #10 -->
+      <div class="store-sellers-list">
+        ${remainingSellers.map(s => `
+          <div class="store-seller-row">
+            <div class="store-seller-left">
+              <span class="store-seller-pos">#${s.rank}</span>
+              <img src="${s.avatar}" alt="${escapeHtml(s.name)}" class="store-seller-img">
+              <span class="store-seller-title">${escapeHtml(s.name)}</span>
+            </div>
+            <div class="store-seller-sales">R$ ${s.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Montagem Completa da Página com todas as seções e banners
+  grid.innerHTML = `
+    <div style="grid-column: 1 / -1; width: 100%;">
+      
+      <!-- 1. Mais Populares -->
+      ${renderSection('Mais Populares', 'fa-solid fa-fire', 'popular', '#f97316')}
+
+      <!-- 2. Inteligência Artificial -->
+      ${renderSection('Inteligência Artificial', 'fa-solid fa-brain', 'ai', '#a855f7')}
+
+      <!-- 3. Anti-Detect -->
+      ${renderSection('Anti-Detect', 'fa-solid fa-user-secret', 'antidetect', '#ec4899')}
+
+      <!-- 4. Planos e Assinaturas -->
+      ${renderSection('Planos e assinaturas', 'fa-solid fa-crown', 'plans', '#eab308')}
+
+      <!-- Banners Promocionais 1 (Meio da Página - Foto do Usuário) -->
+      <div class="store-promo-banners-grid">
+        <div class="store-promo-banner-card green-neon" onclick="setStoreCategoryFilter('plans')">
+          <div class="store-banner-text">
+            <span class="store-banner-badge badge-green">NOVIDADE VIP</span>
+            <h3>PLANOS COM ATIVAÇÃO AUTOMÁTICA</h3>
+            <p>Receba no seu e-mail em menos de 1 minuto com suporte 24h e garantia estendida.</p>
+          </div>
+          <div class="store-banner-icon-side" style="color: #10b981;">
+            <i class="fa-solid fa-bolt-lightning"></i>
+          </div>
+        </div>
+
+        <div class="store-promo-banner-card purple-gold" onclick="setStoreCategoryFilter('popular')">
+          <div class="store-banner-text">
+            <span class="store-banner-badge badge-purple">BLINDADO</span>
+            <h3>DOMÍNIO & SERVIDOR SERVER SMART</h3>
+            <p>Infraestrutura blindada contra quedas com verificação instantânea via PIX.</p>
+          </div>
+          <div class="store-banner-icon-side" style="color: #c084fc;">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Ativos e Contas -->
+      ${renderSection('Ativos e Contas', 'fa-solid fa-address-card', 'assets', '#10b981')}
+
+      <!-- 6. Proxy -->
+      ${renderSection('Proxy', 'fa-solid fa-network-wired', 'proxy', '#06b6d4')}
+
+      <!-- Banners Promocionais 2 (Três Banners da Foto) -->
+      <div class="store-promo-banners-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+        <div class="store-promo-banner-card triple-1" onclick="setStoreCategoryFilter('ai')">
+          <div class="store-banner-text">
+            <span class="store-banner-badge" style="background: #6366f1; color: #fff;">DESTAQUE</span>
+            <h3>Novidades desta semana</h3>
+            <p>Modelos atualizados de IA e scripts de automação.</p>
+          </div>
+          <div class="store-banner-icon-side" style="color: #818cf8; font-size: 36px;">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+        </div>
+
+        <div class="store-promo-banner-card triple-2" onclick="setStoreCategoryFilter('tools')">
+          <div class="store-banner-text">
+            <span class="store-banner-badge" style="background: #f59e0b; color: #fff;">EXCLUSIVO</span>
+            <h3>Ferramentas GSM</h3>
+            <p>Ativações digitais com entrega rápida.</p>
+          </div>
+          <div class="store-banner-icon-side" style="color: #fbbf24; font-size: 36px;">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
+          </div>
+        </div>
+
+        <div class="store-promo-banner-card triple-3" onclick="setStoreCategoryFilter('courses')">
+          <div class="store-banner-text">
+            <span class="store-banner-badge" style="background: #38bdf8; color: #0f172a;">2026</span>
+            <h3>Parceiros Oficiais</h3>
+            <p>Cursos e esquemas atualizados.</p>
+          </div>
+          <div class="store-banner-icon-side" style="color: #38bdf8; font-size: 36px;">
+            <i class="fa-solid fa-handshake"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Contas Anúncios -->
+      ${renderSection('Contas Anúncios', 'fa-solid fa-rectangle-ad', 'ads', '#3b82f6')}
+
+      <!-- 8. Widget Top 10 Vendedores (Pódio da Foto do Usuário) -->
+      ${topSellersHtml}
+
+      <!-- 9. Contas e BMs -->
+      ${renderSection('Contas e BMs', 'fa-solid fa-briefcase', 'bms', '#c084fc')}
+
+      <!-- 10. Cursos -->
+      ${renderSection('Cursos', 'fa-solid fa-graduation-cap', 'courses', '#f59e0b')}
+
+      <!-- 11. Ferramentas -->
+      ${renderSection('Ferramentas', 'fa-solid fa-wrench', 'tools', '#ef4444')}
+
+      <!-- Barra de Rodapé Oficial Basefy / ServerSmart -->
+      <div class="store-basefy-footer-badge">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #9333ea, #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; font-weight: 900; box-shadow: 0 4px 15px rgba(147, 51, 234, 0.4);">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <div>
+            <div style="font-size: 14px; font-weight: 800; color: #fff;">SuporteServerSmart &bull; Loja Oficial</div>
+            <div style="font-size: 11px; color: #cbd5e1;">O maior ecossistema em soluções, ferramentas e inteligência artificial para técnicos.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <a href="https://wa.me/5541996378029" target="_blank" class="btn-ticker-all" style="background: #22c55e; border-color: #4ade80; color: #052e16; font-weight: 800; font-size: 12px; padding: 7px 16px;">
+            <i class="fa-brands fa-whatsapp"></i> Suporte WhatsApp
+          </a>
+        </div>
+      </div>
+
+    </div>
+  `;
 }
 
 function setStoreCategoryFilter(categoryKey, btn) {
   AppState.officialStoreFilterCategory = categoryKey;
   document.querySelectorAll('.store-filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  else {
+    const targetBtn = document.querySelector(`.store-filter-btn[data-cat="${categoryKey}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
+  }
 
   const heading = document.getElementById('storeCategoryHeading');
   if (heading) {
-    if (categoryKey === 'ai') heading.textContent = 'Inteligência Artificial';
-    else if (categoryKey === 'credits') heading.textContent = 'Créditos & Tokens';
-    else if (categoryKey === 'frp') heading.textContent = 'FRP & Servidores GSM';
-    else if (categoryKey === 'tools') heading.textContent = 'Ferramentas & Softwares';
+    if (categoryKey === 'popular') heading.textContent = 'Mais Populares — Destaques do Marketplace';
+    else if (categoryKey === 'ai') heading.textContent = 'Inteligência Artificial — ChatGPT, Claude, Midjourney & Mais';
+    else if (categoryKey === 'antidetect') heading.textContent = 'Anti-Detect & Automação Multi-Perfis';
+    else if (categoryKey === 'plans') heading.textContent = 'Planos e Assinaturas — Streaming & Produtividade';
+    else if (categoryKey === 'assets') heading.textContent = 'Ativos e Contas Aquecidas';
+    else if (categoryKey === 'proxy') heading.textContent = 'Proxy & VPN de Alta Velocidade';
+    else if (categoryKey === 'ads') heading.textContent = 'Contas Anúncios — Facebook Ads & Google Ads';
+    else if (categoryKey === 'bms') heading.textContent = 'Contas e BMs Blindadas';
+    else if (categoryKey === 'courses') heading.textContent = 'Cursos & Treinamentos Profissionais';
+    else if (categoryKey === 'tools') heading.textContent = 'Ferramentas GSM & Softwares';
     else heading.textContent = 'Inteligência artificial & Ferramentas Oficiais';
   }
 
   renderOfficialStore();
+
+  // Se for categoria específica, rola suavemente até os produtos
+  if (categoryKey !== 'all') {
+    const grid = document.getElementById('storeProductsGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function handleStoreSearch(val) {
