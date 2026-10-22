@@ -27,7 +27,6 @@ const TECH_UNION_DATA = {
   sidebarMenu: [
     // Seção Principal
     { id: "nav_dashboard", section: "Principal", label: "Dashboard", icon: "fa-solid fa-gauge-high", actionType: "dashboard", active: true },
-    { id: "nav_official_store", section: "Principal", label: "Loja Oficial", icon: "fa-solid fa-store", actionType: "official_store", badge: "OFICIAL", active: true },
     { id: "nav_solutions", section: "Principal", label: "Soluções", icon: "fa-solid fa-layer-group", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
     { id: "nav_samsung", section: "Principal", label: "Samsung", icon: "fa-brands fa-android", actionType: "brand", brandId: "samsung", brandName: "Samsung", active: true },
     { id: "nav_apple", section: "Principal", label: "Apple", icon: "fa-brands fa-apple", actionType: "brand", brandId: "apple", brandName: "Apple", active: true },
